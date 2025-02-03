@@ -1,0 +1,8 @@
+TARGETNAME	:= rlm_sber
+
+TARGET		:= $(TARGETNAME)$(L)
+SOURCES		:= $(TARGETNAME).c
+
+SRC_INCDIRS	:= . lib/base
+
+LOG_ID_LIB	= 1000
