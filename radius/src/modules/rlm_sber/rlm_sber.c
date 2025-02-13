@@ -1,6 +1,7 @@
 /**
  * $Id$
  */
+
 RCSID("$Id$")
 
 #define LOG_PREFIX mctx->mi->name
@@ -14,11 +15,12 @@ RCSID("$Id$")
 #include <freeradius-devel/unlang/module.h>
 
 #include "rlm_sber.h"
+#include "impl.h"
 
 extern module_rlm_t rlm_sber;
 
 static const conf_parser_t module_config[] = {
-	CONF_PARSER_TERMINATOR
+  CONF_PARSER_TERMINATOR
 };
 
 static fr_dict_t const *dict_freeradius;
@@ -41,8 +43,6 @@ static unlang_action_t mod_authenticate(rlm_rcode_t *p_result, module_ctx_t cons
 {
   (void)mctx;
   (void)request;
-  printf("MODULE SBER AUTHENTICATE");
-  fflush(stdout);
   RETURN_MODULE_OK;
 }
 
@@ -50,37 +50,33 @@ static unlang_action_t mod_authorize(rlm_rcode_t *p_result, module_ctx_t const *
 {
   (void)mctx;
   (void)request;
-  printf("MODULE SBER AUTHORIZE");
-  fflush(stdout);
   RETURN_MODULE_OK;
-  //RETURN_MODULE_UPDATED;
 }
 
 static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, request_t *request)
 {
   (void)mctx;
   (void)request;
-  printf("MODULE SBER ANY");
-  fflush(stdout);
-  RETURN_MODULE_OK; // RETURN_MODULE_OK;
+  tel_gateway_process_request();
+  RETURN_MODULE_OK;
 }
 
 static int mod_instantiate(module_inst_ctx_t const *mctx)
 {
   (void)mctx;
-  printf("MODULE SBER INSTANTIATE");
+  tel_gateway_initialize();
   return 0;
 }
 
 static int mod_load(void)
 {
-  printf("MODULE SBER LOADED");
+  tel_gateway_load();
   return 0;
 }
 
 static void mod_unload(void)
 {
-  printf("MODULE SBER UNLOAD");
+  tel_gateway_unload();
 }
 
 typedef struct {

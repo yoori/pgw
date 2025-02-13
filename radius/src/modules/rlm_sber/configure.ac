@@ -1,6 +1,6 @@
 AC_PREREQ([2.71])
 AC_INIT
-AC_CONFIG_SRCDIR([rlm_sber.c])
+AC_CONFIG_SRCDIR([rlm_sber.c], [impl.cpp])
 AC_REVISION($Revision$)
 FR_INIT_MODULE([rlm_sber], [SBER functionality])
 
