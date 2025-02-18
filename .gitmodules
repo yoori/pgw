@@ -1,0 +1,3 @@
+[submodule "dependencies/gears"]
+	path = dependencies/gears
+	url = https://github.com/yoori/gears.git
