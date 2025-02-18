@@ -1,0 +1,63 @@
+server default {
+    namespace = radius
+#   log = some_other_logging_destination
+
+    dictionary {
+#           uint32 foo
+    }
+
+    listen udp_acct {
+        type = Access-Request
+	type = Accounting-Request
+	type = Status-Server
+	transport = udp
+	udp {
+            ipaddr = *
+            port = 1813
+            dynamic_clients = true
+            networks {
+                allow = 0.0.0.0/32
+	    }
+	}
+    }
+
+    new client {
+	control += {
+	    FreeRADIUS-Client-IP-Address = "%{Net.Src.IP}"
+	    FreeRADIUS-Client-Require-MA = no
+	    FreeRADIUS-Client-Secret = "sbtel"
+	    FreeRADIUS-Client-Shortname = "%{Net.Src.IP}"
+	    FreeRADIUS-Client-NAS-Type = "other"
+	}
+
+        ok
+    }
+
+    add client {
+        ok
+    }
+
+    deny client {
+        ok
+    }
+
+    recv Status-Server {
+        ok
+    }
+
+    #authenticate sber {
+    #        sber
+    #}
+
+    recv Accounting-Request {
+	sber
+	# acct_unique
+	# files_accounting
+    }
+
+    send Accounting-Response {
+	detail
+	# attr_filter.accounting_response
+	ok
+    }
+}

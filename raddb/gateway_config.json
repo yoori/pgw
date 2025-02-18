@@ -1,0 +1,8 @@
+{
+    "diameter_url": {
+	"host": "nvidia01",
+	"port": 3868,
+	"origin-host": "lab.sdms.com",
+	"origin-realm": "sdms.com"
+    }
+}
