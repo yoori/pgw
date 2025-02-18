@@ -5,13 +5,11 @@ cmake_minimum_required(VERSION 3.0)
 option(INSTALL_PREFIX "Install prefix" "/opt/tel-gateway")
 set(CMAKE_INSTALL_PREFIX "${INSTALL_PREFIX}")
 
-find_package(Threads REQUIRED)
-
 if(NOT CMAKE_BUILD_TYPE)
   set(CMAKE_BUILD_TYPE Release)
 endif()
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 SET(CMAKE_CXX_FLAGS "" CACHE INTERNAL "Compiler flags. Generated.")
@@ -43,6 +41,17 @@ set(
   CMAKE_ARCHIVE_OUTPUT_DIRECTORY
     ${CMAKE_CURRENT_BINARY_DIR}/lib
 )
+
+set(
+  CMAKE_MODULE_PATH
+    ${CMAKE_MODULE_PATH}
+    ${CMAKE_CURRENT_SOURCE_DIR}/CMakeModules
+  CACHE
+  PATH "CMake modules search path"
+  )
+
+find_package(Threads REQUIRED)
+find_package(RapidJSON REQUIRED)
 
 include(ExternalProject)
 

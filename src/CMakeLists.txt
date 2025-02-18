@@ -3,6 +3,7 @@ set(radius_DESTDIR ${CMAKE_CURRENT_BINARY_DIR}/build/radius_install)
 
 add_subdirectory(radius_module)
 add_subdirectory(utils)
+add_subdirectory(tests)
 
 ExternalProject_Add(radius
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/radius
@@ -12,6 +13,7 @@ ExternalProject_Add(radius
       --prefix=${INSTALL_PREFIX}"
   BUILD_COMMAND ${MAKE}
   BUILD_IN_SOURCE 1
+  BUILD_ALWAYS 1
   INSTALL_COMMAND mkdir -p "${radius_DESTDIR}"
     COMMAND bash -c "make install R=${radius_DESTDIR}"
     COMMAND find "${radius_DESTDIR}/${INSTALL_PREFIX}/etc/raddb/sites-enabled/" -type f -delete
@@ -22,6 +24,7 @@ ExternalProject_Add(radius
     COMMAND cp ${CMAKE_SOURCE_DIR}/data/raddb/mods-available/sber "${radius_DESTDIR}/${INSTALL_PREFIX}/etc/raddb/mods-enabled/"
     COMMAND cp ${CMAKE_SOURCE_DIR}/data/raddb/clients.conf "${radius_DESTDIR}/${INSTALL_PREFIX}/etc/raddb/"
     COMMAND cp ${CMAKE_SOURCE_DIR}/data/raddb/site "${radius_DESTDIR}/${INSTALL_PREFIX}/etc/raddb/sites-enabled/"
+    COMMAND cp ${CMAKE_SOURCE_DIR}/data/raddb/gateway_config.json "${radius_DESTDIR}/${INSTALL_PREFIX}/etc/raddb/"
   DEPENDS radius_module
 )
 

@@ -3,7 +3,7 @@
 
 NAME=tel-gateway
 VERSION=1.0.0
-RELEASE=29
+RELEASE=30
 SUDO_PREFIX=sudo
 
 # script require 'sudo rpm' for install RPM packages
@@ -68,8 +68,8 @@ pushd build
 cmake3 --install . --prefix "%{buildroot}"
 popd
 
-mkdir -p "%{buildroot}/var/run/radiusd/"
-mkdir -p "%{buildroot}/var/log/radius/"
+mkdir -p "%{buildroot}%{__install_dir}/var/run/radiusd/"
+mkdir -p "%{buildroot}%{__install_dir}/var/log/radius/"
 rm -rf files.list
 find %{buildroot}%{__install_dir} -type f -printf "%{__install_dir}/%%P\n" >>files.list
 find %{buildroot}%{__install_dir} -type l -printf "%{__install_dir}/%%P\n" >>files.list

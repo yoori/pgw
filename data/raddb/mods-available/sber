@@ -1,2 +1,3 @@
 sber {
+  config_path = /opt/tel-gateway/etc/raddb/gateway_config.json
 }
