@@ -1,3 +1,6 @@
 [submodule "dependencies/gears"]
 	path = dependencies/gears
 	url = https://github.com/yoori/gears.git
+[submodule "dependencies/nDPI"]
+	path = dependencies/nDPI
+	url = https://github.com/ntop/nDPI.git
