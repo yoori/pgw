@@ -3,7 +3,10 @@
 #include <sys/socket.h>
 #include <netdb.h>
 #include <fcntl.h>
+#include <netinet/sctp.h>
+
 #include <iostream>
+#include <optional>
 
 #include <gears/StringManip.hpp>
 #include <gears/Rand.hpp>
@@ -14,14 +17,16 @@
 
 
 DiameterSession::DiameterSession(
-  std::string connect_host,
-  int connect_port,
+  std::vector<Endpoint> local_endpoints,
+  std::vector<Endpoint> connect_endpoints,
   std::string origin_host,
-  std::string origin_realm)
-  : connect_host_(std::move(connect_host)),
-    connect_port_(connect_port),
+  std::string origin_realm,
+  std::optional<std::string> destination_host)
+  : local_endpoints_(std::move(local_endpoints)),
+    connect_endpoints_(std::move(connect_endpoints)),
     origin_host_(std::move(origin_host)),
     origin_realm_(std::move(origin_realm)),
+    destination_host_(std::move(destination_host)),
     application_id_(16777238),
     request_i_(0),
     socket_fd_(0)
@@ -38,12 +43,20 @@ DiameterSession::~DiameterSession()
   socket_close_();
 }
 
-bool
+unsigned int
 DiameterSession::send_cc_init(
   const std::string& msisdn,
-  unsigned long service_id)
+  unsigned long service_id,
+  uint32_t framed_ip_address,
+  uint32_t nas_ip_address
+)
 {
-  const ByteArray send_packet = generate_cc_init_(msisdn, service_id);
+  const ByteArray send_packet = generate_cc_init_(
+    msisdn,
+    service_id,
+    framed_ip_address,
+    nas_ip_address
+  );
 
   for (int retry_i = 0; retry_i < RETRY_COUNT_; ++retry_i)
   {
@@ -61,14 +74,14 @@ DiameterSession::send_cc_init(
 	}
       }
 
-      return result_code.has_value() && *result_code == 2001;
+      return result_code.has_value() ? *result_code : 0;
     }
     catch(const std::exception& ex)
     {
-      std::cout << "EX: " << ex.what() << std::endl;
+      std::cout << "[DEBUG] Diameter exception: " << ex.what() << " (socket = " << socket_fd_ << ")" << std::endl;
       if (retry_i == RETRY_COUNT_ - 1)
       {
-	throw ex;
+	throw;
       }
     }
   }
@@ -89,7 +102,7 @@ DiameterSession::read_packet_()
 
   try
   {
-    std::cout << "To parse packet, head_buf.size = " << head_buf.size() << std::endl;
+    std::cout << "[DEBUG] To parse diameter packet (bytes = " << head_buf.size() << ")" << std::endl;
     return Diameter::Packet(ByteArray(&head_buf[0], head_buf.size()));
   }
   catch (const std::invalid_argument& ex)
@@ -109,7 +122,8 @@ DiameterSession::send_packet_(const ByteArray& send_packet)
   int res = ::write(socket_fd_, send_packet.data(), send_packet.size());
   if (res < send_packet.size())
   {
-    throw NetworkError("");
+    socket_close_();
+    throw NetworkError("Write failed");
   }
 }
 
@@ -131,15 +145,15 @@ DiameterSession::read_bytes_(unsigned long size) const
   while(read_pos < size)
   {
     int read_res = ::read(socket_fd_, &buf[read_pos], size - read_pos);
-    std::cout << "read result = " << read_res << std::endl;
+    std::cout << "[DEBUG] Diameter read finished (bytes = " << read_res << ")" << std::endl;
 
     if (read_res < 0)
     {
       char error_buf[128];
       int e = errno;
-      strerror_r(e, error_buf, sizeof(error_buf));
+      char* error_msg = strerror_r(e, error_buf, sizeof(error_buf));
       std::ostringstream ostr;
-      ostr << "Diameter head read error, errno = " << e << ", message = " << error_buf;
+      ostr << "Diameter head read error, errno = " << e << ", message = " << error_msg;
       throw NetworkError(ostr.str());
     }
     else if (read_res == 0)
@@ -157,85 +171,148 @@ DiameterSession::read_bytes_(unsigned long size) const
 }
 
 void
+DiameterSession::fill_addr_(struct sockaddr_in& res, const Endpoint& endpoint)
+{
+  struct hostent* server = ::gethostbyname(endpoint.host.c_str());
+  if(server == NULL)
+  {
+    std::ostringstream ostr;
+    ostr << "Can't resolve host: " << endpoint.host;
+  }
+
+  bzero((char*)&res, sizeof(res));
+  res.sin_family = AF_INET;
+  bcopy((char *)server->h_addr, (char*)&res.sin_addr.s_addr, server->h_length);
+  res.sin_port = ::htons(endpoint.port);
+}
+
+void
 DiameterSession::socket_init_()
 {
-  int socket_fd = ::socket(AF_INET, SOCK_STREAM, 0); // IPPROTO_SCTP);
+  int socket_fd = ::socket(AF_INET, SOCK_STREAM, IPPROTO_SCTP);
 
   if(socket_fd < 0)
   {
     throw NetworkError("Cannot open socket");
   }
 
-  struct hostent* server = ::gethostbyname(connect_host_.c_str());
-
-  if(server == NULL)
+  try
   {
-    throw NetworkError("Host does not exist");
-  }
-
-  struct sockaddr_in server_addr;
-  bzero((char*)&server_addr, sizeof(server_addr));
-  server_addr.sin_family = AF_INET;
-  bcopy((char *)server->h_addr, (char*)&server_addr.sin_addr.s_addr, server->h_length);
-  server_addr.sin_port = htons(connect_port_);
-
-  /*
-  long arg;
-  if ((arg = ::fcntl(socket_fd, F_GETFL, NULL)) < 0)
-  {
-    throw NetworkError("Can't set non blocking");
-  }
-  arg |= O_NONBLOCK;
-  if (::fcntl(socket_fd, F_SETFL, arg) < 0)
-  {
-    throw NetworkError("Can't set non blocking");
-  }
-  */
-
-  //std::cout << "To connect" << std::endl;
-  int checker = ::connect(socket_fd, (struct sockaddr*)&server_addr, sizeof(server_addr));
-  //std::cout << "From connect: " << checker << std::endl;
-
-  if(checker < 0)
-  {
-    if (errno == EINPROGRESS)
+    // Bind local addresses
+    if (!local_endpoints_.empty())
     {
-      std::cout << "EINPROGRESS" << std::endl;
-      fd_set fdset;
-      do
+      unsigned int result_local_port = local_endpoints_.begin()->port;
+      unsigned int local_addr_i = 0;
+      for (auto addr_it = local_endpoints_.begin(); addr_it != local_endpoints_.end(); ++addr_it, ++local_addr_i)
       {
-	struct timeval tv;
-	tv.tv_sec = 3;
-	tv.tv_usec = 0;
-	FD_ZERO(&fdset);
-	FD_SET(socket_fd, &fdset);
-	int res = ::select(socket_fd + 1, NULL, &fdset, NULL, &tv);
-	if (res < 0 && errno != EINTR)
+	sockaddr_in local_addr;
+        fill_addr_(local_addr, *addr_it);
+        local_addr.sin_port = ::htons(result_local_port);
+
+	int res;
+
+	if (local_addr_i == 0)
 	{
-	  throw NetworkError("Connecting error");
-	}
-	else if (res > 0)
-	{
-	  break;
+	  res = ::bind(socket_fd, (sockaddr*)&local_addr, sizeof(sockaddr_in));
 	}
 	else
 	{
-	  throw NetworkError("Timeout on connection");
+	  res = ::sctp_bindx(socket_fd, (sockaddr*)&local_addr, 1, SCTP_BINDX_ADD_ADDR);
 	}
+
+	if (res < 0)
+	{
+	  char error_buf[128];
+	  int e = errno;
+	  char* error_msg = strerror_r(e, error_buf, sizeof(error_buf));
+	  std::ostringstream ostr;
+	  ostr << "Cannot bind to " << addr_it->host << ":" << addr_it->port <<
+	    ": errno = " << e << ", message = " << error_msg;
+	  throw NetworkError(ostr.str());
+	}
+
+	if (local_addr_i == 0 && addr_it->port == 0)
+        {
+	  struct sockaddr_in local_addr;
+	  socklen_t len = sizeof(sockaddr_in);
+	  res = ::getsockname(socket_fd, (sockaddr*)&local_addr, &len);
+
+	  if (res < 0)
+	  {
+	    char error_buf[128];
+	    int e = errno;
+	    char* error_msg = strerror_r(e, error_buf, sizeof(error_buf));
+	    std::ostringstream ostr;
+	    ostr << "Cannot get sock addr: errno = " << e << ", message = " << error_msg;
+	    throw NetworkError(ostr.str());
+	  }
+
+	  result_local_port = ::ntohs(local_addr.sin_port);
+        }
       }
-      while (true);
     }
-    else
+
+    // Connect
+    std::vector<struct sockaddr_in> connect_addrs(connect_endpoints_.size());
+    unsigned int conn_i = 0;
+    for (auto conn_it = connect_endpoints_.begin(); conn_it != connect_endpoints_.end(); ++conn_it, ++conn_i)
     {
-      char error_buf[128];
-      int e = errno;
-      strerror_r(e, error_buf, sizeof(error_buf));
-      std::ostringstream ostr;
-      ostr << "Cannot connect to " <<
-	connect_host_ << ":" << connect_port_ <<
-	": errno = " << e << ", message = " << error_buf;
-      throw NetworkError(ostr.str());
+      fill_addr_(connect_addrs[conn_i], *conn_it);
     }
+
+    int res = ::sctp_connectx(
+      socket_fd,
+      (sockaddr*)&connect_addrs[0],
+      connect_addrs.size(),
+      NULL);
+
+    if(res < 0)
+    {
+      if (errno == EINPROGRESS)
+      {
+	fd_set fdset;
+	do
+	{
+	  struct timeval tv;
+	  tv.tv_sec = 3;
+	  tv.tv_usec = 0;
+	  FD_ZERO(&fdset);
+	  FD_SET(socket_fd, &fdset);
+	  int res = ::select(socket_fd + 1, NULL, &fdset, NULL, &tv);
+	  if (res < 0 && errno != EINTR)
+	  {
+	    throw NetworkError("Connecting error");
+	  }
+	  else if (res > 0)
+	  {
+	    break;
+	  }
+	  else
+	  {
+	    throw NetworkError("Timeout on connection");
+	  }
+	}
+	while (true);
+      }
+      else
+      {
+	char error_buf[128];
+	int e = errno;
+	char* error_msg = strerror_r(e, error_buf, sizeof(error_buf));
+	std::ostringstream ostr;
+	ostr << "Cannot connect: errno = " << e << ", message = " << error_msg;
+	throw NetworkError(ostr.str());
+      }
+    }
+  }
+  catch(...)
+  {
+    if (socket_fd > 0)
+    {
+      ::close(socket_fd);
+    }
+
+    throw;
   }
 
   socket_fd_ = socket_fd;
@@ -256,10 +333,12 @@ DiameterSession::socket_init_()
 
   if (!result_code.has_value())
   {
+    socket_close_();
     throw DiameterError("Prime exchange failed, no Result-Code in response");
   }
   else if(*result_code != 2001)
   {
+    socket_close_();
     std::ostringstream ostr;
     ostr << "Prime exchange failed, Result-Code: " << *result_code;
     throw DiameterError(ostr.str());
@@ -269,10 +348,13 @@ DiameterSession::socket_init_()
 ByteArray
 DiameterSession::generate_cc_init_(
   const std::string& msisdn,
-  unsigned long service_id)
+  unsigned long service_id,
+  uint32_t framed_ip_address,
+  uint32_t nas_ip_address
+  )
   const
 {
-  return generate_base_cc_packet_(msisdn, service_id)
+  return generate_base_cc_packet_(msisdn, service_id, framed_ip_address, nas_ip_address)
     .addAVP(create_int32_avp(416, 1)) // CC-Request-Type
     .updateLength()
     .deploy();
@@ -281,10 +363,13 @@ DiameterSession::generate_cc_init_(
 ByteArray
 DiameterSession::generate_cc_update_(
   const std::string& msisdn,
-  unsigned long service_id)
+  unsigned long service_id,
+  uint32_t framed_ip_address,
+  uint32_t nas_ip_address
+  )
   const
 {
-  return generate_base_cc_packet_(msisdn, service_id)
+  return generate_base_cc_packet_(msisdn, service_id, framed_ip_address, nas_ip_address)
     .addAVP(create_int32_avp(416, 2)) // CC-Request-Type
     .updateLength()
     .deploy();
@@ -293,10 +378,13 @@ DiameterSession::generate_cc_update_(
 ByteArray
 DiameterSession::generate_cc_terminate_(
   const std::string& msisdn,
-  unsigned long service_id)
+  unsigned long service_id,
+  uint32_t framed_ip_address,
+  uint32_t nas_ip_address
+  )
   const
 {
-  return generate_base_cc_packet_(msisdn, service_id)
+  return generate_base_cc_packet_(msisdn, service_id, framed_ip_address, nas_ip_address)
     .addAVP(create_int32_avp(416, 3)) // CC-Request-Type
     .updateLength()
     .deploy();
@@ -304,64 +392,117 @@ DiameterSession::generate_cc_terminate_(
 
 Diameter::Packet DiameterSession::generate_base_cc_packet_(
   const std::string& msisdn,
-  unsigned long service_id)
+  unsigned long service_id,
+  uint32_t framed_ip_address,
+  uint32_t nas_ip_address
+  )
   const
 {
-  return Diameter::Packet()
+  uint32_t use_3GPP_SGSN_Address = 177503142;
+  const uint8_t MNC[] = { 0x32, 0x35, 0x30, 0x32, 0x30 };
+  const uint8_t USER_LOCATION[] = { 0x82, 0x52, 0xf0, 0x02, 0x6c, 0xf6, 0x52, 0xf0, 0x02, 0x07, 0xad, 0xde, 0x51 };
+  const uint8_t CHARGING_ID[] = {
+    0x00, 0x00, 0x01, 0xf7, 0xc0,
+    0, 0, 0x10, 0, 0,
+    0x28, 0xaf, 0x04, 0x18, 0x84,
+    0x91
+  };
+  const uint8_t USER_EQUIPMENT_INFO[] = {
+    0x00, 0x00, 0x01, 0xcb, 0x00, 0x00, 0x00, 0x0c, 0x00, 0x00, 0x00, 0x00,
+    0x00, 0x00, 0x01, 0xcc, 0x00, 0x00, 0x00, 0x18, 0x33, 0x35, 0x37, 0x32,
+    0x34, 0x38, 0x37, 0x37, 0x39, 0x30, 0x35, 0x39, 0x32, 0x32, 0x30, 0x31
+  };
+
+  const	uint8_t QOS_INFO[] = {
+    0x00, 0x00, 0x04, 0x11, 0x80, 0x00, 0x00, 0x10, 0x00, 0x00, 0x28, 0xaf,
+    0x02, 0xfa, 0xf0, 0x80, 0x00, 0x00, 0x04, 0x10, 0x80, 0x00, 0x00, 0x10,
+    0x00, 0x00, 0x28, 0xaf, 0x08, 0xf0, 0xd1, 0x80
+  };
+
+  const	uint8_t TZ_INFO[] = {
+    0x21, 0x00
+  };
+
+  auto packet = Diameter::Packet()
     .setHeader(
       Diameter::Packet::Header()
         .setCommandFlags(
            Diameter::Packet::Header::Flags()
            .setFlag(Diameter::Packet::Header::Flags::Bits::Request, true)
+           .setFlag(Diameter::Packet::Header::Flags::Bits::Proxiable, true)
         )
         .setCommandCode(272)
-        .setApplicationId(4)
+        .setApplicationId(application_id_)
         .setHBHIdentifier(0x7ddf9367)
         .setETEIdentifier(0xc15ecb12)
-    )
+    );
+
+  if (destination_host_.has_value())
+  {
+    packet.addAVP(create_string_avp(293, *destination_host_));
+  }
+
+  return packet
     .addAVP(create_string_avp(263, session_id_)) // Session-Id
     .addAVP(create_uint32_avp(258, application_id_)) // Auth-Application-Id
     .addAVP(create_string_avp(264, origin_host_)) // Origin-Host
     .addAVP(create_string_avp(296, origin_realm_)) // Origin-Realm
     .addAVP(create_string_avp(283, origin_realm_)) // Destination-Realm
     .addAVP(create_uint32_avp(415, ++request_i_)) // CC-Request-Number
+    .addAVP(create_uint32_avp(278, 3801248757)) // Origin-State-Id
+    .addAVP(create_octets_avp(1016, ByteArray(QOS_INFO, sizeof(QOS_INFO)), 10415)) //< QoS-Information
+    .addAVP(create_avp( //< Default-EPS-Bearer-QoS
+      1049,
+      Diameter::AVP::Data()
+        .addAVP(create_uint32_avp(1028, 8, 10415)) //< QoS-Class-Identifier
+        .addAVP(create_avp( //< Allocation-Retention-Priority
+          1034,
+	  Diameter::AVP::Data()
+	    .addAVP(create_uint32_avp(1046, 2, 10415)) //< Priority-Level
+	    .addAVP(create_uint32_avp(1047, 1, 10415)) //< Pre-emption-Capability
+	    .addAVP(create_uint32_avp(1048, 0, 10415)) //< Pre-emption-Vulnerability
+	  ,
+	  10415
+          )),
+      10415))
     .addAVP(create_string_avp(30, "internet.sberbank-tele.com")) // Called-Station-Id
-    //.addAVP(create_int32_avp(501, 3115221813)) // Access-Network-Charging-Address - CHECK TYPE
-    //.addAVP(create_int32_avp(8, 177503142)) // Access-Network-Charging-Address - CHECK TYPE
-    .addAVP(create_int32_avp(1009, 1)) // Online
-    .addAVP(create_int32_avp(1008, 1)) // Offline
-    .addAVP(create_avp( // Access-Network-Charging-Identifier-Gx
-       1022,
-       Diameter::AVP::Data()
-         .addAVP(create_string_avp(503, "\x04")) // Access-Network-Charging-Identifier-Value - TO FIX
-         ))
-    //.addAVP(create_uint32_avp(278, 3801248757)) // Origin-State-Id
-    .addAVP(create_int32_avp(6, 177503142)) // 3GPP-SGSN-Address: FILL IP
-    .addAVP(create_int32_avp(1050, 177503142)) // AN-GW-Address=3GPP-SGSN-Address
-    .addAVP(create_int32_avp(1032, 1004)) // RAT-Type
-    .addAVP(create_int32_avp(1024, 1)) // Network-Request-Support
-    .addAVP(create_int32_avp(18, 25020)) // 3GPP-SGSN-MCC-MNC
-    /* TODO
-    .addAVP(create_avp( // 3GPP-User-Location-Info
-       22,
-       Diameter::AVP::Data()
-         .addAVP()
-       )
-    */
+    //.addAVP(create_ipv4_4bytes_avp(501, nas_ip_address)) // Access-Network-Charging-Address - CHECK TYPE
+    //.addAVP(create_ipv4_avp(8, framed_ip_address)) // Framed-IP-Address - CHECK TYPE
+    .addAVP(create_octets_avp(458, ByteArray(USER_EQUIPMENT_INFO, sizeof(USER_EQUIPMENT_INFO))))
+    //< User-Equipment-Info : TO FILL AS GROUPED
+    .addAVP(create_int32_avp(1009, 1, 10415)) // Online
+    .addAVP(create_int32_avp(1008, 1, 10415)) // Offline
+    .addAVP(create_octets_avp(1022, ByteArray(CHARGING_ID, sizeof(CHARGING_ID)), 10415))
+    //< Access-Network-Charging-Identifier-Gx
+    .addAVP(create_ipv4_4bytes_avp(6, use_3GPP_SGSN_Address, 10415)) // 3GPP-SGSN-Address
+    .addAVP(create_ipv4_avp(1050, use_3GPP_SGSN_Address, 10415)) // AN-GW-Address=3GPP-SGSN-Address
+    .addAVP(create_int32_avp(1032, 1004, 10415)) // RAT-Type
+    .addAVP(create_int32_avp(1024, 1, 10415)) // Network-Request-Support
+    .addAVP(create_octets_avp(18, ByteArray(MNC, sizeof(MNC)), 10415)) // 3GPP-SGSN-MCC-MNC
+    .addAVP(create_octets_avp(22, ByteArray(USER_LOCATION, sizeof(USER_LOCATION)), 10415)) // 3GPP-User-Location-Info
+    .addAVP(create_octets_avp(23, ByteArray(TZ_INFO, sizeof(TZ_INFO)), 10415)) // 3GPP-MS-TimeZone
+    // Subscription-Id with IMSI
     .addAVP(create_avp( // Subscription-Id
-       443,
-       Diameter::AVP::Data()
-         .addAVP(create_int32_avp(450, 0)) // Subscription-Id-Type = END_USER_E164
-         .addAVP(create_string_avp(444, msisdn)) // Subscription-Id-Data
-         ))
-    .addAVP(create_int32_avp(1027, 5)) // IP-CAN-Type
+      443,
+      Diameter::AVP::Data()
+        .addAVP(create_int32_avp(450, 0)) // Subscription-Id-Type = END_USER_E164
+        .addAVP(create_string_avp(444, msisdn)) // Subscription-Id-Data
+      ))
+    .addAVP(create_avp( //< Supported-Features
+      628,
+      Diameter::AVP::Data()
+        .addAVP(create_uint32_avp(266, 10415)) //< Vendor-Id
+        .addAVP(create_uint32_avp(629, 1, 10415)) //< Feature-List-Id
+        .addAVP(create_uint32_avp(630, 3, 10415)), //< Feature-List        
+      10415))
+    .addAVP(create_int32_avp(1027, 5, 10415)) // IP-CAN-Type
     ;
 }
 
 ByteArray DiameterSession::generate_exchange_packet_() const
 {
   static const uint8_t ADDR[] = { 0, 0x1, 0x0a, 0xee, 0x0c, 0xc4 };
-  return Diameter::Packet()
+  auto packet = Diameter::Packet()
     .setHeader(
       Diameter::Packet::Header()
         // Setting that it's request 
@@ -373,7 +514,14 @@ ByteArray DiameterSession::generate_exchange_packet_() const
         .setApplicationId(0)
         .setHBHIdentifier(0x00000ad1)
         .setETEIdentifier(0x00000ad1)
-    )
+     );
+
+  if (destination_host_.has_value())
+  {
+    packet.addAVP(create_string_avp(293, *destination_host_));
+  }
+
+  return packet
     .addAVP(create_string_avp(264, origin_host_)) // Origin-Host
     .addAVP(create_string_avp(296, origin_realm_)) // Origin-Realm
     .addAVP(create_octets_avp(257, ByteArray(ADDR, sizeof(ADDR)))) // Host-IP-Address

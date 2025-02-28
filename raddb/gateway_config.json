@@ -1,8 +1,25 @@
 {
     "diameter_url": {
-	"host": "nvidia01",
-	"port": 3868,
-	"origin-host": "lab.sdms.com",
-	"origin-realm": "sdms.com"
+	"local_endpoints": [
+          {
+            "host": "10.77.208.36"
+	  },
+	  {
+	    "host": "10.77.208.68"
+	  }
+	],
+	"connect_endpoints": [
+          {
+            "host": "10.77.18.99",
+            "port": 3868
+	  },
+	  {
+	    "host": "10.77.18.82",
+	    "port": 3868
+	  }
+	],
+	"origin-host": "traflabpgw01.msk.epc.mnc050.mcc250.3gppnetwork.org",
+	"origin-realm": "epc.mnc050.mcc250.3gppnetwork.org",
+	"destination-host": "dra01.msk.epc.mnc050.mcc250.3gppnetwork.org"
     }
 }

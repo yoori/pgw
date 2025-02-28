@@ -6,6 +6,8 @@ add_library(radius_module SHARED
   )
 
 target_link_libraries(radius_module
+  PRIVATE
+    sctp
   PUBLIC
     DiameterPacketConstructor
     Gears

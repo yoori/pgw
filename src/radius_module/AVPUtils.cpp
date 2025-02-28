@@ -1,26 +1,39 @@
 #include "AVPUtils.hpp"
 
 Diameter::AVP
-create_avp(unsigned int avp_code, Diameter::AVP::Data data)
+create_avp(unsigned int avp_code, Diameter::AVP::Data data, std::optional<unsigned int> vendor_id)
 {
+  auto header = Diameter::AVP::Header()
+   .setAVPCode(avp_code)
+   .setFlags(
+     Diameter::AVP::Header::Flags()
+       .setFlag(Diameter::AVP::Header::Flags::Bits::Mandatory, true)
+       .setFlag(Diameter::AVP::Header::Flags::Bits::VendorSpecific, vendor_id.has_value())
+   );
+
+  if (vendor_id.has_value())
+  {
+    header.setVendorID(*vendor_id);
+  }
+
   return Diameter::AVP()
-    .setHeader(
-      Diameter::AVP::Header()
-        .setAVPCode(avp_code)
-        .setFlags(
-          Diameter::AVP::Header::Flags()
-            .setFlag(Diameter::AVP::Header::Flags::Bits::Mandatory, true)
-          )
-        )
-        .setData(data)
-        // Updating AVP length field, according to header and data value.
-        .updateLength();
+    .setHeader(header)
+    .setData(data)
+    // Updating AVP length field, according to header and data value.
+    .updateLength();
 }
 
 Diameter::AVP
-create_string_avp(unsigned int avp_code, const std::string& value)
+create_string_avp(
+  unsigned int avp_code,
+  const std::string& value,
+  std::optional<unsigned int> vendor_id)
 {
-  return create_avp(avp_code, Diameter::AVP::Data().setOctetString(ByteArray::fromASCII(value.c_str())));
+  return create_avp(
+    avp_code,
+    Diameter::AVP::Data().setOctetString(ByteArray::fromASCII(value.c_str())),
+    vendor_id
+  );
 }
 
 Diameter::AVP
@@ -41,15 +54,21 @@ create_string_avp(unsigned int avp_code, std::string_view value)
 }
 
 Diameter::AVP
-create_octets_avp(unsigned int avp_code, const ByteArray& value)
+create_octets_avp(
+  unsigned int avp_code,
+  const ByteArray& value,
+  std::optional<unsigned int> vendor_id)
 {
-  return create_avp(avp_code, Diameter::AVP::Data().setOctetString(value));
+  return create_avp(avp_code, Diameter::AVP::Data().setOctetString(value), vendor_id);
 }
 
 Diameter::AVP
-create_uint32_avp(unsigned int avp_code, uint32_t val)
+create_uint32_avp(
+  unsigned int avp_code,
+  uint32_t val,
+  std::optional<unsigned int> vendor_id)
 {
-  return create_avp(avp_code, Diameter::AVP::Data().setUnsigned32(val));
+  return create_avp(avp_code, Diameter::AVP::Data().setUnsigned32(val), vendor_id);
 }
 
 Diameter::AVP
@@ -59,13 +78,51 @@ create_uint64_avp(unsigned int avp_code, uint64_t val)
 }
 
 Diameter::AVP
-create_int32_avp(unsigned int avp_code, int32_t val)
+create_int32_avp(
+  unsigned int avp_code,
+  int32_t val,
+  std::optional<unsigned int> vendor_id)
 {
-  return create_avp(avp_code, Diameter::AVP::Data().setInteger32(val));
+  return create_avp(avp_code, Diameter::AVP::Data().setInteger32(val), vendor_id);
 }
 
 Diameter::AVP
 create_int64_avp(unsigned int avp_code, int64_t val)
 {
   return create_avp(avp_code, Diameter::AVP::Data().setInteger64(val));
+}
+
+Diameter::AVP
+create_ipv4_avp(
+  unsigned int avp_code,
+  uint32_t val,
+  std::optional<unsigned int> vendor_id)
+{
+  const uint8_t addr_buf[] = {
+    0, 0x1, (val >> 24 && 0xFF), (val >> 16 && 0xFF), (val >> 8 && 0xFF), (val && 0xFF)
+  };
+  return create_octets_avp(
+    avp_code,
+    ByteArray(addr_buf, sizeof(addr_buf)),
+    vendor_id
+  );
+}
+
+Diameter::AVP
+create_ipv4_4bytes_avp(
+  unsigned int avp_code,
+  uint32_t val,
+  std::optional<unsigned int> vendor_id)
+{
+  const uint8_t addr_buf[] = {
+    static_cast<uint8_t>((val >> 24) & 0xFF),
+    static_cast<uint8_t>((val >> 16) & 0xFF),
+    static_cast<uint8_t>((val >> 8) & 0xFF),
+    static_cast<uint8_t>(val & 0xFF)
+  };
+  return create_octets_avp(
+    avp_code,
+    ByteArray(addr_buf, sizeof(addr_buf)),
+    vendor_id
+  );
 }

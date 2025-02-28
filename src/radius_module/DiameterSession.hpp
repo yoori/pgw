@@ -1,6 +1,7 @@
 #pragma once
 
 #include <string>
+#include <optional>
 
 #include <Diameter/Packet.hpp>
 
@@ -13,36 +14,64 @@ public:
   DECLARE_EXCEPTION(ConnectionClosedOnRead, NetworkError);
   DECLARE_EXCEPTION(DiameterError, Exception);
 
+  struct Endpoint
+  {
+    Endpoint() {};
+
+    Endpoint(std::string host_val, int port_val)
+      : host(std::move(host_val)), port(port_val)
+    {}
+
+    std::string host;
+    int port = 0;
+  };
+
   DiameterSession(
-    std::string connect_host,
-    int connect_port,
+    std::vector<Endpoint> local_endpoints,
+    std::vector<Endpoint> connect_endpoints,
     std::string origin_host,
-    std::string origin_realm);
+    std::string origin_realm,
+    std::optional<std::string> destination_host);
 
   virtual ~DiameterSession();
 
-  bool send_cc_init(
+  unsigned int send_cc_init(
     const std::string& msisdn,
-    unsigned long service_id);
+    unsigned long service_id,
+    uint32_t framed_ip_address,
+    uint32_t nas_ip_address
+    );
 
 private:
   ByteArray generate_exchange_packet_() const;
 
   ByteArray generate_cc_init_(
     const std::string& msisdn,
-    unsigned long service_id) const;
+    unsigned long service_id,
+    uint32_t framed_ip_address,
+    uint32_t nas_ip_address
+    ) const;
 
   ByteArray generate_cc_update_(
     const std::string& msisdn,
-    unsigned long service_id) const;
+    unsigned long service_id,
+    uint32_t framed_ip_address,
+    uint32_t nas_ip_address
+    ) const;
 
   ByteArray generate_cc_terminate_(
     const std::string& msisdn,
-    unsigned long service_id) const;
+    unsigned long service_id,
+    uint32_t framed_ip_address,
+    uint32_t nas_ip_address
+    ) const;
 
   Diameter::Packet generate_base_cc_packet_(
     const std::string& msisdn,
-    unsigned long service_id)
+    unsigned long service_id,
+    uint32_t framed_ip_address,
+    uint32_t nas_ip_address
+    )
     const;
 
   Diameter::Packet read_packet_();
@@ -56,13 +85,16 @@ private:
   std::vector<unsigned char>
   read_bytes_(unsigned long size) const;
 
+  static void fill_addr_(struct sockaddr_in& res, const Endpoint& endpoint);
+
 private:
   const int RETRY_COUNT_ = 2;
-  std::string connect_host_;
-  int connect_port_;
+  std::vector<Endpoint> local_endpoints_;
+  std::vector<Endpoint> connect_endpoints_;
 
   std::string origin_host_;
   std::string origin_realm_;
+  std::optional<std::string> destination_host_;
   std::string session_id_;
   unsigned int application_id_;
   //unsigned int service_id_;

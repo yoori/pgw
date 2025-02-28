@@ -3,7 +3,7 @@
 
 NAME=tel-gateway
 VERSION=1.0.0
-RELEASE=30
+RELEASE=32
 SUDO_PREFIX=sudo
 
 # script require 'sudo rpm' for install RPM packages
@@ -40,7 +40,7 @@ Source0: %{name}-%{version}-%{release}.tar.gz
 
 Requires: pcre libpcap libxcrypt openssl-libs pam
 Requires: glibc libtalloc shadow-utils libcom_err
-BuildRequires: openssl3-devel openssl3-libs brotli-devel libcom_err-devel
+BuildRequires: openssl-devel openssl-libs brotli-devel libcom_err-devel
 
 %define __install_dir /opt/tel-gateway
 
