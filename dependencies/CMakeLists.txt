@@ -3,7 +3,7 @@ add_subdirectory(DiameterPacketConstructor)
 
 set(nDPI_DESTDIR ${CMAKE_CURRENT_BINARY_DIR}/build/nDPI_install)
 
-ExternalProject_Add(nDPI
+ExternalProject_Add(nDPIBuild
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/nDPI
   CONFIGURE_COMMAND
     COMMAND bash -c "cd <SOURCE_DIR> ; ./autogen.sh"
@@ -12,4 +12,19 @@ ExternalProject_Add(nDPI
   BUILD_ALWAYS 1
   INSTALL_COMMAND mkdir -p "${nDPI_DESTDIR}"
     COMMAND bash -c "make install DESTDIR=${nDPI_DESTDIR}"
+)
+
+add_library(nDPI INTERFACE)
+target_include_directories(nDPI INTERFACE
+  ${nDPI_DESTDIR}/usr/include
+  ${nDPI_DESTDIR}/usr/include/ndpi
+  ${CMAKE_CURRENT_SOURCE_DIR}/nDPI/src/lib/third_party/include
+)
+
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(pcap REQUIRED libpcap)
+
+target_link_libraries(nDPI INTERFACE
+  ${nDPI_DESTDIR}/usr/lib64/libndpi.a
+  pcap
 )

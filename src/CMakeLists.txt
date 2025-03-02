@@ -2,6 +2,7 @@
 set(radius_DESTDIR ${CMAKE_CURRENT_BINARY_DIR}/build/radius_install)
 
 add_subdirectory(radius_module)
+add_subdirectory(dpi_server)
 add_subdirectory(utils)
 add_subdirectory(tests)
 
