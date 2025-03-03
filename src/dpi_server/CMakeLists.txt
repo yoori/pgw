@@ -3,6 +3,7 @@ add_executable(dpi_server
   PacketProcessor.cpp
   ReaderUtil.cpp
   NetworkUtils.cpp
+  Config.cpp
   )
 
 target_link_libraries(dpi_server

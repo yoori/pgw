@@ -29,9 +29,11 @@
 #include <errno.h>
 
 #include <iostream>
+#include <list>
 
 #include "ReaderUtil.hpp"
 #include "PacketProcessor.hpp"
+#include "Config.hpp"
 
 dpi::PacketProcessorPtr packet_processor = std::make_shared<dpi::PacketProcessor>();
 
@@ -43,7 +45,10 @@ dpi::PacketProcessorPtr packet_processor = std::make_shared<dpi::PacketProcessor
 
 /** Client parameters **/
 
-static char *_pcap_file[MAX_NUM_READER_THREADS]; /**< Ingress pcap file/interfaces */
+std::shared_ptr<dpi::Config> config;
+std::list<std::string> str_holders;
+const char *_pcap_file[MAX_NUM_READER_THREADS]; /**< Ingress pcap file/interfaces */
+
 #ifndef USE_DPDK
 static FILE *playlist_fp[MAX_NUM_READER_THREADS] = { NULL }; /**< Ingress playlist */
 #endif
@@ -633,9 +638,7 @@ flowGetBDMeanandVariance(struct ndpi_flow_info* flow)
  */
 void help(u_int long_help)
 {
-  printf("Welcome to nDPI %s\n\n", ndpi_revision());
-
-  printf("ndpiReader "
+  printf("dpi_server "
 #ifndef USE_DPDK
          "-i <file|device> "
 #endif
@@ -800,7 +803,7 @@ static struct option longopts[] = {
   { "enable-protocol-guess", no_argument, NULL, 'd'},
   { "categories", required_argument, NULL, 'c'},
   { "csv-dump", required_argument, NULL, 'C'},
-  { "interface", required_argument, NULL, 'i'},
+  { "interface", optional_argument, NULL, 'i'},
   { "filter", required_argument, NULL, 'f'},
   { "flow-stats", required_argument, NULL, 'F'},
   { "cpu-bind", required_argument, NULL, 'g'},
@@ -833,10 +836,12 @@ static struct option longopts[] = {
   { "conf", required_argument, NULL, OPTLONG_VALUE_CONF},
   { "dump-fpc-stats", no_argument, NULL, OPTLONG_VALUE_FPC_STATS},
 
+  { "config", optional_argument, NULL, 'y'},
+
   {0, 0, 0, 0}
 };
 
-static const char* longopts_short = "a:Ab:B:e:E:c:C:dDFf:g:G:i:Ij:k:K:S:hHp:pP:l:L:r:Rs:tu:v:V:n:rp:x:X:w:q0123:456:7:89:m:MN:T:U:";
+static const char* longopts_short = "a:Ab:B:e:E:c:C:dDFf:g:G:i:Ij:k:K:S:hHp:pP:l:L:r:Rs:tu:v:V:n:rp:x:X:w:q0123:456:7:89:m:MN:T:U:y:";
 
 void extcap_interfaces()
 {
@@ -1087,8 +1092,19 @@ int reader_add_cfg(const char *proto, const char *param, const char *value, int 
   return 0;
 }
 
-void parse_parameters(int argc, char **argv)
+std::shared_ptr<dpi::Config> parse_parameters(int argc, char **argv)
 {
+  enable_doh_dot_detection = 0;
+  dump_internal_stats = 0;
+  num_bin_clusters = 32;
+  human_readeable_string_len = 5;
+  do_load_lists = false;
+  ignore_vlanid = 0;
+  _maliciousJA4Path = NULL;
+  _maliciousSHA1Path = NULL;
+  bpfFilter = NULL;
+  std::string config_path;
+
   int option_idx = 0;
   int opt;
   char *s1, *s2, *s3;
@@ -1097,17 +1113,8 @@ void parse_parameters(int argc, char **argv)
   {
     switch (opt)
     {
-    case 'a':
-      ndpi_generate_options(atoi(optarg), stdout);
-      exit(0);
-
-    case 'A':
-      dump_internal_stats = 1;
-      break;
-
-    case 'b':
-      if ((num_bin_clusters = atoi(optarg)) > 32)
-        num_bin_clusters = 32;
+    case 'y':
+      config_path = optarg;
       break;
 
     case 'd':
@@ -1118,64 +1125,18 @@ void parse_parameters(int argc, char **argv)
       }
       break;
 
-    case 'D':
-      enable_doh_dot_detection = 1;
-      break;
-
-    case 'e':
-      human_readeable_string_len = atoi(optarg);
-      break;
-
-    case 'E':
-      errno = 0;
-      if ((fingerprint_fp = fopen(optarg, "w")) == NULL)
-      {
-        printf("Unable to write on fingerprint file %s: %s\n", optarg, strerror(errno));
-        exit(1);
-      }
-
-      if (reader_add_cfg("tls", "metadata.ja4r_fingerprint", "1", 1) == -1)
-      {
-        printf("Unable to enable JA4r fingerprints\n");
-        exit(1);
-      }
-
-      do_load_lists = true;
-      break;
-
     case 'i':
     case '3':
       _pcap_file[0] = optarg;
-      break;
-
-    case 'I':
-      ignore_vlanid = 1;
-      break;
-
-    case 'j':
-      _maliciousJA4Path = optarg;
-      break;
-
-    case 'S':
-      _maliciousSHA1Path = optarg;
       break;
 
     case 'm':
       pcap_analysis_duration = atol(optarg);
       break;
 
-    case 'f':
-    case '6':
-      bpfFilter = optarg;
-      break;
-
-#ifndef USE_DPDK
-#ifdef __linux__
     case 'g':
       bind_mask = optarg;
       break;
-#endif
-#endif
 
     case 'G':
       _categoriesDirPath = optarg;
@@ -1548,6 +1509,20 @@ void parse_parameters(int argc, char **argv)
       break;
     }
   }
+
+  config = std::make_shared<dpi::Config>(
+    !config_path.empty() ? dpi::Config::read(config_path.c_str()) : dpi::Config());
+
+  if (!config->pcap_file.empty())
+  {
+    _pcap_file[0] = config->pcap_file.c_str();
+  }
+  else if (!config->interface.empty())
+  {
+    _pcap_file[0] = config->interface.c_str();
+  }
+
+  return config;
 }
 
 /**
@@ -1555,26 +1530,13 @@ void parse_parameters(int argc, char **argv)
  */
 void parse_options(int argc, char **argv)
 {
-#ifndef USE_DPDK
   char *__pcap_file = NULL;
   int thread_id;
 #ifdef __linux__
   u_int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
 #endif
-#endif
 
-#ifdef USE_DPDK
-  {
-    int ret = rte_eal_init(argc, argv);
-
-    if (ret < 0)
-      rte_exit(EXIT_FAILURE, "Error with EAL initialization\n");
-
-    argc -= ret, argv += ret;
-  }
-#endif
-
-  parse_parameters(argc, argv);
+  auto config = parse_parameters(argc, argv);
 
   if (serialization_fp == NULL && serialization_format != ndpi_serialization_format_unknown)
   {
@@ -1592,9 +1554,6 @@ void parse_options(int argc, char **argv)
     exit(0);
   }
 
-  printCSVHeader();
-
-#ifndef USE_DPDK
   if (do_extcap_capture)
   {
     quiet_mode = 1;
@@ -1607,13 +1566,13 @@ void parse_options(int argc, char **argv)
 
     if (strchr(_pcap_file[0], ','))
     {
-      /* multiple ingress interfaces */
-      num_threads = 0;               /* setting number of threads = number of interfaces */
-      __pcap_file = strtok(_pcap_file[0], ",");
-      while(__pcap_file != NULL && num_threads < MAX_NUM_READER_THREADS)
+      num_threads = 0;
+      Gears::StringManip::SplitComma splitter{Gears::SubString(_pcap_file[0])};
+      Gears::SubString token;
+      while (splitter.get_token(token) && num_threads < MAX_NUM_READER_THREADS)
       {
-        _pcap_file[num_threads++] = __pcap_file;
-        __pcap_file = strtok(NULL, ",");
+        str_holders.emplace_back(token.str());
+        _pcap_file[num_threads++] = str_holders.back().c_str();
       }
     }
     else
@@ -1630,8 +1589,6 @@ void parse_options(int argc, char **argv)
     }
   }
 
-#ifdef __linux__
-#ifndef USE_DPDK
   for (thread_id = 0; thread_id < num_threads; thread_id++)
     core_affinity[thread_id] = -1;
 
@@ -1646,9 +1603,8 @@ void parse_options(int argc, char **argv)
       core_id = strtok(NULL, ":");
     }
   }
-#endif
-#endif
-#endif
+
+  // parse json config
 }
 
 const char* print_cipher(ndpi_cipher_weakness c)
@@ -4693,9 +4649,7 @@ void sigproc(int sig)
 }
 
 
-#ifndef USE_DPDK
-
-static int getNextPcapFileFromPlaylist(u_int16_t thread_id, char filename[], u_int32_t filename_len)
+int get_next_pcap_file_from_playlist(u_int16_t thread_id, char filename[], u_int32_t filename_len)
 {
   if (playlist_fp[thread_id] == NULL)
   {
@@ -4722,60 +4676,53 @@ static int getNextPcapFileFromPlaylist(u_int16_t thread_id, char filename[], u_i
 /**
  * @brief Configure the pcap handle
  */
-static void configurePcapHandle(pcap_t * pcap_handle)
+static void configure_pcap_handle(pcap_t * pcap_handle)
 {
   if (!pcap_handle)
     return;
 
-  if (bpfFilter != NULL) {
-    if (!bpf_cfilter) {
-      if (pcap_compile(pcap_handle, &bpf_code, bpfFilter, 1, 0xFFFFFF00) < 0) {
+  if (bpfFilter != NULL)
+  {
+    if (!bpf_cfilter)
+    {
+      if (pcap_compile(pcap_handle, &bpf_code, bpfFilter, 1, 0xFFFFFF00) < 0)
+      {
 	printf("pcap_compile error: '%s'\n", pcap_geterr(pcap_handle));
 	return;
       }
       bpf_cfilter = &bpf_code;
     }
 
-    if (pcap_setfilter(pcap_handle, bpf_cfilter) < 0) {
+    if (pcap_setfilter(pcap_handle, bpf_cfilter) < 0)
+    {
       printf("pcap_setfilter error: '%s'\n", pcap_geterr(pcap_handle));
-    } else {
+    }
+    else
+    {
       printf("Successfully set BPF filter to '%s'\n", bpfFilter);
     }
   }
 }
 
-#endif
-
 /**
  * @brief Open a pcap file or a specified device - Always returns a valid pcap_t
  */
-static pcap_t * openPcapFileOrDevice(u_int16_t thread_id, const u_char * pcap_file)
+static pcap_t* open_pcap_file_or_device(u_int16_t thread_id, const u_char* pcap_file)
 {
-#ifndef USE_DPDK
+  std::cout << "open_pcap_file_or_device: '" << pcap_file << "'" << std::endl;
   u_int snaplen = 1536;
   int promisc = 1;
   char pcap_error_buffer[PCAP_ERRBUF_SIZE];
-#endif
-  pcap_t * pcap_handle = NULL;
+  pcap_t* pcap_handle = NULL;
 
   /* trying to open a live interface */
-#ifdef USE_DPDK
-  struct rte_mempool *mbuf_pool = rte_pktmbuf_pool_create(
-    "MBUF_POOL", NUM_MBUFS,
-    MBUF_CACHE_SIZE, 0,
-    RTE_MBUF_DEFAULT_BUF_SIZE,
-    rte_socket_id());
-
-  if (mbuf_pool == NULL)
-    rte_exit(EXIT_FAILURE, "Cannot create mbuf pool: are hugepages ok?\n");
-
-  if (dpdk_port_init(dpdk_port_id, mbuf_pool) != 0)
-    rte_exit(EXIT_FAILURE, "DPDK: Cannot init port %u: please see README.dpdk\n", dpdk_port_id);
-#else
   /* Trying to open the interface */
   if ((pcap_handle = pcap_open_live(
-    (char*)pcap_file, snaplen,
-    promisc, 500, pcap_error_buffer)) == NULL)
+    (char*)pcap_file,
+    snaplen,
+    promisc,
+    500,
+    pcap_error_buffer)) == NULL)
   {
     capture_for = capture_until = 0;
 
@@ -4792,7 +4739,7 @@ static pcap_t * openPcapFileOrDevice(u_int16_t thread_id, const u_char * pcap_fi
 	printf("ERROR: could not open pcap file: %s\n", pcap_error_buffer);
       }
       /* Trying to open as a playlist as last attempt */
-      else if ((getNextPcapFileFromPlaylist(thread_id, filename, sizeof(filename)) != 0) ||
+      else if ((get_next_pcap_file_from_playlist(thread_id, filename, sizeof(filename)) != 0) ||
 	((pcap_handle = pcap_open_offline(filename, pcap_error_buffer)) == NULL))
       {
 	/* This probably was a bad interface name, printing a generic error */
@@ -4817,16 +4764,11 @@ static pcap_t * openPcapFileOrDevice(u_int16_t thread_id, const u_char * pcap_fi
 
     if (!quiet_mode)
     {
-#ifdef USE_DPDK
-      printf("Capturing from DPDK (port 0)...\n");
-#else
-      printf("Capturing live traffic from device %s...\n", pcap_file);
-#endif
+      std::cout << "[TRACE] Capturing live traffic from device " << pcap_file << std::endl;
     }
   }
 
-  configurePcapHandle(pcap_handle);
-#endif /* !DPDK */
+  configure_pcap_handle(pcap_handle);
 
   if (capture_for > 0)
   {
@@ -5149,45 +5091,9 @@ void * processing_thread(void *_thread_id)
 #endif
     if ((!quiet_mode))
     {
-#ifdef WIN64
-      printf("Running thread %lld...\n", thread_id);
-#else
       printf("Running thread %ld...\n", thread_id);
-#endif
     }
 
-#ifdef USE_DPDK
-  while(dpdk_run_capture)
-  {
-    struct rte_mbuf *bufs[BURST_SIZE];
-    u_int16_t num = rte_eth_rx_burst(dpdk_port_id, 0, bufs, BURST_SIZE);
-    u_int i;
-
-    if (num == 0)
-    {
-      usleep(1);
-      continue;
-    }
-
-    for (i = 0; i < PREFETCH_OFFSET && i < num; i++)
-    {
-      rte_prefetch0(rte_pktmbuf_mtod(bufs[i], void *));
-    }
-
-    for (i = 0; i < num; i++)
-    {
-      char *data = rte_pktmbuf_mtod(bufs[i], char *);
-      int len = rte_pktmbuf_pkt_len(bufs[i]);
-      struct pcap_pkthdr h;
-
-      h.len = h.caplen = len;
-      gettimeofday(&h.ts, NULL);
-
-      ndpi_process_packet((u_char*)&thread_id, &h, (const u_char *)data);
-      rte_pktmbuf_free(bufs[i]);
-    }
-  }
-#else
  pcap_loop:
   run_pcap_loop(thread_id);
 
@@ -5203,14 +5109,14 @@ void * processing_thread(void *_thread_id)
     /* playlist: read next file */
     char filename[256];
 
-    if (getNextPcapFileFromPlaylist(thread_id, filename, sizeof(filename)) == 0 &&
+    if (get_next_pcap_file_from_playlist(thread_id, filename, sizeof(filename)) == 0 &&
        (ndpi_thread_info[thread_id].workflow->pcap_handle = pcap_open_offline(filename, pcap_error_buffer)) != NULL)
     {
-      configurePcapHandle(ndpi_thread_info[thread_id].workflow->pcap_handle);
+      configure_pcap_handle(ndpi_thread_info[thread_id].workflow->pcap_handle);
       goto pcap_loop;
     }
   }
-#endif
+
   if (bpf_cfilter)
   {
     pcap_freecode(bpf_cfilter);
@@ -5245,7 +5151,7 @@ void main_loop()
   for (long thread_id = 0; thread_id < num_threads; ++thread_id)
   {
     pcap_t *cap;
-    cap = openPcapFileOrDevice(thread_id, (const u_char*)_pcap_file[thread_id]);
+    cap = open_pcap_file_or_device(thread_id, (const u_char*)_pcap_file[thread_id]);
     setupDetection(thread_id, cap, g_ctx);
   }
 
@@ -5366,6 +5272,8 @@ void bpf_filter_port_array_add(int filter_array[], int size, int port)
 
 int main(int argc, char **argv)
 {
+  // read config
+  
   int i;
 
   if (ndpi_get_api_version() != NDPI_API_VERSION)

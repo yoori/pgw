@@ -71,6 +71,20 @@ install(
 )
 
 install(
-  FILES data/tel-gateway.service
+  FILES
+    data/tel-gateway.service
+    data/tel-dpi.service
   DESTINATION "./usr/lib/systemd/system/"
+)
+
+install(
+  FILES
+    data/dpi/dpi.json
+  DESTINATION "./${INSTALL_PREFIX}/etc/"
+)
+
+install(
+  DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin/
+  DESTINATION "./${INSTALL_PREFIX}/bin"
+  USE_SOURCE_PERMISSIONS
 )
