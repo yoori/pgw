@@ -25,6 +25,11 @@ extern int dpdk_port_init(int port, struct rte_mempool *mbuf_pool);
 extern int dpdk_port_deinit(int port);
 #endif
 
+extern int monitoring_enabled;
+
+#define DEBUG_PAYLOAD
+
+
 #define PLEN_MAX         1504
 #define PLEN_BIN_LEN     32
 #define PLEN_NUM_BINS    48 /* 47*32 = 1504 */

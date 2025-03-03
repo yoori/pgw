@@ -8,4 +8,5 @@ add_executable(dpi_server
 target_link_libraries(dpi_server
   PRIVATE
     nDPI
+    Gears
   )

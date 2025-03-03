@@ -4847,7 +4847,7 @@ void ndpi_process_packet(
   const struct pcap_pkthdr *header,
   const u_char *packet)
 {
-  std::cout << "ndpi_process_packet" << std::endl;
+  //std::cout << "ndpi_process_packet" << std::endl;
 
   u_int16_t thread_id = *((u_int16_t*)args);
 
@@ -4879,7 +4879,10 @@ void ndpi_process_packet(
   pcap_end.tv_sec = header->ts.tv_sec;
   pcap_end.tv_usec = header->ts.tv_usec;
 
-  packet_processor->process_packet(flow, header);
+  packet_processor->process_packet(
+    ndpi_thread_info[thread_id].workflow,
+    flow,
+    header);
 
   // Idle flows cleanup
   if (live_capture)
