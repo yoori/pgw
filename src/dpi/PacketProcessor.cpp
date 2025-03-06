@@ -178,7 +178,7 @@ namespace dpi
 
     std::ostringstream ostr;
     ostr << "[" << Gears::Time::get_time_of_day().gm_ft() << "] [sber-telecom] EVENT '" << event << "': " <<
-      user->to_string() <<
+      user->to_string() << ", destination ip = " << ipv4_address_to_string(dst_ip) <<
       std::endl;
     event_logger_->log(ostr.str());
   }

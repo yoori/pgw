@@ -22,7 +22,7 @@ extern module_rlm_t rlm_sber;
 static fr_dict_t const *dict_freeradius;
 static fr_dict_t const *dict_radius;
 
-static fr_dict_attr_t const *attr_called_station_id;
+static fr_dict_attr_t const *attr_calling_station_id;
 static fr_dict_attr_t const *attr_framed_ip_address;
 static fr_dict_attr_t const *attr_nas_ip_address;
 
@@ -35,7 +35,7 @@ fr_dict_autoload_t rlm_sber_dict[] = {
 
 extern fr_dict_attr_autoload_t rlm_dict_attr[];
 fr_dict_attr_autoload_t rlm_dict_attr[] = {
-  { .out = &attr_called_station_id, .name = "Called-Station-Id", .type = FR_TYPE_STRING, .dict = &dict_radius },
+  { .out = &attr_calling_station_id, .name = "Calling-Station-Id", .type = FR_TYPE_STRING, .dict = &dict_radius },
   { .out = &attr_framed_ip_address, .name = "Framed-IP-Address", .type = FR_TYPE_IPV4_ADDR, .dict = &dict_radius },
   { .out = &attr_nas_ip_address, .name = "NAS-IP-Address", .type = FR_TYPE_IPV4_ADDR, .dict = &dict_radius },
 
@@ -87,7 +87,7 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
   bool res;
   (void)mctx;
 
-  attr_called_station_vp = fr_pair_find_by_da_nested(&request->request_pairs, NULL, attr_called_station_id);
+  attr_called_station_vp = fr_pair_find_by_da_nested(&request->request_pairs, NULL, attr_calling_station_id);
   attr_framed_ip_address_vp = fr_pair_find_by_da_nested(&request->request_pairs, NULL, attr_framed_ip_address);
   attr_nas_ip_address_vp = fr_pair_find_by_da_nested(&request->request_pairs, NULL, attr_nas_ip_address);
 

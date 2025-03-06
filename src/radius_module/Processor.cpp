@@ -118,7 +118,10 @@ bool Processor::process_request(
     ", nas_ip_address = " << nas_ip_address << "}";
   std::cout << ostr.str() << std::endl;
 
-  user_storage_->add_user(called_station_id, framed_ip_address);
+  if (!called_station_id.empty() && framed_ip_address != 0)
+  {
+    user_storage_->add_user(called_station_id, framed_ip_address);
+  }
 
   if (diameter_session_)
   {
