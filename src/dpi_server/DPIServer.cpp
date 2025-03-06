@@ -17,8 +17,9 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  auto user_storage = std::make_shared<dpi::UserStorage>();
-  auto packet_processor = std::make_shared<dpi::PacketProcessor>(user_storage);
+  auto user_storage = std::make_shared<dpi::UserStorage>(nullptr);
+  auto event_logger = std::make_shared<dpi::StreamLogger>(std::cout);
+  auto packet_processor = std::make_shared<dpi::PacketProcessor>(user_storage, event_logger);
   auto runner = std::make_shared<dpi::DPIRunner>(*opt_config, packet_processor);
   runner->activate_object();
   runner->wait_object();

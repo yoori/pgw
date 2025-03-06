@@ -21,7 +21,9 @@ DiameterSession::DiameterSession(
   std::vector<Endpoint> connect_endpoints,
   std::string origin_host,
   std::string origin_realm,
-  std::optional<std::string> destination_host)
+  std::optional<std::string> destination_host,
+  bool keep_open_connection
+  )
   : local_endpoints_(std::move(local_endpoints)),
     connect_endpoints_(std::move(connect_endpoints)),
     origin_host_(std::move(origin_host)),
@@ -29,13 +31,24 @@ DiameterSession::DiameterSession(
     destination_host_(std::move(destination_host)),
     application_id_(16777238),
     request_i_(0),
-    socket_fd_(0)
+    socket_fd_(0),
+    keep_open_connection_(keep_open_connection)
 {
   char buf[40];
   size_t sz = Gears::StringManip::int_to_str(Gears::safe_rand(), buf, sizeof(buf));
   buf[sz] = 0;
   session_id_ = "session.";
   session_id_ += buf;
+
+  if (keep_open_connection_)
+  {
+    try
+    {
+      socket_init_();
+    }
+    catch(const Gears::Exception&)
+    {}
+  }
 }
 
 DiameterSession::~DiameterSession()
@@ -196,6 +209,9 @@ DiameterSession::socket_init_()
     throw NetworkError("Cannot open socket");
   }
 
+  int val = 1;
+  ::setsockopt(socket_fd, SOL_SOCKET, SO_KEEPALIVE, &val, sizeof(val));
+
   try
   {
     // Bind local addresses
@@ -203,7 +219,8 @@ DiameterSession::socket_init_()
     {
       unsigned int result_local_port = local_endpoints_.begin()->port;
       unsigned int local_addr_i = 0;
-      for (auto addr_it = local_endpoints_.begin(); addr_it != local_endpoints_.end(); ++addr_it, ++local_addr_i)
+      for (auto addr_it = local_endpoints_.begin(); addr_it != local_endpoints_.end();
+        ++addr_it, ++local_addr_i)
       {
 	sockaddr_in local_addr;
         fill_addr_(local_addr, *addr_it);

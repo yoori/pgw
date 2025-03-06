@@ -3,6 +3,7 @@
 #include <gears/Exception.hpp>
 
 #include <dpi/UserStorage.hpp>
+#include <dpi/Logger.hpp>
 
 #include "DiameterSession.hpp"
 
@@ -20,7 +21,13 @@ public:
     uint32_t framed_ip_address,
     uint32_t nas_ip_address);
 
+  dpi::LoggerPtr logger() const;
+
+  dpi::LoggerPtr event_logger() const;
+
 private:
+  dpi::LoggerPtr logger_;
+  dpi::LoggerPtr event_logger_;
   dpi::UserStoragePtr user_storage_;
   std::string config_path_;
   std::string diameter_url_;
@@ -28,3 +35,15 @@ private:
 };
 
 using ProcessorPtr = std::shared_ptr<Processor>;
+
+inline dpi::LoggerPtr
+Processor::logger() const
+{
+  return logger_;
+}
+
+inline dpi::LoggerPtr
+Processor::event_logger() const
+{
+  return event_logger_;
+}

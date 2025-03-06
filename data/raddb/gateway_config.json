@@ -6,6 +6,8 @@
 	"origin-realm": "epc.mnc050.mcc250.3gppnetwork.org"
     },
     "dpi_interface": "bridge0",
+    "processing_log_file": "/home/jurij_kuznecov/projects/telecom-gateway/processing.log",
+    "event_log_file": "/home/jurij_kuznecov/projects/telecom-gateway/event.log",
     "rules": [
         {
             "type": "state",

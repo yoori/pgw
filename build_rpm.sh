@@ -3,7 +3,7 @@
 
 NAME=tel-gateway
 VERSION=1.0.0
-RELEASE=44
+RELEASE=50
 SUDO_PREFIX=sudo
 
 # script require 'sudo rpm' for install RPM packages

@@ -20,8 +20,10 @@ namespace dpi
     return ip1 | (ip2 << 8) | (ip3 << 16) | (ip4 << 24);
   }
   
-  PacketProcessor::PacketProcessor(UserStoragePtr user_storage)
-    : user_storage_(std::move(user_storage))
+  PacketProcessor::PacketProcessor(
+    UserStoragePtr user_storage, LoggerPtr event_logger)
+    : user_storage_(std::move(user_storage)),
+      event_logger_(std::move(event_logger))
   {
     sber_ips_.emplace(adapt_ip(194, 54, 14, 131)); // online.sberbank.ru
     sber_ips_.emplace(adapt_ip(95, 181, 181, 241)); // app.sberbank.ru
@@ -178,6 +180,6 @@ namespace dpi
     ostr << "[" << Gears::Time::get_time_of_day().gm_ft() << "] [sber-telecom] EVENT '" << event << "': " <<
       user->to_string() <<
       std::endl;
-    std::cout << ostr.str() << std::flush;
+    event_logger_->log(ostr.str());
   }
 }

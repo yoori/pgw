@@ -5,6 +5,7 @@ add_library(dpi
   PacketProcessor.cpp
   ReaderUtil.cpp
   UserStorage.cpp
+  Logger.cpp
   )
 
 target_link_libraries(dpi

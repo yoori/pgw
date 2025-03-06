@@ -8,6 +8,7 @@
 
 #include <gears/Time.hpp>
 
+#include "Logger.hpp"
 #include "UserStorage.hpp"
 #include "ReaderUtil.hpp"
 
@@ -16,7 +17,7 @@ namespace dpi
   class PacketProcessor
   {
   public:
-    PacketProcessor(UserStoragePtr user_storage);
+    PacketProcessor(UserStoragePtr user_storage, LoggerPtr event_logger);
 
     void process_packet(
       struct ndpi_workflow* workflow,
@@ -59,6 +60,7 @@ namespace dpi
     const Gears::Time TELEGRAM_CALL_MAX_PERIOD_ = Gears::Time(30);
     const Gears::Time SBER_OPEN_MAX_PERIOD_ = Gears::Time(60);
     const UserStoragePtr user_storage_;
+    const LoggerPtr event_logger_;
 
     int packet_i_ = 0;
     std::unordered_set<uint32_t> sber_ips_;

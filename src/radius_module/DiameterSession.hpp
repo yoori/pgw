@@ -31,7 +31,9 @@ public:
     std::vector<Endpoint> connect_endpoints,
     std::string origin_host,
     std::string origin_realm,
-    std::optional<std::string> destination_host);
+    std::optional<std::string> destination_host,
+    bool keep_open_connection = true
+    );
 
   virtual ~DiameterSession();
 
@@ -91,6 +93,7 @@ private:
 
 private:
   const int RETRY_COUNT_ = 2;
+  const bool keep_open_connection_;
   std::vector<Endpoint> local_endpoints_;
   std::vector<Endpoint> connect_endpoints_;
 

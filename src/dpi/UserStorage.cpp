@@ -1,6 +1,11 @@
+#include <sstream>
+
+#include <gears/Time.hpp>
+
 #include "NetworkUtils.hpp"
 
 #include "UserStorage.hpp"
+
 
 namespace dpi
 {
@@ -11,23 +16,38 @@ namespace dpi
       ", ip = " + ipv4_address_to_string(ip) + "}";
   }
 
+  UserStorage::UserStorage(LoggerPtr event_logger)
+    : event_logger_(std::move(event_logger))
+  {}
+
+  void
+  UserStorage::set_event_logger(LoggerPtr event_logger)
+  {
+    event_logger_.swap(event_logger);
+  }
+
   void
   UserStorage::add_user(std::string_view msisdn, uint32_t ip)
   {
+    log_event_(
+      std::string("add user msisdn = ") +
+      std::string(msisdn) + ", ip = " + ipv4_address_to_string(ip));
+
     auto new_user = std::make_shared<User>();
     new_user->msisdn = msisdn;
     new_user->ip = ip;
 
     std::unique_lock lock{lock_};
-    remove_user_i_(msisdn);
+    remove_user_i_(new_user->msisdn);
     add_user_i_(new_user);
   }
 
   void
   UserStorage::remove_user(std::string_view msisdn)
   {
+    std::string msisdn_val(msisdn);
     std::unique_lock lock{lock_};
-    remove_user_i_(msisdn);
+    remove_user_i_(msisdn_val);
   }
 
   void
@@ -38,10 +58,8 @@ namespace dpi
   }
 
   void
-  UserStorage::remove_user_i_(std::string_view msisdn)
+  UserStorage::remove_user_i_(const std::string& msisdn_val)
   {
-    std::string msisdn_val{msisdn};
-    std::unique_lock lock{lock_};
     auto it = users_by_msisdn_.find(msisdn_val);
     if (it != users_by_msisdn_.end())
     {
@@ -62,5 +80,16 @@ namespace dpi
     }
 
     return UserPtr();
+  }
+
+  void UserStorage::log_event_(const std::string& msg)
+  {
+    if (event_logger_)
+    {
+      std::ostringstream ostr;
+      ostr << "[" << Gears::Time::get_time_of_day().gm_ft() << "] [sber-telecom] USER-EVENT: " <<
+        msg << std::endl;
+      event_logger_->log(ostr.str());
+    }
   }
 }

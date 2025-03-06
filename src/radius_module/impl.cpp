@@ -48,13 +48,16 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
   log_message("initialize");
 
   // init radius listener
-  auto user_storage = std::make_shared<dpi::UserStorage>();
+  auto user_storage = std::make_shared<dpi::UserStorage>(nullptr);
   processor = std::make_shared<Processor>(user_storage);
   std::string config_path_str(config_path, config_path_len);
   processor->load_config(config_path_str);
 
+  user_storage->set_event_logger(processor->event_logger());
+
   // init DPI
-  auto packet_processor = std::make_shared<dpi::PacketProcessor>(user_storage);
+  auto packet_processor = std::make_shared<dpi::PacketProcessor>(
+    user_storage, processor->event_logger());
   auto dpi_runner = std::make_shared<dpi::DPIRunner>(config_path_str, packet_processor);
   all_active_objects->add_child_object(dpi_runner);
   all_active_objects->activate_object();

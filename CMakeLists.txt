@@ -77,12 +77,6 @@ install(
 )
 
 install(
-  FILES
-    data/dpi/dpi.json
-  DESTINATION "./${INSTALL_PREFIX}/etc/"
-)
-
-install(
   DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/bin/
   DESTINATION "./${INSTALL_PREFIX}/bin"
   USE_SOURCE_PERMISSIONS

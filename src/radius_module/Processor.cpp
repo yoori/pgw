@@ -18,7 +18,9 @@ const std::string LOG_PREFIX = "[tel-gateway] ";
 
 
 Processor::Processor(dpi::UserStoragePtr user_storage)
-  : user_storage_(std::move(user_storage))
+  : user_storage_(std::move(user_storage)),
+    logger_(std::make_shared<dpi::StreamLogger>(std::cout)),
+    event_logger_(std::make_shared<dpi::StreamLogger>(std::cout))
 {}
 
 void Processor::load_config(std::string_view config_path)
@@ -49,6 +51,18 @@ void Processor::load_config(std::string_view config_path)
 
     rapidjson::Document document;
     document.Parse(config_text.c_str());
+
+    if (document.HasMember("processing_log_file"))
+    {
+      logger_ = std::make_shared<dpi::FileLogger>(
+        document["processing_log_file"].GetString());
+    }
+
+    if (document.HasMember("event_log_file"))
+    {
+      event_logger_ = std::make_shared<dpi::FileLogger>(
+        document["event_log_file"].GetString());
+    }
 
     if (document.HasMember("diameter_url"))
     {
@@ -103,6 +117,8 @@ bool Processor::process_request(
     ", framed_ip_address = " << framed_ip_address <<
     ", nas_ip_address = " << nas_ip_address << "}";
   std::cout << ostr.str() << std::endl;
+
+  user_storage_->add_user(called_station_id, framed_ip_address);
 
   if (diameter_session_)
   {
