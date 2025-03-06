@@ -73,7 +73,6 @@ install(
 install(
   FILES
     data/tel-gateway.service
-    data/tel-dpi.service
   DESTINATION "./usr/lib/systemd/system/"
 )
 
