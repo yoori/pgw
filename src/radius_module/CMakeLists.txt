@@ -11,7 +11,10 @@ target_link_libraries(radius_module
   PUBLIC
     DiameterPacketConstructor
     Gears
+    dpi
   )
+
+# dpi
 
 target_include_directories(radius_module
   INTERFACE "${CMAKE_CURRENT_SOURCE_DIR}/../"

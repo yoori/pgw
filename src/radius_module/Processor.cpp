@@ -17,7 +17,8 @@
 const std::string LOG_PREFIX = "[tel-gateway] ";
 
 
-Processor::Processor()
+Processor::Processor(dpi::UserStoragePtr user_storage)
+  : user_storage_(std::move(user_storage))
 {}
 
 void Processor::load_config(std::string_view config_path)
@@ -110,7 +111,7 @@ bool Processor::process_request(
       return diameter_session_->send_cc_init(
         std::string(called_station_id), //< MSISDN
 	1, //< Service-Id
-	framed_ip_address,
+	framed_ip_address, //< User IP address
 	nas_ip_address
         );
     }

@@ -20,7 +20,8 @@ namespace dpi
     return ip1 | (ip2 << 8) | (ip3 << 16) | (ip4 << 24);
   }
   
-  PacketProcessor::PacketProcessor()
+  PacketProcessor::PacketProcessor(UserStoragePtr user_storage)
+    : user_storage_(std::move(user_storage))
   {
     sber_ips_.emplace(adapt_ip(194, 54, 14, 131)); // online.sberbank.ru
     sber_ips_.emplace(adapt_ip(95, 181, 181, 241)); // app.sberbank.ru
@@ -31,40 +32,12 @@ namespace dpi
     const ndpi_flow_info* flow,
     const pcap_pkthdr* header)
   {
-    /*
-    if (flow)
-    {
-      const struct ndpi_flow_struct* ndpi_flow = flow->ndpi_flow;
-      if (ndpi_flow)
-      {
-        std::cout << "============" << std::endl;
-        for (int i = 0; i < NDPI_PROTOCOL_SIZE; ++i)
-        {
-          std::cout << "PROTO #" << i << ": " << flow->ndpi_flow->detected_protocol_stack[i] << std::endl;
-        }
-        std::cout << "============" << std::endl;
-      }
-    }
-    */
-
-    //std::cout << "PROCESS PACKET #" << packet_i_ << std::endl;
     ++packet_i_;
 
-    //const u_int16_t app_protocol = flow ? flow->detected_protocol.proto.app_protocol : 0;
     const u_int16_t proto = flow ?
       (flow->detected_protocol.proto.app_protocol ? flow->detected_protocol.proto.app_protocol :
         flow->detected_protocol.proto.master_protocol) :
       0;
-
-    /*
-    const char* protocol_name = ndpi_get_proto_name(
-      workflow->ndpi_struct,
-      ndpi_map_ndpi_id_to_user_proto_id(workflow->ndpi_struct, proto)
-    );
-
-    std::cout << "PACKET: app_protocol = " << app_protocol << ", proto = " << proto << "(" <<
-      protocol_name << ")" << ", monitoring_enabled = " << monitoring_enabled << std::endl;
-    */
 
     if (flow)
     {
@@ -86,12 +59,6 @@ namespace dpi
       sber_ips_.find(src_ip) != sber_ips_.end())
     {
       process_sber_packet_(src_ip, dst_ip);
-      /*
-      std::cout << "sber connect: " <<
-        ipv4_address_to_string(src_ip) << " => " <<
-        ipv4_address_to_string(dst_ip) <<
-        std::endl;
-      */
       const std::lock_guard<std::mutex> lock(client_states_lock_);
       ClientState& client_state = client_states_[src_ip];
     }
@@ -190,10 +157,26 @@ namespace dpi
     uint32_t dst_ip
     )
   {
+    UserStorage::UserPtr user = user_storage_->get_user_by_ip(src_ip);
+
+    if (!user)
+    {
+      UserStorage::UserPtr user = user_storage_->get_user_by_ip(dst_ip);
+      if (user)
+      {
+        std::swap(src_ip, dst_ip);
+      }
+    }
+
+    if (!user)
+    {
+      user = std::make_shared<UserStorage::User>();
+      user->ip = src_ip;
+    }
+
     std::ostringstream ostr;
-    ostr << "[" << Gears::Time::get_time_of_day().gm_ft() << "] EVENT '" << event << "': " <<
-      ipv4_address_to_string(src_ip) << " => " <<
-      ipv4_address_to_string(dst_ip) <<
+    ostr << "[" << Gears::Time::get_time_of_day().gm_ft() << "] [sber-telecom] EVENT '" << event << "': " <<
+      user->to_string() <<
       std::endl;
     std::cout << ostr.str() << std::flush;
   }

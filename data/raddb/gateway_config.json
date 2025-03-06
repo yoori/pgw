@@ -4,5 +4,33 @@
 	"port": 3862,
 	"origin-host": "traflabpgw01.msk.epc.mnc050.mcc250.3gppnetwork.org",
 	"origin-realm": "epc.mnc050.mcc250.3gppnetwork.org"
-    }
+    },
+    "dpi_interface": "bridge0",
+    "rules": [
+        {
+            "type": "state",
+            "name": "telegram call",
+            "protocol": "telegram-voip",
+            "drop_state_timeout": 30
+        },
+        {
+            "type": "state",
+            "name": "sber open",
+            "host": [ "online.sberbank.ru", "app.sberbank.ru" ],
+            "protocol": "tcp",
+            "drop_state_timeout": 60
+        },
+        {
+            "type": "event",
+            "name": "sber open on telegram call",
+            "conditions": [
+                {
+                    "in-state": "telegram call"
+                },
+                {
+                    "input-to-state": "sber open"
+                }
+            ]
+        }
+    ]
 }

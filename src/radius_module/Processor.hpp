@@ -2,6 +2,8 @@
 
 #include <gears/Exception.hpp>
 
+#include <dpi/UserStorage.hpp>
+
 #include "DiameterSession.hpp"
 
 class Processor
@@ -9,7 +11,7 @@ class Processor
 public:
   DECLARE_EXCEPTION(Invalid, Gears::DescriptiveException);
 
-  Processor();
+  Processor(dpi::UserStoragePtr user_storage = nullptr);
 
   void load_config(std::string_view config_path);
 
@@ -19,7 +21,10 @@ public:
     uint32_t nas_ip_address);
 
 private:
+  dpi::UserStoragePtr user_storage_;
   std::string config_path_;
   std::string diameter_url_;
   std::unique_ptr<DiameterSession> diameter_session_;
 };
+
+using ProcessorPtr = std::shared_ptr<Processor>;

@@ -35,6 +35,8 @@ public:
 
   virtual ~DiameterSession();
 
+  void open();
+
   unsigned int send_cc_init(
     const std::string& msisdn,
     unsigned long service_id,

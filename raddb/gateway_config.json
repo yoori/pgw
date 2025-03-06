@@ -21,5 +21,6 @@
 	"origin-host": "traflabpgw01.msk.epc.mnc050.mcc250.3gppnetwork.org",
 	"origin-realm": "epc.mnc050.mcc250.3gppnetwork.org",
 	"destination-host": "dra01.msk.epc.mnc050.mcc250.3gppnetwork.org"
-    }
+    },
+    "dpi_interface": "eno1"
 }
