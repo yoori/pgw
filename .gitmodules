@@ -3,4 +3,7 @@
 	url = https://github.com/yoori/gears.git
 [submodule "dependencies/nDPI"]
 	path = dependencies/nDPI
-	url = https://github.com/ntop/nDPI.git
+	url = https://github.com/yoori/nDPI.git
+[submodule "dependencies/libhttpserver"]
+	path = dependencies/libhttpserver
+	url = https://github.com/yoori/libhttpserver.git

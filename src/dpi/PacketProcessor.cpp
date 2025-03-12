@@ -163,7 +163,7 @@ namespace dpi
 
     if (!user)
     {
-      UserStorage::UserPtr user = user_storage_->get_user_by_ip(dst_ip);
+      user = user_storage_->get_user_by_ip(dst_ip);
       if (user)
       {
         std::swap(src_ip, dst_ip);
