@@ -1,5 +1,6 @@
 add_library(dpi
   DPIRunner.cpp
+  DPIUtils.cpp
   Config.cpp
   NetworkUtils.cpp
   PacketProcessor.cpp

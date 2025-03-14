@@ -82,8 +82,22 @@ namespace dpi
     }
   }
 
+  NetInterface::~NetInterface()
+  {
+    if (bpf_cfilter_)
+    {
+      pcap_freecode(bpf_cfilter_);
+      bpf_cfilter_ = 0;
+    }
+  }
+
   bool NetInterface::live_capture() const
   {
     return live_capture_;
+  }
+
+  pcap_t* NetInterface::pcap_handle() const
+  {
+    return pcap_handle_;
   }
 }

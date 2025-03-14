@@ -15,7 +15,11 @@ namespace dpi
   public:
     NetInterface(const char* interface_name);
 
+    virtual ~NetInterface();
+
     bool live_capture() const;
+
+    pcap_t* pcap_handle() const;
 
   private:
     const int PACKET_PROCESS_DELAY_MS_ = 1;
