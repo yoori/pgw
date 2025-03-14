@@ -4,6 +4,6 @@
 [submodule "dependencies/nDPI"]
 	path = dependencies/nDPI
 	url = https://github.com/yoori/nDPI.git
-[submodule "dependencies/libhttpserver"]
-	path = dependencies/libhttpserver
-	url = https://github.com/yoori/libhttpserver.git
+[submodule "dependencies/jsoncons/jsoncons"]
+	path = dependencies/jsoncons/jsoncons
+	url = https://github.com/danielaparker/jsoncons.git

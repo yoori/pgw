@@ -48,7 +48,11 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
   log_message("initialize");
 
   // init radius listener
-  auto user_storage = std::make_shared<dpi::UserStorage>(nullptr);
+  dpi::SessionRuleConfig session_rule_config;
+  session_rule_config.clear_closed_sessions_timeout = Gears::Time::ONE_DAY;
+  session_rule_config.default_rule.close_timeout = Gears::Time(30);
+
+  auto user_storage = std::make_shared<dpi::UserStorage>(nullptr, session_rule_config);
   processor = std::make_shared<Processor>(user_storage);
   std::string config_path_str(config_path, config_path_len);
   processor->load_config(config_path_str);

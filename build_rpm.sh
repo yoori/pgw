@@ -42,6 +42,7 @@ Requires: pcre libpcap libxcrypt openssl-libs pam
 Requires: glibc libtalloc shadow-utils libcom_err
 BuildRequires: openssl-devel openssl-libs brotli-devel libcom_err-devel
 BuildRequires: lksctp-tools-devel rapidjson-devel libkqueue-devel
+BuildRequires: libmicrohttpd-devel
 
 %define __install_dir /opt/tel-gateway
 

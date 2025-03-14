@@ -121,8 +121,8 @@ static struct bpf_program bpf_code;
 #endif
 static struct bpf_program *bpf_cfilter = NULL;
 /** Detection parameters **/
-static time_t capture_for = 0;
-static time_t capture_until = 0;
+//static time_t capture_for = 0;
+//static time_t capture_until = 0;
 static u_int32_t num_flows;
 
 extern u_int8_t enable_doh_dot_detection;
@@ -1212,10 +1212,12 @@ void parse_parameters(int argc, char **argv)
       enable_realtime_output =1;
       break;
 
+    /*
     case 's':
       capture_for = atoi(optarg);
       capture_until = capture_for + time(NULL);
       break;
+    */
 
     case 't':
       decode_tunnels = 1;
@@ -5084,8 +5086,8 @@ static pcap_t* open_pcap_file_or_device(u_int16_t thread_id, const u_char* pcap_
     500,
     pcap_error_buffer)) == NULL)
   {
-    capture_for = 0;
-    capture_until = 0;
+    //capture_for = 0;
+    //capture_until = 0;
 
     live_capture = 0;
     num_threads = 1; //< Open pcap files in single threads mode
@@ -5133,6 +5135,7 @@ static pcap_t* open_pcap_file_or_device(u_int16_t thread_id, const u_char* pcap_
 
   configure_pcap_handle(pcap_handle);
 
+  /*
   if (capture_for > 0)
   {
     if (!quiet_mode)
@@ -5140,6 +5143,7 @@ static pcap_t* open_pcap_file_or_device(u_int16_t thread_id, const u_char* pcap_
       printf("Capturing traffic up to %u seconds\n", (unsigned int)capture_for);
     }
   }
+  */
 
   return pcap_handle;
 }

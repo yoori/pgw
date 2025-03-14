@@ -7,4 +7,5 @@ target_link_libraries(dpi_server
     nDPI
     Gears
     dpi
+    http_server
   )

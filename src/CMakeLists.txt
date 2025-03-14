@@ -6,6 +6,8 @@ add_subdirectory(dpi)
 add_subdirectory(dpi_server)
 add_subdirectory(utils)
 add_subdirectory(tests)
+add_subdirectory(http_server)
+add_subdirectory(net_bridge)
 
 ExternalProject_Add(radius
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/radius

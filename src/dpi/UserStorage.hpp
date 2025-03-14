@@ -6,26 +6,19 @@
 #include <shared_mutex>
 #include <unordered_map>
 
-#include "Logger.hpp"
+#include <gears/Time.hpp>
 
+#include "Logger.hpp"
+#include "User.hpp"
 
 namespace dpi
 {
   class UserStorage
   {
   public:
-    struct User
-    {
-      std::string msisdn;
-      uint32_t ip;
-
-      std::string to_string() const;
-    };
-
-    using UserPtr = std::shared_ptr<User>;
-
-  public:
-    UserStorage(LoggerPtr event_logger);
+    UserStorage(
+      LoggerPtr event_logger,
+      const SessionRuleConfig& session_rule_config);
 
     void set_event_logger(LoggerPtr event_logger);
 
@@ -33,7 +26,9 @@ namespace dpi
 
     void remove_user(std::string_view msisdn);
 
-    UserPtr get_user_by_ip(uint32_t ip) const;
+    UserPtr get_user_by_ip(uint32_t ip, const Gears::Time& now) const;
+
+    UserPtr get_user_by_msisdn(std::string_view msisdn, const Gears::Time& now) const;
 
   private:
     void remove_user_i_(const std::string& msisdn);
@@ -44,6 +39,8 @@ namespace dpi
 
   private:
     LoggerPtr event_logger_;
+    SessionRuleConfig session_rule_config_;
+
     mutable std::shared_mutex lock_;
     std::unordered_map<uint32_t, UserPtr> users_by_ip_;
     std::unordered_map<std::string, UserPtr> users_by_msisdn_;

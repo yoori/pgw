@@ -5,13 +5,17 @@ add_library(dpi
   PacketProcessor.cpp
   ReaderUtil.cpp
   UserStorage.cpp
+  User.cpp
   Logger.cpp
+  NetInterface.cpp
   )
 
 target_link_libraries(dpi
   PUBLIC
     nDPI
     Gears
+    libhttpserver
+    jsoncons
   )
 
 target_include_directories(dpi

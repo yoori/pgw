@@ -38,7 +38,14 @@ namespace dpi
     void process_packet_(
       u_int16_t proto,
       uint32_t src_ip,
-      uint32_t dst_ip);
+      uint32_t dst_ip,
+      uint64_t packet_size);
+
+    void process_session_packet_(
+      uint32_t src_ip,
+      uint32_t dst_ip,
+      const SessionKey& session_key,
+      uint64_t packet_size);
 
     void process_telegram_call_packet_(
       uint32_t src_ip,
@@ -53,17 +60,37 @@ namespace dpi
 
     void log_event_(
       const std::string& event,
+      const Gears::Time& now,
       uint32_t src_ip,
       uint32_t dst_ip);
     
+    UserPtr get_user_(
+      uint32_t& src_ip,
+      uint32_t& dst_ip,
+      const Gears::Time& now) const;
+
+    const SessionKey& proto_to_session_key_(u_int16_t proto) const;
+
+    void check_user_state_(
+      User& user,
+      const SessionKey& trigger_session_key,
+      uint32_t src_ip,
+      uint32_t dst_ip,
+      const Gears::Time& now);
+
   private:
     const Gears::Time TELEGRAM_CALL_MAX_PERIOD_ = Gears::Time(30);
     const Gears::Time SBER_OPEN_MAX_PERIOD_ = Gears::Time(60);
     const UserStoragePtr user_storage_;
     const LoggerPtr event_logger_;
+    const SessionKey unknown_session_key_;
+
+    SessionRuleConfig session_rule_config_;
 
     int packet_i_ = 0;
-    std::unordered_set<uint32_t> sber_ips_;
+    std::unordered_map<uint32_t, std::string> ip_categories_;
+    std::unordered_map<uint32_t, SessionKey> protocol_session_keys_;
+    Gears::GnuHashSet<SessionKey> recheck_state_session_keys_;
 
     std::mutex client_states_lock_;
     std::unordered_map<uint32_t, ClientState> client_states_;
