@@ -1,5 +1,6 @@
 add_library(dpi
   DPIRunner.cpp
+  DPIPrintUtils.cpp
   DPIUtils.cpp
   Config.cpp
   NetworkUtils.cpp
@@ -8,7 +9,7 @@ add_library(dpi
   UserStorage.cpp
   User.cpp
   Logger.cpp
-  NetInterface.cpp
+  NetInterfaceProcessor.cpp
   )
 
 target_link_libraries(dpi

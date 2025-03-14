@@ -449,9 +449,11 @@ extern int reader_log_level;
 #define LOG(...) {}
 #endif
 
+/*
 #ifndef LINKTYPE_LINUX_SLL2
 #define LINKTYPE_LINUX_SLL2 276
 #endif
+*/
 
 #ifdef __cplusplus
 }

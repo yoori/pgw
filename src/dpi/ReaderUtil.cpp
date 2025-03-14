@@ -52,16 +52,19 @@
 #endif
 
 #include "ndpi_main.h"
-#include "ReaderUtil.hpp"
 #include "ndpi_classify.h"
 
-extern u_int8_t enable_flow_stats, enable_payload_analyzer;
+#include "ReaderUtil.hpp"
+#include "DPIPrintUtils.hpp"
+
+extern bool enable_flow_stats;
+extern bool enable_payload_analyzer;
 extern u_int8_t verbose, human_readeable_string_len;
 extern u_int8_t max_num_udp_dissected_pkts /* 24 */, max_num_tcp_dissected_pkts /* 80 */;
 static u_int32_t flow_id = 0;
 extern FILE *fingerprint_fp;
 extern char *addr_dump_path;
-u_int8_t enable_doh_dot_detection = 0;
+//u_int8_t enable_doh_dot_detection = 0;
 extern bool do_load_lists;
 extern int malloc_size_stats;
 extern int monitoring_enabled;
@@ -94,6 +97,11 @@ u_int32_t max_packet_payload_dissection = 128;
 u_int32_t max_num_reported_top_payloads = 25;
 u_int16_t min_pattern_len               = 4;
 u_int16_t max_pattern_len               = 8;
+
+namespace
+{
+  const int LINKTYPE_LINUX_SLL2 = 276;
+}
 
 int ndpi_analyze_payload(
   struct ndpi_flow_info* flow,
@@ -2335,32 +2343,6 @@ static struct ndpi_proto packet_processing(
   *flow_ext = flow;
 
   return(flow->detected_protocol);
-}
-
-int ndpi_is_datalink_supported(int datalink_type)
-{
-  /* Keep in sync with the similar switch in ndpi_workflow_process_packet */
-  switch(datalink_type) {
-  case DLT_NULL:
-  case DLT_PPP_SERIAL:
-  case DLT_C_HDLC:
-  case DLT_PPP:
-#ifdef DLT_IPV4
-  case DLT_IPV4:
-#endif
-#ifdef DLT_IPV6
-  case DLT_IPV6:
-#endif
-  case DLT_EN10MB:
-  case DLT_LINUX_SLL:
-  case DLT_IEEE802_11_RADIO:
-  case DLT_RAW:
-  case DLT_PPI:
-  case LINKTYPE_LINUX_SLL2:
-    return 1;
-  default:
-    return 0;
-  }
 }
 
 static bool ndpi_is_valid_vxlan(
