@@ -57,7 +57,6 @@ const char *_pcap_file[MAX_NUM_READER_THREADS]; /**< Ingress pcap file/interface
 #ifndef USE_DPDK
 static FILE *playlist_fp[MAX_NUM_READER_THREADS] = { NULL }; /**< Ingress playlist */
 #endif
-static FILE *results_file           = NULL;
 static char *results_path           = NULL;
 //static char * bpfFilter             = NULL; /**< bpf filter  */
 static char *_protoFilePath         = NULL; /**< Protocol file path */
@@ -670,22 +669,6 @@ void extcap_config()
   extcap_exit = 1;
 }
 
-void extcap_capture(int datalink_type)
-{
-  if ((extcap_fifo_h = pcap_open_dead(datalink_type, 16384 /* MTU */)) == NULL)
-  {
-    fprintf(stderr, "Error pcap_open_dead");
-    return;
-  }
-
-  if ((extcap_dumper = pcap_dump_open(extcap_fifo_h,
-    extcap_capture_fifo)) == NULL)
-  {
-    fprintf(stderr, "Unable to open the pcap dumper on %s", extcap_capture_fifo);
-    return;
-  }
-}
-
 int parse_three_strings(char *param, char **s1, char **s2, char **s3)
 {
   char *saveptr, *tmp_str, *s1_str, *s2_str = NULL, *s3_str;
@@ -1008,15 +991,6 @@ void parse_parameters(int argc, char **argv)
       else
       {
         printf("Unknown serialization format. Valid values are: tlv,csv,json\n");
-        exit(1);
-      }
-      break;
-
-    case 'w':
-      results_path = ndpi_strdup(optarg);
-      if ((results_file = fopen(results_path, "w")) == NULL)
-      {
-        printf("Unable to write in file %s: quitting\n", results_path);
         exit(1);
       }
       break;
@@ -1393,7 +1367,7 @@ int is_realtime_protocol(ndpi_protocol proto)
 
 void dump_realtime_protocol(struct ndpi_workflow * workflow, struct ndpi_flow_info *flow)
 {
-  FILE* out = results_file ? results_file : stdout;
+  FILE* out = stdout;
   char srcip[70], dstip[70];
   char ip_proto[64], app_name[64];
   char date[64];
@@ -1772,7 +1746,7 @@ protected:
 
       if (extcap_add_crc)
       {
-        delta += 4; /* ethernet trailer */
+        delta += 4; // ethernet trailer
       }
 
       if (h.caplen > (sizeof(extcap_buf) - delta))
@@ -1825,7 +1799,7 @@ protected:
           tlv->type = ntohs(WIRESHARK_METADATA_SERVERNAME);
           tlv->length = ntohs(sizeof(flow->host_server_name));
           memcpy(tlv->data, flow->host_server_name, sizeof(flow->host_server_name));
-          /* TODO: boundary check */
+          // TODO: boundary check
           tot_len += 4 + htons(tlv->length);
           tlv = (struct ndpi_packet_tlv *)&trailer->metadata[tot_len];
         }
@@ -1835,7 +1809,7 @@ protected:
           tlv->type = ntohs(WIRESHARK_METADATA_JA4C);
           tlv->length = ntohs(sizeof(flow->ssh_tls.ja4_client));
           memcpy(tlv->data, flow->ssh_tls.ja4_client, sizeof(flow->ssh_tls.ja4_client));
-          /* TODO: boundary check */
+          // TODO: boundary check
           tot_len += 4 + htons(tlv->length);
           tlv = (struct ndpi_packet_tlv *)&trailer->metadata[tot_len];
         }
@@ -1854,7 +1828,7 @@ protected:
           s->pkts[1] = ntohl(flow->ssh_tls.obfuscated_heur_matching_set.pkts[1]);
           s->pkts[2] = ntohl(flow->ssh_tls.obfuscated_heur_matching_set.pkts[2]);
           s->pkts[3] = ntohl(flow->ssh_tls.obfuscated_heur_matching_set.pkts[3]);
-          /* TODO: boundary check */
+          // TODO: boundary check
           tot_len += 4 + htons(tlv->length);
           tlv = (struct ndpi_packet_tlv *)&trailer->metadata[tot_len];
         }
@@ -2116,11 +2090,6 @@ namespace dpi
     if (results_path)
     {
       ndpi_free(results_path);
-    }
-
-    if (results_file)
-    {
-      fclose(results_file);
     }
 
     if (extcap_dumper)

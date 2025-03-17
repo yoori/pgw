@@ -38,10 +38,11 @@ namespace dpi
 
   NetInterfaceProcessor::NetInterfaceProcessor(
     const char* interface_name,
-    unsigned int num_threads)
-    : num_threads_(num_threads)
+    unsigned int num_threads,
+    unsigned int snaplen)
+    : interface_name_(interface_name),
+      num_threads_(num_threads)
   {
-    u_int snaplen = 1536;
     int promisc = 1;
     char pcap_error_buffer[PCAP_ERRBUF_SIZE];
 
@@ -229,4 +230,29 @@ namespace dpi
       }
     }
   }
+
+  void NetInterfaceProcessor::send(const void* packet_buf, int packet_buf_size)
+  {
+    int ret = pcap_inject(pcap_handle_, packet_buf, packet_buf_size);
+
+    if (ret == PCAP_ERROR)
+    {
+      std::ostringstream ostr;
+      ostr << "Error on packet sending(size = " << packet_buf_size << "): " << pcap_geterr(pcap_handle_);
+      throw Exception(ostr.str());
+    }
+
+    if (ret < packet_buf_size)
+    {
+      std::ostringstream ostr;
+      ostr << "Error on packet sending, sent only part of packet: " << ret << "/" << packet_buf_size;
+      throw Exception(ostr.str());
+    }
+  }
+
+  void NetInterfaceProcessor::process_packet(
+    unsigned int /*thread_i*/,
+    const struct pcap_pkthdr* /*header*/,
+    const u_char* /*packet*/)
+  {}
 }

@@ -19,9 +19,14 @@ namespace dpi
   public:
     NetInterfaceProcessor(
       const char* interface_name,
-      unsigned int threads = 1);
+      unsigned int threads = 1,
+      unsigned int snaplen = 1536);
 
     virtual ~NetInterfaceProcessor();
+
+    void send(const void* packet_buf, int packet_buf_size);
+
+    const std::string& interface_name() const;
 
     bool live_capture() const;
 
@@ -44,7 +49,7 @@ namespace dpi
     virtual void process_packet(
       unsigned int thread_i,
       const struct pcap_pkthdr* header,
-      const u_char* packet) = 0;
+      const u_char* packet);
 
     void processing_thread(unsigned int thread_i);
 
@@ -54,6 +59,7 @@ namespace dpi
       const u_char* packet);
 
   private:
+    const std::string interface_name_;
     const int num_threads_;
     const int PACKET_PROCESS_DELAY_MS_ = 1;
     const std::string bpf_filter_;
@@ -65,4 +71,13 @@ namespace dpi
     std::mutex lock_;
     std::vector<std::unique_ptr<std::thread>> threads_;
   };
+}
+
+namespace dpi
+{
+  inline const std::string&
+  NetInterfaceProcessor::interface_name() const
+  {
+    return interface_name_;
+  }
 }
