@@ -71,6 +71,8 @@ namespace dpi
     std::mutex lock_;
     std::vector<std::unique_ptr<std::thread>> threads_;
   };
+
+  using NetInterfaceProcessorPtr = std::shared_ptr<NetInterfaceProcessor>;
 }
 
 namespace dpi

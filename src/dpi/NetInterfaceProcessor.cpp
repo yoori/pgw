@@ -60,34 +60,11 @@ namespace dpi
     // try to open as file or playlist.
     if (pcap_handle_ == NULL)
     {
-      //capture_for = 0;
-      //capture_until = 0;
-
       live_capture_ = false;
-      //num_threads = 1; //< open pcap files in single threads mode
 
       // trying to open a pcap file
       pcap_handle_ = pcap_open_offline(interface_name, pcap_error_buffer);
     }
-
-    /*
-    if (pcap_handle_ == NULL)
-    {
-      char filename[256] = "";
-
-      if (strstr(interface_name, ".pcap"))
-      {
-        throw Exception(
-          std::string("Could not open pcap file: ") + pcap_error_buffer);
-      }
-
-      // trying to open as a playlist as last attempt
-      if (get_next_pcap_file_from_playlist(thread_id, filename, sizeof(filename)) == 0)
-      {
-        pcap_handle_ = pcap_open_offline(filename, pcap_error_buffer);
-      }
-    }
-    */
 
     if (pcap_handle_ == NULL)
     {

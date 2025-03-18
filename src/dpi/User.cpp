@@ -219,4 +219,30 @@ namespace dpi
 
     return opened_new_session;
   }
+
+  void User::session_block(
+    const SessionKey& key, const Gears::Time& block_timestamp)
+  {
+    std::unique_lock lock{block_lock_};
+    blocked_sessions_[key] = BlockSessionHolder{block_timestamp};
+  }
+
+  bool User::is_session_blocked(
+    const SessionKey& key, const Gears::Time& now) const
+  {
+    std::unique_lock lock{block_lock_};
+    auto block_it = blocked_sessions_.find(key);
+    if (block_it == blocked_sessions_.end())
+    {
+      return false;
+    }
+
+    if (block_it->second.block_timestamp < now)
+    {
+      blocked_sessions_.erase(key);
+      return false;
+    }
+
+    return true;
+  }
 }

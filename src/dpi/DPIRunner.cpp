@@ -1905,77 +1905,6 @@ protected:
   }
 };
 
-void main_loop()
-{
-  u_int64_t processing_time_usec, setup_time_usec;
-  struct ndpi_global_context* g_ctx;
-
-  set_ndpi_malloc(ndpi_malloc_wrapper);
-  set_ndpi_free(free_wrapper);
-  set_ndpi_flow_malloc(NULL);
-  set_ndpi_flow_free(NULL);
-
-#ifndef USE_GLOBAL_CONTEXT
-  // ndpiReader works even if libnDPI has been compiled without global context support,
-  // but you can't configure any cache with global scope
-  g_ctx = NULL;
-#else
-  g_ctx = ndpi_global_init();
-  if (!g_ctx)
-  {
-    fprintf(stderr, "Error ndpi_global_init\n");
-    exit(-1);
-  }
-#endif
-
-  DPIHandleHolder::InfoPtr dpi_handle_info =
-    std::make_shared<DPIHandleHolder::Info>();
-
-  ::memset(
-    dpi_handle_info->ndpi_thread_info,
-    0,
-    sizeof(dpi_handle_info->ndpi_thread_info));
-
-  std::shared_ptr<Gears::CompositeActiveObject> composite_active_object =
-    std::make_shared<Gears::CompositeActiveObject>();
-
-  std::vector<std::shared_ptr<dpi::NetInterfaceProcessor>> read_devices;
-  for (long thread_id = 0; thread_id < num_threads; ++thread_id)
-  {
-    auto read_device = std::make_shared<DPIProcessor>(_pcap_file[thread_id], 1);
-    setup_detection(*dpi_handle_info, thread_id, read_device->pcap_handle(), g_ctx);
-    composite_active_object->add_child_object(read_device);
-  }
-
-  // publish
-  {
-    std::unique_lock lock{dpi_handle_holder.lock};
-    dpi_handle_holder.info = dpi_handle_info;
-    dpi_handle_holder.interrupter = composite_active_object;
-  }
-  
-  gettimeofday(&begin, NULL);
-
-  composite_active_object->activate_object();
-  composite_active_object->wait_object();
-
-  gettimeofday(&end, NULL);
-  processing_time_usec = (u_int64_t)end.tv_sec*1000000 + end.tv_usec -
-    ((u_int64_t)begin.tv_sec*1000000 + begin.tv_usec);
-  setup_time_usec = (u_int64_t)begin.tv_sec*1000000 + begin.tv_usec -
-    ((u_int64_t)startup_time.tv_sec*1000000 + startup_time.tv_usec);
-
-  // printing cumulative results
-  //print_results(processing_time_usec, setup_time_usec);
-
-  for (long thread_id = 0; thread_id < num_threads; thread_id++)
-  {
-    terminate_detection(*dpi_handle_info, thread_id);
-  }
-
-  ndpi_global_deinit(g_ctx);
-}
-
 void bpf_filter_port_array_init(int array[], int size)
 {
   for (int i = 0; i < size; i++)
@@ -2085,7 +2014,7 @@ namespace dpi
 
     signal(SIGINT, sigproc);
 
-    main_loop();
+    main_loop_();
 
     if (results_path)
     {
@@ -2161,5 +2090,75 @@ namespace dpi
 
     Gears::SimpleActiveObject::deactivate_object();
     Gears::SimpleActiveObject::wait_object();
+  }
+
+  void DPIRunner::main_loop_()
+  {
+    u_int64_t processing_time_usec, setup_time_usec;
+    struct ndpi_global_context* g_ctx;
+
+    set_ndpi_malloc(ndpi_malloc_wrapper);
+    set_ndpi_free(free_wrapper);
+    set_ndpi_flow_malloc(NULL);
+    set_ndpi_flow_free(NULL);
+
+#ifndef USE_GLOBAL_CONTEXT
+    // ndpiReader works even if libnDPI has been compiled without global context support,
+    // but you can't configure any cache with global scope
+    g_ctx = NULL;
+#else
+    g_ctx = ndpi_global_init();
+    if (!g_ctx)
+    {
+      fprintf(stderr, "Error ndpi_global_init\n");
+      exit(-1);
+    }
+#endif
+
+    DPIHandleHolder::InfoPtr dpi_handle_info =
+      std::make_shared<DPIHandleHolder::Info>();
+
+    ::memset(
+      dpi_handle_info->ndpi_thread_info,
+      0,
+      sizeof(dpi_handle_info->ndpi_thread_info));
+
+    std::shared_ptr<Gears::CompositeActiveObject> composite_active_object =
+      std::make_shared<Gears::CompositeActiveObject>();
+
+    for (long thread_id = 0; thread_id < num_threads; ++thread_id)
+    {
+      auto read_device = std::make_shared<DPIProcessor>(_pcap_file[thread_id], 1);
+      setup_detection(*dpi_handle_info, thread_id, read_device->pcap_handle(), g_ctx);
+      composite_active_object->add_child_object(read_device);
+    }
+
+    // publish
+    {
+      std::unique_lock lock{dpi_handle_holder.lock};
+      dpi_handle_holder.info = dpi_handle_info;
+      dpi_handle_holder.interrupter = composite_active_object;
+    }
+
+    gettimeofday(&begin, NULL);
+
+    composite_active_object->activate_object();
+    composite_active_object->wait_object();
+
+    gettimeofday(&end, NULL);
+    processing_time_usec = (u_int64_t)end.tv_sec*1000000 + end.tv_usec -
+      ((u_int64_t)begin.tv_sec*1000000 + begin.tv_usec);
+    setup_time_usec = (u_int64_t)begin.tv_sec*1000000 + begin.tv_usec -
+      ((u_int64_t)startup_time.tv_sec*1000000 + startup_time.tv_usec);
+
+    // printing cumulative results
+    //print_results(processing_time_usec, setup_time_usec);
+
+    for (long thread_id = 0; thread_id < num_threads; thread_id++)
+    {
+      terminate_detection(*dpi_handle_info, thread_id);
+    }
+
+    ndpi_global_deinit(g_ctx);
   }
 }

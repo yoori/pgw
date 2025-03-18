@@ -33,6 +33,8 @@ namespace dpi
   private:
     void run_();
 
+    void main_loop_();
+
   private:
     const std::string config_path_;
     const PacketProcessorPtr packet_processor_;

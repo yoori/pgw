@@ -102,6 +102,18 @@ namespace dpi
     std::optional<Gears::Time> session_open_timestamp(
       const SessionKey& session_key) const;
 
+    void session_block(
+      const SessionKey& key, const Gears::Time& block_timestamp);
+
+    bool is_session_blocked(
+      const SessionKey& key, const Gears::Time& now) const;
+
+  private:
+    struct BlockSessionHolder
+    {
+      Gears::Time block_timestamp;
+    };
+
   private:
     void clear_expired_sessions_i_(
       const SessionRuleConfig& session_rule_config,
@@ -123,6 +135,10 @@ namespace dpi
     Gears::HashTable<SessionKey, SessionPtr> opened_sessions_;
     // closed sessions
     std::map<Gears::Time, SessionPtr> closed_sessions_;
+
+    // blocked sessions
+    mutable std::mutex block_lock_;
+    mutable Gears::HashTable<SessionKey, BlockSessionHolder> blocked_sessions_;
   };
 
   using UserPtr = std::shared_ptr<User>;
