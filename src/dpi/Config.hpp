@@ -8,6 +8,7 @@ namespace dpi
     std::string interface;
     std::string interface2;
     std::string dump_stat_root;
+    std::string ip_rules_root;
 
     static Config read(const std::string_view& file);
   };

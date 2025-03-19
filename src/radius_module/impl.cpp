@@ -52,6 +52,8 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
 
   log_message("initialize");
 
+  auto config = dpi::Config::read(config_path);
+
   // init radius listener
   dpi::SessionRuleConfig session_rule_config;
   session_rule_config.clear_closed_sessions_timeout = Gears::Time::ONE_DAY;
@@ -78,7 +80,8 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
   auto packet_processor = std::make_shared<dpi::PacketProcessor>(
     user_storage,
     composite_user_session_packet_processor,
-    processor->event_logger());
+    processor->event_logger(),
+    config.ip_rules_root);
 
   std::shared_ptr<dpi::NDPIPacketProcessor> ndpi_packet_processor =
     std::make_shared<dpi::NDPIPacketProcessor>(
@@ -86,8 +89,6 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
       packet_processor,
       0 // datalink_type
     );
-
-  auto config = dpi::Config::read(config_path);
 
   auto client_interface = std::make_shared<dpi::NetInterface>(
     config.interface.c_str());

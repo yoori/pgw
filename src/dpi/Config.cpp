@@ -39,6 +39,11 @@ namespace dpi
       result.dump_stat_root = document["dump_stat_root"].GetString();
     }
 
+    if (document.HasMember("ip_rules_root"))
+    {
+      result.ip_rules_root = document["ip_rules_root"].GetString();
+    }
+
     return result;
   }
 }

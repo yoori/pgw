@@ -65,7 +65,8 @@ int main(int argc, char **argv)
   auto packet_processor = std::make_shared<dpi::PacketProcessor>(
     user_storage,
     composite_user_session_packet_processor,
-    event_logger);
+    event_logger,
+    config.ip_rules_root);
 
   auto http_server = std::make_shared<dpi::HttpServer>(
     logger,

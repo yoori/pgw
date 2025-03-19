@@ -16,6 +16,7 @@ namespace dpi
     recheck_state_session_keys_.emplace(SessionKey("tls", "sber-online"));
     recheck_state_session_keys_.emplace(SessionKey("tls", "gosuslugi"));
     recheck_state_session_keys_.emplace(SessionKey("tls", "alfabank-online"));
+    recheck_state_session_keys_.emplace(SessionKey("", "fishing"));
   }
 
   void
@@ -40,6 +41,12 @@ namespace dpi
       session_key,
       now,
       packet_size);
+
+    if (session_key.category_type == "fishing")
+    {
+      log_event_(session_key.category_type, now, src_ip, dst_ip);
+      packet_processing_state.block_packet = true;
+    }
 
     // Check possible state changes
     if (!user->msisdn().empty())

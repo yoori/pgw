@@ -21,7 +21,8 @@ namespace dpi
     PacketProcessor(
       UserStoragePtr user_storage,
       UserSessionPacketProcessorPtr user_session_packet_processor,
-      LoggerPtr event_logger);
+      LoggerPtr event_logger,
+      std::string_view ip_rules_path);
 
     bool process_packet(
       struct ndpi_workflow* workflow,

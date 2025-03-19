@@ -34,12 +34,10 @@ namespace dpi
         catch(const Gears::Exception&)
         {}
       }
-      /*
       else
       {
         std::cout << "BLOCK PACKET" << std::endl;
       }
-      */
     }
 
   private:
