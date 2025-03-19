@@ -454,13 +454,13 @@ bool load_public_lists(struct ndpi_detection_module_struct *ndpi_str)
 
 ndpi_workflow* ndpi_workflow_init(
   const struct ndpi_workflow_prefs * prefs,
-  pcap_t * pcap_handle,
+  //pcap_t* pcap_handle,
   int do_init_flows_root,
   ndpi_serialization_format serialization_format,
   struct ndpi_global_context *g_ctx)
 {
   struct ndpi_detection_module_struct * module;
-  struct ndpi_workflow * workflow;
+  struct ndpi_workflow* workflow;
 
   module = ndpi_init_detection_module(g_ctx);
 
@@ -478,7 +478,7 @@ ndpi_workflow* ndpi_workflow_init(
     return NULL;
   }
 
-  workflow->pcap_handle = pcap_handle;
+  //workflow->pcap_handle = pcap_handle;
   workflow->prefs       = *prefs;
   workflow->ndpi_struct = module;
 
@@ -2482,7 +2482,8 @@ struct ndpi_proto ndpi_workflow_process_packet(
   const struct pcap_pkthdr *header,
   const u_char *packet,
   ndpi_risk *flow_risk,
-  struct ndpi_flow_info **flow)
+  struct ndpi_flow_info **flow,
+  int datalink_type)
 {
   /*
    * Declare pointers to packet headers
@@ -2557,6 +2558,7 @@ struct ndpi_proto ndpi_workflow_process_packet(
   workflow->last_time = time_ms;
 
   /*** check Data Link type ***/
+  /*
   int datalink_type;
 
 #ifdef USE_DPDK
@@ -2564,6 +2566,7 @@ struct ndpi_proto ndpi_workflow_process_packet(
 #else
   datalink_type = (int)pcap_datalink(workflow->pcap_handle);
 #endif
+  */
 
  datalink_check:
   // 20 for min iph and 8 for min UDP

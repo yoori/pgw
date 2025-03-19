@@ -385,7 +385,7 @@ typedef struct ndpi_workflow {
   void * flow_callback_userdata;
 
   /* outside referencies */
-  pcap_t *pcap_handle;
+  //pcap_t *pcap_handle;
 
   /* allocated by prefs */
   void **ndpi_flows_root;
@@ -399,7 +399,12 @@ typedef struct ndpi_workflow {
 
 
 /* TODO: remove wrappers parameters and use ndpi global, when their initialization will be fixed... */
-struct ndpi_workflow * ndpi_workflow_init(const struct ndpi_workflow_prefs * prefs, pcap_t * pcap_handle, int do_init_flows_root, ndpi_serialization_format serialization_format, struct ndpi_global_context *g_ctx);
+struct ndpi_workflow * ndpi_workflow_init(
+  const struct ndpi_workflow_prefs* prefs,
+  //pcap_t* pcap_handle,
+  int do_init_flows_root,
+  ndpi_serialization_format serialization_format,
+  struct ndpi_global_context* g_ctx);
 
 
 /* workflow main free function */
@@ -414,11 +419,14 @@ void ndpi_free_flow_info_half(struct ndpi_flow_info *flow);
 
 
 /* Process a packet and update the workflow  */
-struct ndpi_proto ndpi_workflow_process_packet(struct ndpi_workflow * workflow,
-					       const struct pcap_pkthdr *header,
-					       const u_char *packet,
-					       ndpi_risk *flow_risk,
-					       struct ndpi_flow_info **flow);
+struct ndpi_proto ndpi_workflow_process_packet(
+  struct ndpi_workflow* workflow,
+  const struct pcap_pkthdr* header,
+  const u_char* packet,
+  ndpi_risk* flow_risk,
+  struct ndpi_flow_info** flow,
+  int datalink_type
+  );
 
 
 /* Flow callback for completed flows, before the flow memory will be freed. */

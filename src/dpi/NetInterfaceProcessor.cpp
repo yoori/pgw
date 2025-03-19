@@ -36,12 +36,11 @@ namespace dpi
     }
   }
 
-  NetInterfaceProcessor::NetInterfaceProcessor(
+  // NetInterface impl
+  NetInterface::NetInterface(
     const char* interface_name,
-    unsigned int num_threads,
     unsigned int snaplen)
-    : interface_name_(interface_name),
-      num_threads_(num_threads)
+    : interface_name_(interface_name)
   {
     int promisc = 1;
     char pcap_error_buffer[PCAP_ERRBUF_SIZE];
@@ -73,26 +72,74 @@ namespace dpi
         std::string("Could not open interface '") +
         interface_name + "': " + pcap_error_buffer);
     }
+  }
+
+  NetInterface::~NetInterface() noexcept
+  {
+    if (pcap_handle_)
+    {
+      pcap_close(pcap_handle_);
+      pcap_handle_ = NULL;
+    }
+  }
+
+  pcap_t* NetInterface::pcap_handle() const
+  {
+    return pcap_handle_;
+  }
+
+  void NetInterface::send(const void* packet_buf, int packet_buf_size)
+  {
+    int ret = pcap_inject(pcap_handle_, packet_buf, packet_buf_size);
+
+    if (ret == PCAP_ERROR)
+    {
+      std::ostringstream ostr;
+      ostr << "Error on packet sending(size = " << packet_buf_size << "): " << pcap_geterr(pcap_handle_);
+      throw Exception(ostr.str());
+    }
+
+    if (ret < packet_buf_size)
+    {
+      std::ostringstream ostr;
+      ostr << "Error on packet sending, sent only part of packet: " << ret << "/" << packet_buf_size;
+      throw Exception(ostr.str());
+    }
+  }
+
+  bool NetInterface::live_capture() const
+  {
+    return live_capture_;
+  }
+
+  // NetInterfaceProcessor impl
+  NetInterfaceProcessor::NetInterfaceProcessor(
+    NetInterfacePtr interface,
+    unsigned int num_threads)
+    : interface_(std::move(interface)),
+      num_threads_(num_threads)
+  {
+    pcap_t* pcap_handle = interface_->pcap_handle();
 
     // configure bpf filter
-    if (pcap_handle_ && !bpf_filter_.empty())
+    if (pcap_handle && !bpf_filter_.empty())
     {
       if (!bpf_cfilter_)
       {
-        if (pcap_compile(pcap_handle_, &bpf_code_, bpf_filter_.c_str(), 1, 0xFFFFFF00) < 0)
+        if (pcap_compile(pcap_handle, &bpf_code_, bpf_filter_.c_str(), 1, 0xFFFFFF00) < 0)
         {
           throw Exception(
             std::string("Can't compile pbf filter '") +
-            bpf_filter_ + "': " + pcap_geterr(pcap_handle_));
+            bpf_filter_ + "': " + pcap_geterr(pcap_handle));
         }
 
         bpf_cfilter_ = &bpf_code_;
       }
 
-      if (pcap_setfilter(pcap_handle_, bpf_cfilter_) < 0)
+      if (pcap_setfilter(pcap_handle, bpf_cfilter_) < 0)
       {
         throw Exception(
-          std::string("Can't set pbf filter: ") + pcap_geterr(pcap_handle_));
+          std::string("Can't set pbf filter: ") + pcap_geterr(pcap_handle));
       }
     }
   }
@@ -104,16 +151,6 @@ namespace dpi
       pcap_freecode(bpf_cfilter_);
       bpf_cfilter_ = 0;
     }
-  }
-
-  bool NetInterfaceProcessor::live_capture() const
-  {
-    return live_capture_;
-  }
-
-  pcap_t* NetInterfaceProcessor::pcap_handle() const
-  {
-    return pcap_handle_;
   }
 
   void NetInterfaceProcessor::activate_object_()
@@ -128,9 +165,11 @@ namespace dpi
 
   void NetInterfaceProcessor::deactivate_object_()
   {
-    if (pcap_handle_)
+    pcap_t* pcap_handle = interface_->pcap_handle();
+
+    if (pcap_handle)
     {
-      pcap_breakloop(pcap_handle_);
+      pcap_breakloop(pcap_handle);
     }
   }
 
@@ -139,12 +178,6 @@ namespace dpi
     for (const auto& thread_ptr : threads_)
     {
       thread_ptr->join();
-    }
-
-    if (pcap_handle_)
-    {
-      pcap_close(pcap_handle_);
-      pcap_handle_ = NULL;
     }
   }
 
@@ -178,9 +211,11 @@ namespace dpi
     }
 #endif
 
-    if (pcap_handle_)
+    pcap_t* pcap_handle = interface_->pcap_handle();
+
+    if (pcap_handle)
     {
-      int datalink_type = pcap_datalink(pcap_handle_);
+      int datalink_type = pcap_datalink(pcap_handle);
 
       if (!ndpi_is_datalink_supported(datalink_type))
       {
@@ -194,7 +229,7 @@ namespace dpi
       processing_context.thread_i = thread_i;
 
       int ret = pcap_loop(
-        pcap_handle_,
+        pcap_handle,
         -1,
         &NetInterfaceProcessor::ndpi_process_packet_,
         (u_char*)&processing_context);
@@ -202,28 +237,9 @@ namespace dpi
       if (ret == -1)
       {
         std::ostringstream ostr;
-        ostr << "Error while reading pcap file: " << pcap_geterr(pcap_handle_);
+        ostr << "Error while reading pcap file: " << pcap_geterr(pcap_handle);
         throw Exception(ostr.str());
       }
-    }
-  }
-
-  void NetInterfaceProcessor::send(const void* packet_buf, int packet_buf_size)
-  {
-    int ret = pcap_inject(pcap_handle_, packet_buf, packet_buf_size);
-
-    if (ret == PCAP_ERROR)
-    {
-      std::ostringstream ostr;
-      ostr << "Error on packet sending(size = " << packet_buf_size << "): " << pcap_geterr(pcap_handle_);
-      throw Exception(ostr.str());
-    }
-
-    if (ret < packet_buf_size)
-    {
-      std::ostringstream ostr;
-      ostr << "Error on packet sending, sent only part of packet: " << ret << "/" << packet_buf_size;
-      throw Exception(ostr.str());
     }
   }
 

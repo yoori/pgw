@@ -19,44 +19,71 @@ namespace dpi
     event_logger_.swap(event_logger);
   }
 
-  void
+  UserPtr
   UserStorage::add_user(std::string_view msisdn, uint32_t ip)
   {
     log_event_(
       std::string("add user msisdn = ") +
       std::string(msisdn) + ", ip = " + ipv4_address_to_string(ip));
 
-    auto new_user = std::make_shared<User>(std::string(msisdn));
-    new_user->set_ip(ip);
-
-    std::unique_lock lock{lock_};
-    remove_user_i_(new_user->msisdn());
-    add_user_i_(new_user);
-  }
-
-  void
-  UserStorage::remove_user(std::string_view msisdn)
-  {
     std::string msisdn_val(msisdn);
+    UserPtr added_user;
+
     std::unique_lock lock{lock_};
-    remove_user_i_(msisdn_val);
-  }
 
-  void
-  UserStorage::add_user_i_(UserPtr new_user)
-  {
-    users_by_ip_.emplace(new_user->ip(), new_user);
-    users_by_msisdn_.emplace(new_user->msisdn(), new_user);
-  }
-
-  void
-  UserStorage::remove_user_i_(const std::string& msisdn_val)
-  {
     auto it = users_by_msisdn_.find(msisdn_val);
     if (it != users_by_msisdn_.end())
     {
-      users_by_ip_.erase(it->second->ip());
-      users_by_msisdn_.erase(it);
+      added_user = it->second;
+      uint32_t prev_ip = added_user->ip();
+
+      if (prev_ip != ip && ip != 0)
+        // don't change ip if it is defined
+      {
+        if (prev_ip != 0)
+        {
+          users_by_ip_.erase(prev_ip);
+        }
+
+        if (ip != 0)
+        {
+          users_by_ip_.emplace(ip, added_user);
+        }
+
+        added_user->set_ip(ip);
+      }
+    }
+    else
+    {
+      added_user = std::make_shared<User>(msisdn_val, ip);
+
+      if (ip != 0)
+      {
+        users_by_ip_.emplace(ip, added_user);
+      }
+
+      users_by_msisdn_.emplace(msisdn_val, added_user);
+    }
+
+    return added_user;
+  }
+
+  void
+  UserStorage::reset_user_ip(std::string_view msisdn)
+  {
+    std::string msisdn_val(msisdn);
+
+    std::unique_lock lock{lock_};
+
+    auto it = users_by_msisdn_.find(msisdn_val);
+    if (it != users_by_msisdn_.end())
+    {
+      uint32_t prev_ip = it->second->ip();
+
+      if (prev_ip != 0)
+      {
+        users_by_ip_.erase(prev_ip);
+      }
     }
   }
 

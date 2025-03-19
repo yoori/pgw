@@ -23,6 +23,7 @@
 	"destination-host": "dra01.msk.epc.mnc050.mcc250.3gppnetwork.org"
     },
     "dpi_interface": "eno1",
+    "dpi_interface2": "eno2",
     "processing_log_file": "/home/jurij_kuznecov/projects/telecom-gateway/build/processing.log",
     "event_log_file": "/home/jurij_kuznecov/projects/telecom-gateway/build/event.log"
 }

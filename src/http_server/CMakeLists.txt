@@ -3,6 +3,7 @@ add_library(http_server
   Utils.cpp
   UserGetHttpResource.cpp
   UserAddHttpResource.cpp
+  UserBlockHttpResource.cpp
   )
 
 target_link_libraries(http_server

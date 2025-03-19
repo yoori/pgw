@@ -36,11 +36,11 @@
 #include "ReaderUtil.hpp"
 #include "PacketProcessor.hpp"
 #include "Config.hpp"
-#include "DPIRunner.hpp"
+#include "NDPIPacketProcessor.hpp"
 #include "DPIPrintUtils.hpp"
 #include "DPIUtils.hpp"
 
-dpi::PacketProcessorPtr packet_processor;
+//dpi::PacketProcessorPtr packet_processor;
 
 #define ntohl64(x) ( ( (uint64_t)(ntohl( (uint32_t)((x << 32) >> 32) )) << 32) | ntohl( ((uint32_t)(x >> 32)) ) )
 #define htonl64(x) ntohl64(x)
@@ -57,6 +57,7 @@ const char *_pcap_file[MAX_NUM_READER_THREADS]; /**< Ingress pcap file/interface
 #ifndef USE_DPDK
 static FILE *playlist_fp[MAX_NUM_READER_THREADS] = { NULL }; /**< Ingress playlist */
 #endif
+
 static char *results_path           = NULL;
 //static char * bpfFilter             = NULL; /**< bpf filter  */
 static char *_protoFilePath         = NULL; /**< Protocol file path */
@@ -71,17 +72,14 @@ static ndpi_serialization_format serialization_format = ndpi_serialization_forma
 static char* domain_to_check = NULL;
 static char* ip_port_to_check = NULL;
 static u_int8_t ignore_vlanid = 0;
-FILE *fingerprint_fp         = NULL; /**< for flow fingerprint export */
+FILE* fingerprint_fp = NULL; /**< for flow fingerprint export */
+
 #ifdef __linux__
-static char *bind_mask = NULL;
+static char* bind_mask = NULL;
 #endif
 #define MAX_FARGS 64
 static char* fargv[MAX_FARGS];
 static int fargc = 0;
-
-#ifdef CUSTOM_NDPI_PROTOCOLS
-#include "../../nDPI-custom/ndpiReader_defs.c"
-#endif
 
 /** User preferences **/
 char* addr_dump_path = NULL;
@@ -94,6 +92,7 @@ struct cfg {
   char *param;
   char *value;
 };
+
 #define MAX_NUM_CFGS 32
 static struct cfg cfgs[MAX_NUM_CFGS];
 static int num_cfgs = 0;
@@ -139,7 +138,8 @@ struct ndpi_packet_tlv {
 };
 
 PACK_ON
-struct ndpi_packet_trailer {
+struct ndpi_packet_trailer
+{
   u_int32_t magic; /* WIRESHARK_NTOP_MAGIC */
   ndpi_master_app_protocol proto;
   char name[16];
@@ -169,12 +169,12 @@ typedef struct ndpi_id {
 } ndpi_id_t;
 
 // used memory counters
-static u_int32_t current_ndpi_memory = 0, max_ndpi_memory = 0;
+static u_int32_t current_ndpi_memory = 0;
+static u_int32_t max_ndpi_memory = 0;
+
 #ifdef USE_DPDK
 static int dpdk_port_id = 0, dpdk_run_capture = 1;
 #endif
-
-void test_lib(); /* Forward */
 
 extern int parse_proto_name_list(
   char *str,
@@ -186,12 +186,17 @@ extern u_int8_t is_ndpi_proto(
 
 u_int32_t reader_slot_malloc_bins(u_int64_t v)
 {
-  int i;
-
   /* 0-2,3-4,5-8,9-16,17-32,33-64,65-128,129-256,257-512,513-1024,1025-2048,2049-4096,4097-8192,8193- */
-  for (i=0; i < max_malloc_bins - 1; i++)
+  int i = 0;
+
+  for (; i < max_malloc_bins - 1; i++)
+  {
     if ((1ULL << (i + 1)) >= v)
+    {
       return i;
+    }
+  }
+
   return i;
 }
 
@@ -200,10 +205,14 @@ void* ndpi_malloc_wrapper(size_t size)
   current_ndpi_memory += size;
 
   if (current_ndpi_memory > max_ndpi_memory)
+  {
     max_ndpi_memory = current_ndpi_memory;
+  }
 
   if (enable_malloc_bins && malloc_size_stats)
+  {
     ndpi_inc_bin(&malloc_bins, reader_slot_malloc_bins(size), 1);
+  }
 
   return malloc(size); // Don't change to ndpi_malloc !!!!!
 }
@@ -212,7 +221,6 @@ void free_wrapper(void *freeable)
 {
   free(freeable); /* Don't change to ndpi_free !!!!! */
 }
-
 
 static u_int8_t doh_centroids[NUM_DOH_BINS][PLEN_NUM_BINS] = {
   { 23,25,3,0,26,0,0,0,0,0,0,0,0,0,2,0,0,15,3,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 },
@@ -230,140 +238,6 @@ void init_doh_bins()
   }
 }
 
-void ndpi_check_host_string_match(char *testChar)
-{
-  ndpi_protocol_match_result match = {
-    NDPI_PROTOCOL_UNKNOWN,
-    NDPI_PROTOCOL_CATEGORY_UNSPECIFIED, NDPI_PROTOCOL_UNRATED
-  };
-  int  testRes;
-  char appBufStr[64];
-  ndpi_protocol detected_protocol;
-  struct ndpi_detection_module_struct *ndpi_str;
-  NDPI_PROTOCOL_BITMASK all;
-
-  if (!testChar)
-    return;
-
-  ndpi_str = ndpi_init_detection_module(NULL);
-  NDPI_BITMASK_SET_ALL(all);
-  ndpi_set_protocol_detection_bitmask2(ndpi_str, &all);
-  ndpi_finalize_initialization(ndpi_str);
-
-  testRes = ndpi_match_string_subprotocol(ndpi_str,
-    testChar, strlen(testChar), &match);
-
-  if (testRes)
-  {
-    ::memset(&detected_protocol, 0, sizeof(ndpi_protocol));
-
-    detected_protocol.proto.app_protocol = match.protocol_id;
-    detected_protocol.proto.master_protocol = 0;
-    detected_protocol.category = match.protocol_category;
-
-    ndpi_protocol2name(ndpi_str, detected_protocol, appBufStr, sizeof(appBufStr));
-
-    printf("Match Found for string [%s] -> P(%d) B(%d) C(%d) => %s %s %s\n",
-      testChar, match.protocol_id, match.protocol_breed,
-      match.protocol_category,
-      appBufStr,
-      ndpi_get_proto_breed_name(match.protocol_breed ),
-      ndpi_category_get_name(ndpi_str, match.protocol_category));
-  }
-  else
-  {
-    printf("Match NOT Found for string: %s\n\n", testChar );
-  }
-  
-  ndpi_exit_detection_module(ndpi_str);
-}
-
-
-void ndpi_check_ip_match(char* testChar)
-{
-  struct ndpi_detection_module_struct *ndpi_str;
-  u_int16_t ret = NDPI_PROTOCOL_UNKNOWN;
-  u_int16_t port = 0;
-  char *saveptr, *ip_str, *port_str;
-  struct in_addr addr;
-  char appBufStr[64];
-  ndpi_protocol detected_protocol;
-  int i;
-  ndpi_cfg_error rc;
-  NDPI_PROTOCOL_BITMASK all;
-
-  if (!testChar)
-    return;
-
-  ndpi_str = ndpi_init_detection_module(NULL);
-  NDPI_BITMASK_SET_ALL(all);
-  ndpi_set_protocol_detection_bitmask2(ndpi_str, &all);
-
-  if (_protoFilePath != NULL)
-    ndpi_load_protocols_file(ndpi_str, _protoFilePath);
-
-  for (i = 0; i < num_cfgs; i++)
-  {
-    rc = ndpi_set_config(ndpi_str, cfgs[i].proto, cfgs[i].param, cfgs[i].value);
-
-    if (rc != NDPI_CFG_OK)
-    {
-      fprintf(stderr, "Error setting config [%s][%s][%s]: %s (%d)\n",
-	      (cfgs[i].proto != NULL ? cfgs[i].proto : ""),
-	      cfgs[i].param, cfgs[i].value, ndpi_cfg_error2string(rc), rc);
-      exit(-1);
-    }
-  }
-
-  ndpi_finalize_initialization(ndpi_str);
-
-  ip_str = strtok_r(testChar, ":", &saveptr);
-  if (!ip_str)
-  {
-    return;
-  }
-
-  addr.s_addr = inet_addr(ip_str);
-  port_str = strtok_r(NULL, "\n", &saveptr);
-  if (port_str)
-  {
-    port = atoi(port_str);
-  }
-
-  ret = ndpi_network_port_ptree_match(ndpi_str, &addr, htons(port));
-
-  if (ret != NDPI_PROTOCOL_UNKNOWN)
-  {
-    memset(&detected_protocol, 0, sizeof(ndpi_protocol));
-    detected_protocol.proto.app_protocol = ndpi_map_ndpi_id_to_user_proto_id(ndpi_str, ret);
-
-    ndpi_protocol2name(
-      ndpi_str, detected_protocol, appBufStr,
-      sizeof(appBufStr));
-
-    printf("Match Found for IP %s, port %d -> %s (%d)\n",
-      ip_str, port, appBufStr, detected_protocol.proto.app_protocol);
-  }
-  else
-  {
-    printf("Match NOT Found for IP: %s\n", testChar);
-  }
-
-  ndpi_exit_detection_module(ndpi_str);
-}
-
-/**
- * @brief Set main components necessary to the detection
- */
-void setup_detection(
-  DPIHandleHolder::Info& dpi_handle_info,
-  u_int16_t thread_id,
-  pcap_t* pcap_handle,
-  struct ndpi_global_context *g_ctx);
-
-/**
- * @brief Print help instructions
- */
 void help(u_int long_help)
 {
   printf("dpi_server "
@@ -1420,248 +1294,104 @@ void on_protocol_discovered(
   }
 }
 
-void setup_detection(
-  DPIHandleHolder::Info& dpi_handle_info,
-  u_int16_t thread_id,
-  pcap_t* pcap_handle,
-  struct ndpi_global_context* g_ctx)
+void bpf_filter_port_array_init(int array[], int size)
 {
-  NDPI_PROTOCOL_BITMASK enabled_bitmask;
-  struct ndpi_workflow_prefs prefs;
-  int i, ret;
-  ndpi_cfg_error rc;
-
-  memset(&prefs, 0, sizeof(prefs));
-  prefs.decode_tunnels = decode_tunnels;
-  prefs.num_roots = NUM_ROOTS;
-  prefs.max_ndpi_flows = MAX_NDPI_FLOWS;
-  prefs.quiet_mode = quiet_mode;
-  prefs.ignore_vlanid = ignore_vlanid;
-
-  memset(
-    &dpi_handle_info.ndpi_thread_info[thread_id],
-    0,
-    sizeof(dpi_handle_info.ndpi_thread_info[thread_id]));
-  dpi_handle_info.ndpi_thread_info[thread_id].workflow = ndpi_workflow_init(
-    &prefs,
-    pcap_handle,
-    1,
-    serialization_format,
-    g_ctx);
-
-  // Protocols to enable/disable. Default: everything is enabled
-  NDPI_BITMASK_SET_ALL(enabled_bitmask);
-  if (_disabled_protocols != NULL)
+  for (int i = 0; i < size; i++)
   {
-    if (parse_proto_name_list(_disabled_protocols, &enabled_bitmask, 1))
-    {
-      exit(-1);
-    }
-  }
-
-  if (_categoriesDirPath)
-  {
-    int failed_files = ndpi_load_categories_dir(
-      dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
-      _categoriesDirPath);
-    if (failed_files < 0)
-    {
-      fprintf(stderr, "Failed to parse all *.list files in: %s\n", _categoriesDirPath);
-      exit(-1);
-    }
-  }
-
-  if (_domain_suffixes)
-  {
-    ndpi_load_domain_suffixes(
-      dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
-      _domain_suffixes);
-  }
-
-  if (_riskyDomainFilePath)
-  {
-    ndpi_load_risk_domain_file(
-      dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
-      _riskyDomainFilePath);
-  }
-
-  if (_maliciousJA4Path)
-  {
-    ndpi_load_malicious_ja4_file(
-      dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
-      _maliciousJA4Path);
-  }
-
-  if (_maliciousSHA1Path)
-  {
-    ndpi_load_malicious_sha1_file(
-      dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
-      _maliciousSHA1Path);
-  }
-
-  if (_customCategoryFilePath)
-  {
-    char* label = strrchr(_customCategoryFilePath, '/');
-
-    if (label != NULL)
-    {
-      label = &label[1];
-    }
-    else
-    {
-      label = _customCategoryFilePath;
-    }
-
-    int failed_lines = ndpi_load_categories_file(
-      dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
-      _customCategoryFilePath,
-      label);
-    if (failed_lines < 0)
-    {
-      fprintf(stderr, "Failed to parse custom categories file: %s\n", _customCategoryFilePath);
-      exit(-1);
-    }
-  }
-
-  dpi_handle_info.ndpi_thread_info[thread_id].workflow->g_ctx = g_ctx;
-
-  ndpi_workflow_set_flow_callback(
-    dpi_handle_info.ndpi_thread_info[thread_id].workflow,
-    on_protocol_discovered,
-    NULL);
-
-  // make sure to load lists before finalizing the initialization
-  ndpi_set_protocol_detection_bitmask2(
-    dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
-    &enabled_bitmask);
-
-  if (_protoFilePath != NULL)
-  {
-    ndpi_load_protocols_file(
-      dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
-      _protoFilePath);
-  }
-
-  ndpi_set_config(
-    dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
-    NULL,
-    "tcp_ack_payload_heuristic",
-    "enable");
-
-  for (i = 0; i < num_cfgs; i++)
-  {
-    rc = ndpi_set_config(
-      dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
-      cfgs[i].proto,
-      cfgs[i].param,
-      cfgs[i].value);
-
-    if (rc != NDPI_CFG_OK)
-    {
-      fprintf(stderr, "Error setting config [%s][%s][%s]: %s (%d)\n",
-	(cfgs[i].proto != NULL ? cfgs[i].proto : ""),
-	cfgs[i].param, cfgs[i].value, ndpi_cfg_error2string(rc), rc);
-      exit(-1);
-    }
-  }
-
-  if (enable_doh_dot_detection)
-  {
-    ndpi_set_config(
-      dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
-      "tls",
-      "application_blocks_tracking",
-      "enable");
-  }
-
-  if (addr_dump_path != NULL)
-  {
-    ndpi_cache_address_restore(
-      dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
-      addr_dump_path,
-      0);
-  }
-
-  ret = ndpi_finalize_initialization(
-    dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct);
-
-  if (ret != 0)
-  {
-    fprintf(stderr, "Error ndpi_finalize_initialization: %d\n", ret);
-    exit(-1);
-  }
-
-  char buf[16];
-  if (ndpi_get_config(
-    dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
-    "stun",
-    "monitoring",
-    buf,
-    sizeof(buf)) != NULL)
-  {
-    if (atoi(buf))
-    {
-      monitoring_enabled = 1;
-    }
+    array[i] = INIT_VAL;
   }
 }
 
-void terminate_detection(
-  DPIHandleHolder::Info& dpi_handle_info,
-  u_int16_t thread_id)
+void bpf_filter_host_array_init(const char *array[48], int size)
 {
-  ndpi_workflow_free(dpi_handle_info.ndpi_thread_info[thread_id].workflow);
-  dpi_handle_info.ndpi_thread_info[thread_id].workflow = NULL;
+  for (int i = 0; i < size; i++)
+  {
+    array[i] = NULL;
+  }
 }
 
-void sigproc(int)
+void bpf_filter_host_array_add(const char *filter_array[48], int size, const char *host)
 {
-  static int called = 0;
-
-  if (called)
+  for (int i = 0; i < size; ++i)
   {
-    return;
+    if (filter_array[i] != NULL && strcmp(filter_array[i], host) == 0)
+    {
+      return;
+    }
+
+    if (filter_array[i] == NULL)
+    {
+      filter_array[i] = host;
+      return;
+    }
   }
 
-  called = 1;
-
-  DPIHandleHolder::InfoPtr dpi_handle_info;
-  std::shared_ptr<Gears::ActiveObject> interrupter;
-
-  {
-    std::unique_lock lock{dpi_handle_holder.lock};
-    dpi_handle_info = dpi_handle_holder.info; //< Don't reset ptr - now code isn't ready.
-    interrupter = dpi_handle_holder.interrupter;
-  }
-
-  interrupter->deactivate_object();
+  exit(-1);
 }
 
-class DPIProcessor: public dpi::NetInterfaceProcessor
-{
-public:
-  DPIProcessor(const char* interface_name, unsigned int threads = 1)
-    : NetInterfaceProcessor(interface_name, threads)
-  {}
 
-protected:
-  virtual void process_packet(
+void bpf_filter_port_array_add(int filter_array[], int size, int port)
+{
+  for (int i = 0; i < size; ++i)
+  {
+    if (filter_array[i] == port)
+    {
+      return;
+    }
+
+    if (filter_array[i] == INIT_VAL)
+    {
+      filter_array[i] = port;
+      return;
+    }
+  }
+
+  exit(-1);
+}
+
+namespace dpi
+{
+  NDPIPacketProcessor::NDPIPacketProcessor(
+    std::string_view config_path,
+    PacketProcessorPtr packet_processor,
+    int datalink_type)
+    : config_path_(config_path),
+      packet_processor_(std::move(packet_processor)),
+      datalink_type_(datalink_type)
+  {
+    init_();
+    init_ndpi_();
+  }
+
+  NDPIPacketProcessor::~NDPIPacketProcessor() noexcept
+  {
+    clear_ndpi_();
+    clear_();
+  }
+
+  bool NDPIPacketProcessor::process_packet(
+    const struct pcap_pkthdr* header,
+    const void* packet)
+  {
+    return process_packet_(0, header, packet);
+  }
+
+  bool NDPIPacketProcessor::process_packet_(
     unsigned int thread_id,
     const struct pcap_pkthdr* header,
-    const u_char* packet)
-    override
+    const void* packet)
   {
     // allocate an exact size buffer to check overflows
     uint8_t* packet_checked = (uint8_t*)ndpi_malloc(header->caplen);
 
     if (packet_checked == NULL)
     {
-      return;
+      return true;
     }
 
     ::memcpy(packet_checked, packet, header->caplen);
 
-    DPIHandleHolder::Info& dpi_handle_info = *dpi_handle_holder.info;
+    DPIHandleHolder::Info& dpi_handle_info = *dpi_handle_holder_.info;
 
     ndpi_risk flow_risk;
     struct ndpi_flow_info* flow;
@@ -1670,7 +1400,8 @@ protected:
       header,
       packet_checked,
       &flow_risk,
-      &flow);
+      &flow,
+      datalink_type_);
 
     if (!pcap_start.tv_sec)
     {
@@ -1681,7 +1412,7 @@ protected:
     pcap_end.tv_sec = header->ts.tv_sec;
     pcap_end.tv_usec = header->ts.tv_usec;
 
-    packet_processor->process_packet(
+    bool res = packet_processor_->process_packet(
       dpi_handle_info.ndpi_thread_info[thread_id].workflow,
       flow,
       header);
@@ -1875,8 +1606,6 @@ protected:
       setup_time_usec = (u_int64_t)begin.tv_sec*1000000 + begin.tv_usec -
         ((u_int64_t)startup_time.tv_sec*1000000 + startup_time.tv_usec);
 
-      print_results(processing_time_usec, setup_time_usec);
-
       for (unsigned int i = 0;
         i < dpi_handle_info.ndpi_thread_info[thread_id].workflow->prefs.num_roots; ++i)
       {
@@ -1902,74 +1631,17 @@ protected:
       ndpi_free(packet_checked);
       packet_checked = NULL;
     }
-  }
-};
 
-void bpf_filter_port_array_init(int array[], int size)
-{
-  for (int i = 0; i < size; i++)
+    return res;
+  }
+
+  void
+  NDPIPacketProcessor::set_datalink_type(int datalink_type)
   {
-    array[i] = INIT_VAL;
-  }
-}
-
-void bpf_filter_host_array_init(const char *array[48], int size)
-{
-  for (int i = 0; i < size; i++)
-  {
-    array[i] = NULL;
-  }
-}
-
-void bpf_filter_host_array_add(const char *filter_array[48], int size, const char *host)
-{
-  for (int i = 0; i < size; ++i)
-  {
-    if (filter_array[i] != NULL && strcmp(filter_array[i], host) == 0)
-    {
-      return;
-    }
-
-    if (filter_array[i] == NULL)
-    {
-      filter_array[i] = host;
-      return;
-    }
+    datalink_type_ = datalink_type;
   }
 
-  exit(-1);
-}
-
-
-void bpf_filter_port_array_add(int filter_array[], int size, int port)
-{
-  for (int i = 0; i < size; ++i)
-  {
-    if (filter_array[i] == port)
-    {
-      return;
-    }
-
-    if (filter_array[i] == INIT_VAL)
-    {
-      filter_array[i] = port;
-      return;
-    }
-  }
-
-  exit(-1);
-}
-
-namespace dpi
-{
-  DPIRunner::DPIRunner(
-    std::string_view config_path,
-    PacketProcessorPtr packet_processor)
-    : config_path_(config_path),
-      packet_processor_(std::move(packet_processor))
-  {}
-
-  void DPIRunner::run_()
+  void NDPIPacketProcessor::init_()
   {
     std::string_view config_path = config_path_;
 
@@ -2011,92 +1683,10 @@ namespace dpi
         num_bin_clusters = 1;
       }
     }
-
-    signal(SIGINT, sigproc);
-
-    main_loop_();
-
-    if (results_path)
-    {
-      ndpi_free(results_path);
-    }
-
-    if (extcap_dumper)
-    {
-      pcap_dump_close(extcap_dumper);
-    }
-
-    if (extcap_fifo_h)
-    {
-      pcap_close(extcap_fifo_h);
-    }
-
-    if (enable_malloc_bins)
-    {
-      ndpi_free_bin(&malloc_bins);
-    }
-
-    if (csv_fp)
-    {
-      fclose(csv_fp);
-    }
-
-    if (fingerprint_fp)
-    {
-      fclose(fingerprint_fp);
-    }
-
-    ndpi_free(_disabled_protocols);
-
-    for (i = 0; i < num_cfgs; i++)
-    {
-      ndpi_free(cfgs[i].proto);
-      ndpi_free(cfgs[i].param);
-      ndpi_free(cfgs[i].value);
-    }
-
-    for (i = 0; i < fargc; i++)
-    {
-      ndpi_free(fargv[i]);
-    }
   }
 
-  void
-  DPIRunner::activate_object()
+  void NDPIPacketProcessor::init_ndpi_()
   {
-    packet_processor = packet_processor_;
-    thread_.reset(new std::thread(&DPIRunner::run_, this));
-    Gears::SimpleActiveObject::activate_object();
-  }
-
-  void
-  DPIRunner::deactivate_object()
-  {
-    Gears::SimpleActiveObject::deactivate_object();
-    if (thread_)
-    {
-      sigproc(SIGINT);
-    }
-  }
-
-  void
-  DPIRunner::wait_object()
-  {
-    if(thread_)
-    {
-      thread_->join();
-      thread_.reset();
-    }
-
-    Gears::SimpleActiveObject::deactivate_object();
-    Gears::SimpleActiveObject::wait_object();
-  }
-
-  void DPIRunner::main_loop_()
-  {
-    u_int64_t processing_time_usec, setup_time_usec;
-    struct ndpi_global_context* g_ctx;
-
     set_ndpi_malloc(ndpi_malloc_wrapper);
     set_ndpi_free(free_wrapper);
     set_ndpi_flow_malloc(NULL);
@@ -2105,10 +1695,10 @@ namespace dpi
 #ifndef USE_GLOBAL_CONTEXT
     // ndpiReader works even if libnDPI has been compiled without global context support,
     // but you can't configure any cache with global scope
-    g_ctx = NULL;
+    g_ctx_ = NULL;
 #else
-    g_ctx = ndpi_global_init();
-    if (!g_ctx)
+    g_ctx_ = ndpi_global_init();
+    if (!g_ctx_)
     {
       fprintf(stderr, "Error ndpi_global_init\n");
       exit(-1);
@@ -2123,42 +1713,227 @@ namespace dpi
       0,
       sizeof(dpi_handle_info->ndpi_thread_info));
 
-    std::shared_ptr<Gears::CompositeActiveObject> composite_active_object =
-      std::make_shared<Gears::CompositeActiveObject>();
+    dpi_handle_holder_.info = dpi_handle_info;
 
-    for (long thread_id = 0; thread_id < num_threads; ++thread_id)
+    setup_detection_(*dpi_handle_info, 0 /*thread_id*/, g_ctx_);
+  }
+
+  void NDPIPacketProcessor::clear_ndpi_()
+  {
+    terminate_detection_(*dpi_handle_holder_.info, 0 /*thread_id*/);
+
+    ndpi_global_deinit(g_ctx_);
+  }
+
+  void NDPIPacketProcessor::setup_detection_(
+    DPIHandleHolder::Info& dpi_handle_info,
+    u_int16_t thread_id,
+    struct ndpi_global_context* g_ctx)
+  {
+    NDPI_PROTOCOL_BITMASK enabled_bitmask;
+    struct ndpi_workflow_prefs prefs;
+    int i, ret;
+    ndpi_cfg_error rc;
+
+    memset(&prefs, 0, sizeof(prefs));
+    prefs.decode_tunnels = decode_tunnels;
+    prefs.num_roots = NUM_ROOTS;
+    prefs.max_ndpi_flows = MAX_NDPI_FLOWS;
+    prefs.quiet_mode = quiet_mode;
+    prefs.ignore_vlanid = ignore_vlanid;
+
+    memset(
+      &dpi_handle_info.ndpi_thread_info[thread_id],
+      0,
+      sizeof(dpi_handle_info.ndpi_thread_info[thread_id]));
+    dpi_handle_info.ndpi_thread_info[thread_id].workflow = ndpi_workflow_init(
+      &prefs,
+      1,
+      serialization_format,
+      g_ctx);
+
+    // Protocols to enable/disable. Default: everything is enabled
+    NDPI_BITMASK_SET_ALL(enabled_bitmask);
+    if (_disabled_protocols != NULL)
     {
-      auto read_device = std::make_shared<DPIProcessor>(_pcap_file[thread_id], 1);
-      setup_detection(*dpi_handle_info, thread_id, read_device->pcap_handle(), g_ctx);
-      composite_active_object->add_child_object(read_device);
+      if (parse_proto_name_list(_disabled_protocols, &enabled_bitmask, 1))
+      {
+        exit(-1);
+      }
     }
 
-    // publish
+    if (_categoriesDirPath)
     {
-      std::unique_lock lock{dpi_handle_holder.lock};
-      dpi_handle_holder.info = dpi_handle_info;
-      dpi_handle_holder.interrupter = composite_active_object;
+      int failed_files = ndpi_load_categories_dir(
+        dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
+        _categoriesDirPath);
+      if (failed_files < 0)
+      {
+        fprintf(stderr, "Failed to parse all *.list files in: %s\n", _categoriesDirPath);
+        exit(-1);
+      }
     }
 
-    gettimeofday(&begin, NULL);
-
-    composite_active_object->activate_object();
-    composite_active_object->wait_object();
-
-    gettimeofday(&end, NULL);
-    processing_time_usec = (u_int64_t)end.tv_sec*1000000 + end.tv_usec -
-      ((u_int64_t)begin.tv_sec*1000000 + begin.tv_usec);
-    setup_time_usec = (u_int64_t)begin.tv_sec*1000000 + begin.tv_usec -
-      ((u_int64_t)startup_time.tv_sec*1000000 + startup_time.tv_usec);
-
-    // printing cumulative results
-    //print_results(processing_time_usec, setup_time_usec);
-
-    for (long thread_id = 0; thread_id < num_threads; thread_id++)
+    if (_domain_suffixes)
     {
-      terminate_detection(*dpi_handle_info, thread_id);
+      ndpi_load_domain_suffixes(
+        dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
+        _domain_suffixes);
     }
 
-    ndpi_global_deinit(g_ctx);
+    if (_riskyDomainFilePath)
+    {
+      ndpi_load_risk_domain_file(
+        dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
+        _riskyDomainFilePath);
+    }
+
+    if (_maliciousJA4Path)
+    {
+      ndpi_load_malicious_ja4_file(
+        dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
+        _maliciousJA4Path);
+    }
+
+    if (_maliciousSHA1Path)
+    {
+      ndpi_load_malicious_sha1_file(
+        dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
+        _maliciousSHA1Path);
+    }
+
+    if (_customCategoryFilePath)
+    {
+      char* label = strrchr(_customCategoryFilePath, '/');
+
+      if (label != NULL)
+      {
+        label = &label[1];
+      }
+      else
+      {
+        label = _customCategoryFilePath;
+      }
+
+      int failed_lines = ndpi_load_categories_file(
+        dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
+        _customCategoryFilePath,
+        label);
+      if (failed_lines < 0)
+      {
+        fprintf(stderr, "Failed to parse custom categories file: %s\n", _customCategoryFilePath);
+        exit(-1);
+      }
+    }
+
+    dpi_handle_info.ndpi_thread_info[thread_id].workflow->g_ctx = g_ctx;
+
+    ndpi_workflow_set_flow_callback(
+      dpi_handle_info.ndpi_thread_info[thread_id].workflow,
+      on_protocol_discovered,
+      NULL);
+
+    // make sure to load lists before finalizing the initialization
+    ndpi_set_protocol_detection_bitmask2(
+      dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
+      &enabled_bitmask);
+
+    if (_protoFilePath != NULL)
+    {
+      ndpi_load_protocols_file(
+        dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
+        _protoFilePath);
+    }
+
+    ndpi_set_config(
+      dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
+      NULL,
+      "tcp_ack_payload_heuristic",
+      "enable");
+
+    for (i = 0; i < num_cfgs; i++)
+    {
+      rc = ndpi_set_config(
+        dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
+        cfgs[i].proto,
+        cfgs[i].param,
+        cfgs[i].value);
+
+      if (rc != NDPI_CFG_OK)
+      {
+        fprintf(stderr, "Error setting config [%s][%s][%s]: %s (%d)\n",
+          (cfgs[i].proto != NULL ? cfgs[i].proto : ""),
+          cfgs[i].param, cfgs[i].value, ndpi_cfg_error2string(rc), rc);
+        exit(-1);
+      }
+    }
+
+    if (enable_doh_dot_detection)
+    {
+      ndpi_set_config(
+        dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
+        "tls",
+        "application_blocks_tracking",
+        "enable");
+    }
+
+    if (addr_dump_path != NULL)
+    {
+      ndpi_cache_address_restore(
+        dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
+        addr_dump_path,
+        0);
+    }
+
+    ret = ndpi_finalize_initialization(
+      dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct);
+
+    if (ret != 0)
+    {
+      fprintf(stderr, "Error ndpi_finalize_initialization: %d\n", ret);
+      exit(-1);
+    }
+
+    char buf[16];
+    if (ndpi_get_config(
+      dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
+      "stun",
+      "monitoring",
+      buf,
+      sizeof(buf)) != NULL)
+    {
+      if (atoi(buf))
+      {
+        monitoring_enabled = 1;
+      }
+    }
+  }
+
+  void NDPIPacketProcessor::terminate_detection_(
+    DPIHandleHolder::Info& dpi_handle_info,
+    u_int16_t thread_id)
+  {
+    ndpi_workflow_free(dpi_handle_info.ndpi_thread_info[thread_id].workflow);
+    dpi_handle_info.ndpi_thread_info[thread_id].workflow = NULL;
+  }
+
+  void NDPIPacketProcessor::clear_()
+  {
+    if (results_path)
+    {
+      ndpi_free(results_path);
+    }
+
+    if (enable_malloc_bins)
+    {
+      ndpi_free_bin(&malloc_bins);
+    }
+
+    if (fingerprint_fp)
+    {
+      fclose(fingerprint_fp);
+    }
+
+    ndpi_free(_disabled_protocols);
   }
 }

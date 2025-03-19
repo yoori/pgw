@@ -22,13 +22,16 @@ namespace dpi
 
     void set_event_logger(LoggerPtr event_logger);
 
-    void add_user(std::string_view msisdn, uint32_t ip);
+    UserPtr add_user(std::string_view msisdn, uint32_t ip);
 
-    void remove_user(std::string_view msisdn);
+    void reset_user_ip(std::string_view msisdn);
 
     UserPtr get_user_by_ip(uint32_t ip, const Gears::Time& now) const;
 
-    UserPtr get_user_by_msisdn(std::string_view msisdn, const Gears::Time& now) const;
+    UserPtr get_user_by_msisdn(
+      std::string_view msisdn,
+      const Gears::Time& now)
+      const;
 
   private:
     void remove_user_i_(const std::string& msisdn);

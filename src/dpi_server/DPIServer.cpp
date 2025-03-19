@@ -1,7 +1,20 @@
 #include <gears/AppUtils.hpp>
 
-#include <dpi/DPIRunner.hpp>
+#include <dpi/Config.hpp>
+#include <dpi/NDPIPacketProcessor.hpp>
+#include <dpi/NetInterfaceNDPIProcessor.hpp>
+#include <dpi/NetInterfaceBridgeNDPIProcessor.hpp>
 #include <http_server/HttpServer.hpp>
+
+std::shared_ptr<Gears::ActiveObject> interrupter;
+
+void sigproc(int)
+{
+  if (interrupter)
+  {
+    interrupter->deactivate_object();
+  }
+}
 
 int main(int argc, char **argv)
 {
@@ -23,6 +36,8 @@ int main(int argc, char **argv)
   session_rule_config.clear_closed_sessions_timeout = Gears::Time::ONE_DAY;
   session_rule_config.default_rule.close_timeout = Gears::Time(30);
 
+  auto config = dpi::Config::read(*opt_config);
+
   auto composite_active_object = std::make_shared<Gears::CompositeActiveObject>();
   auto logger = std::make_shared<dpi::StreamLogger>(std::cout);
   auto event_logger = std::make_shared<dpi::StreamLogger>(std::cout);
@@ -34,16 +49,54 @@ int main(int argc, char **argv)
     *opt_http_port,
     ""
   );
-  auto runner = std::make_shared<dpi::DPIRunner>(*opt_config, packet_processor);
-  composite_active_object->add_child_object(http_server);
 
+  std::shared_ptr<dpi::NDPIPacketProcessor> ndpi_packet_processor =
+    std::make_shared<dpi::NDPIPacketProcessor>(
+      *opt_config,
+      packet_processor,
+      0 // datalink_type
+    );
+
+  auto interface = std::make_shared<dpi::NetInterface>(config.interface.c_str());
+
+  if (config.interface2.empty())
+  {
+    std::cout << "Start in listener mode" << std::endl;
+    auto dpi_processor = std::make_shared<dpi::NetInterfaceNDPIProcessor>(
+      ndpi_packet_processor,
+      interface
+    );
+    interrupter = dpi_processor;
+  }
+  else
+  {
+    // bridge mode
+    std::cout << "Start in bridge mode" << std::endl;
+
+    auto interface2 = std::make_shared<dpi::NetInterface>(config.interface2.c_str());
+    auto bridge = std::make_shared<dpi::NetInterfaceBridgeNDPIProcessor>(
+      ndpi_packet_processor,
+      interface,
+      interface2
+    );
+    interrupter = bridge;
+  }
+
+  signal(SIGINT, sigproc);
+
+  ndpi_packet_processor->set_datalink_type(
+    (int)pcap_datalink(interface->pcap_handle()));
+
+  composite_active_object->add_child_object(http_server);
   composite_active_object->activate_object();
 
-  runner->activate_object();
-  runner->wait_object();
+  interrupter->activate_object();
+  interrupter->wait_object();
 
   composite_active_object->deactivate_object();
   composite_active_object->wait_object();
+
+  std::cout << "Exit application" << std::endl;
 
   return 0;
 }

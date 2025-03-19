@@ -8,6 +8,7 @@
 
 #include "NetworkUtils.hpp"
 #include "PacketProcessor.hpp"
+#include "MainUserSessionPacketProcessor.hpp"
 
 namespace dpi
 {
@@ -23,12 +24,16 @@ namespace dpi
   PacketProcessor::PacketProcessor(
     UserStoragePtr user_storage,
     LoggerPtr event_logger)
-    : user_storage_(std::move(user_storage)),
-      event_logger_(std::move(event_logger)),
-      unknown_session_key_("unknown", std::string())
+    : user_storage_(user_storage),
+      event_logger_(event_logger),
+      unknown_session_key_("unknown", std::string()),
+      main_user_session_packet_processor_(
+        std::make_unique<MainUserSessionPacketProcessor>(user_storage, event_logger))
   {
     session_rule_config_.clear_closed_sessions_timeout = Gears::Time::ONE_DAY;
     session_rule_config_.default_rule.close_timeout = Gears::Time(30);
+
+    main_user_session_packet_processor_->set_session_rule_config(session_rule_config_);
 
     ip_categories_.emplace(string_to_ipv4_address("194.54.14.131"), "sber-online"); // online.sberbank.ru
     ip_categories_.emplace(string_to_ipv4_address("95.181.181.241"), "sber-online"); // app.sberbank.ru
@@ -556,16 +561,10 @@ namespace dpi
     protocol_session_keys_.emplace(NDPI_PROTOCOL_RUTUBE, SessionKey("rutube", std::string()));
     protocol_session_keys_.emplace(NDPI_PROTOCOL_LAGOFAST, SessionKey("lagofast", std::string()));
     protocol_session_keys_.emplace(NDPI_PROTOCOL_GEARUP_BOOSTER, SessionKey("gearup_booster", std::string()));
-
-    recheck_state_session_keys_.emplace(SessionKey("rdp", std::string()));
-    recheck_state_session_keys_.emplace(SessionKey("telegram_voip", std::string()));
-    recheck_state_session_keys_.emplace(SessionKey("tls", "sber-online"));
-    recheck_state_session_keys_.emplace(SessionKey("tls", "gosuslugi"));
-    recheck_state_session_keys_.emplace(SessionKey("tls", "alfabank-online"));
   }
 
   
-  void PacketProcessor::process_packet(
+  bool PacketProcessor::process_packet(
     struct ndpi_workflow* workflow,
     const ndpi_flow_info* flow,
     const pcap_pkthdr* header)
@@ -577,10 +576,14 @@ namespace dpi
         flow->detected_protocol.proto.master_protocol) :
       0;
 
+    bool res = true;
+
     if (flow)
     {
-      process_packet_(proto, flow->src_ip, flow->dst_ip, header->len);
+      res = process_packet_(proto, flow->src_ip, flow->dst_ip, header->len);
     }
+
+    return true;
   }
 
   const SessionKey&
@@ -595,7 +598,7 @@ namespace dpi
     return unknown_session_key_;
   }
 
-  void PacketProcessor::process_packet_(
+  bool PacketProcessor::process_packet_(
     u_int16_t proto,
     uint32_t src_ip,
     uint32_t dst_ip,
@@ -623,69 +626,24 @@ namespace dpi
       }
     }
 
-    process_session_packet_(
-      src_ip,
-      dst_ip,
-      !category ? base_session_key : SessionKey(base_session_key.traffic_type, *category),
-      packet_size);
+    SessionKey use_session_key = !category ? base_session_key :
+      SessionKey(base_session_key.traffic_type, *category);
+
+    const Gears::Time now = Gears::Time::get_time_of_day();
+
+    UserPtr user = get_user_(src_ip, dst_ip, now);
+
+    PacketProcessingState processing_state =
+      main_user_session_packet_processor_->process_user_session_packet(
+        now,
+        user,
+        src_ip,
+        dst_ip,
+        use_session_key,
+        packet_size);
+
+    return !processing_state.block_packet;
   }
-
-  /*
-  void PacketProcessor::process_sber_packet_(
-    uint32_t src_ip,
-    uint32_t dst_ip
-    )
-  {
-    const auto now = Gears::Time::get_time_of_day();
-
-    bool sber_opening_started = false;
-    bool sber_on_call_opening = false;
-
-    {
-      const std::lock_guard<std::mutex> lock(client_states_lock_);
-
-      ClientState& client_state = client_states_[src_ip];
-
-      //std::cout << "client_state.sber_packet_last_timestamp = " << client_state.sber_packet_last_timestamp.gm_ft() << std::endl;
-      if (client_state.sber_packet_last_timestamp + SBER_OPEN_MAX_PERIOD_ < now)
-      {
-        sber_opening_started = true;
-      }
-
-      client_state.sber_packet_last_timestamp = now;
-
-      if (client_state.telegram_call_packet_last_timestamp + TELEGRAM_CALL_MAX_PERIOD_ < now)
-      {
-        // telegram call finished
-        client_state.telegram_call_packet_last_timestamp = Gears::Time::ZERO;
-      }
-
-      if (client_state.telegram_call_packet_last_timestamp != Gears::Time::ZERO &&
-        //< current telegram call is active
-        client_state.telegram_call_packet_start_timestamp !=
-          client_state.telegram_call_with_sber_open_start_timestamp
-        // < no event generated for this call
-        )
-      {
-        client_state.telegram_call_with_sber_open_start_timestamp =
-          client_state.telegram_call_packet_start_timestamp;
-
-        sber_on_call_opening = true;
-      }
-    }
-
-    //std::cout << "sber_opening_started = " << sber_opening_started << std::endl;
-    if (sber_opening_started)
-    {
-      log_event_("sber open", src_ip, dst_ip);
-    }
-
-    if (sber_on_call_opening)
-    {
-      log_event_("sber open on telegram call", src_ip, dst_ip);
-    }
-  }
-  */
 
   UserPtr PacketProcessor::get_user_(
     uint32_t& src_ip,
@@ -708,133 +666,5 @@ namespace dpi
     user = std::make_shared<User>(std::string());
     user->set_ip(src_ip);
     return user;
-  }
-
-  void PacketProcessor::check_user_state_(
-    User& user,
-    const SessionKey& trigger_session_key,
-    uint32_t src_ip,
-    uint32_t dst_ip,
-    const Gears::Time& now)
-  {
-    // if now opened telegram call
-    if (trigger_session_key.traffic_type == "telegram_voip" ||
-      trigger_session_key.traffic_type == "rdp")
-    {
-      auto ts = user.session_open_timestamp(trigger_session_key);
-      if (ts.has_value() && *ts == now)
-      {
-        log_event_(trigger_session_key.traffic_type, now, src_ip, dst_ip);
-      }
-    }
-
-    if (trigger_session_key.traffic_type == "tls" && (
-      trigger_session_key.category_type == "sber-online" ||
-      trigger_session_key.category_type == "alfabank-online" ||
-      trigger_session_key.category_type == "gosuslugi"))
-    {
-      auto ts = user.session_open_timestamp(trigger_session_key);
-      if (ts.has_value() && *ts == now)
-      {
-        // check that telegram session is opened
-        const char* CHECK_SESSIONS[] = {
-          "telegram_voip",
-          "rdp"
-        };
-
-        for (int check_i = 0; check_i < sizeof(CHECK_SESSIONS) / sizeof(CHECK_SESSIONS[0]); ++check_i)
-        {
-          auto check_ts = user.session_open_timestamp(SessionKey(CHECK_SESSIONS[check_i], std::string()));
-          if (check_ts.has_value())
-          {
-            log_event_(
-              trigger_session_key.category_type + " open on " + CHECK_SESSIONS[check_i],
-              now,
-              src_ip,
-              dst_ip);
-          }
-          else
-          {
-            log_event_(trigger_session_key.category_type + " open", now, src_ip, dst_ip);
-          }
-        }
-      }
-    }
-  }
-
-  void PacketProcessor::process_session_packet_(
-    uint32_t src_ip,
-    uint32_t dst_ip,
-    const SessionKey& session_key,
-    uint64_t packet_size
-    )
-  {
-    const auto now = Gears::Time::get_time_of_day();
-    UserPtr user = get_user_(src_ip, dst_ip, now);
-    bool opened_new_session = user->process_packet(
-      session_rule_config_, session_key, now, packet_size);
-
-    // Check possible state changes
-    if (!user->msisdn().empty())
-    {
-      /*
-      std::cout << "XXX packet: traffic_type = " << session_key.traffic_type <<
-        ", category_type = " << session_key.category_type <<
-        ", src = " << ipv4_address_to_string(src_ip) <<
-        ", dst = " << ipv4_address_to_string(dst_ip) <<
-        std::endl;
-      */
-
-      if (opened_new_session)
-      {
-        //std::cout << "XXX opened_new_session: " << session_key.traffic_type << std::endl;
-
-        if (recheck_state_session_keys_.find(session_key) != recheck_state_session_keys_.end() ||
-          recheck_state_session_keys_.find(SessionKey(std::string(), session_key.category_type)) !=
-            recheck_state_session_keys_.end())
-        {
-          //std::cout << "XXX check_user_state_: traffic_type = " << session_key.traffic_type <<
-          //  ", category_type = " << session_key.category_type << std::endl;
-          check_user_state_(*user, session_key, src_ip, dst_ip, now);
-        }
-      }
-    }
-  }
-
-  bool PacketProcessor::telegram_call_in_progress_i_(const ClientState& client_state)
-  {
-    const auto now = Gears::Time::get_time_of_day();
-    return client_state.telegram_call_packet_last_timestamp + Gears::Time(30) < now;
-  }
-
-  void PacketProcessor::log_event_(
-    const std::string& event,
-    const Gears::Time& now,
-    uint32_t src_ip,
-    uint32_t dst_ip
-    )
-  {
-    UserPtr user = user_storage_->get_user_by_ip(src_ip, now);
-
-    if (!user)
-    {
-      user = user_storage_->get_user_by_ip(dst_ip, now);
-      if (user)
-      {
-        std::swap(src_ip, dst_ip);
-      }
-    }
-
-    if (!user)
-    {
-      user = std::make_shared<User>(std::string());
-      user->set_ip(src_ip);
-    }
-
-    std::ostringstream ostr;
-    ostr << "[" << Gears::Time::get_time_of_day().gm_ft() << "] [sber-telecom] EVENT '" << event << "': " <<
-      user->to_string() << ", destination ip = " << ipv4_address_to_string(dst_ip) <<
-      std::endl;
-    event_logger_->log(ostr.str());
   }
 }

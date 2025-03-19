@@ -6,6 +6,7 @@
 #include "HttpServer.hpp"
 #include "UserGetHttpResource.hpp"
 #include "UserAddHttpResource.hpp"
+#include "UserBlockHttpResource.hpp"
 
 namespace dpi
 {
@@ -20,6 +21,7 @@ namespace dpi
       unsigned long max_threads = 32)
       : user_get_http_resource_(std::make_shared<UserGetHttpResource>(user_storage)),
         user_add_http_resource_(std::make_shared<UserAddHttpResource>(user_storage)),
+        user_block_http_resource_(std::make_shared<UserBlockHttpResource>(user_storage)),
         ws(httpserver::create_webserver(port)
           .max_threads(max_threads)
           .put_processed_data_to_content()
@@ -30,11 +32,13 @@ namespace dpi
     {
       ws.register_resource("/api/get_user", user_get_http_resource_.get());
       ws.register_resource("/api/add_user", user_add_http_resource_.get());
+      ws.register_resource("/api/block_user", user_block_http_resource_.get());
     }
 
   private:
     std::shared_ptr<httpserver::http_resource> user_get_http_resource_;
     std::shared_ptr<httpserver::http_resource> user_add_http_resource_;
+    std::shared_ptr<httpserver::http_resource> user_block_http_resource_;
 
   public:
     httpserver::webserver ws;

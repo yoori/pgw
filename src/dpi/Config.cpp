@@ -29,6 +29,11 @@ namespace dpi
       result.interface = document["dpi_interface"].GetString();
     }
 
+    if (document.HasMember("dpi_interface2"))
+    {
+      result.interface2 = document["dpi_interface2"].GetString();
+    }
+
     return result;
   }
 }

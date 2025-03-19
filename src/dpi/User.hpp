@@ -9,6 +9,8 @@
 #include <gears/Hash.hpp>
 #include <gears/HashTable.hpp>
 
+#include "PacketProcessingState.hpp"
+
 namespace dpi
 {
   struct SessionKey
@@ -76,7 +78,7 @@ namespace dpi
     using TrafficStatePtr = std::shared_ptr<TrafficState>;
 
   public:
-    User(std::string msisdn);
+    User(std::string msisdn, uint32_t ip = 0);
 
     const std::string& msisdn() const;
 
@@ -84,8 +86,7 @@ namespace dpi
 
     uint32_t ip() const;
 
-    // return true if opened new session
-    bool process_packet(
+    PacketProcessingState process_packet(
       const SessionRuleConfig& session_rule_config,
       const SessionKey& session_key,
       const Gears::Time& time,
@@ -115,6 +116,9 @@ namespace dpi
     };
 
   private:
+    bool is_session_blocked_i_(
+      const SessionKey& key, const Gears::Time& now) const;
+
     void clear_expired_sessions_i_(
       const SessionRuleConfig& session_rule_config,
       const Gears::Time& now);

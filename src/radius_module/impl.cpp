@@ -6,8 +6,12 @@
 #include <gears/Singleton.hpp>
 
 #include <gears/CompositeActiveObject.hpp>
+
+#include <dpi/Config.hpp>
 #include <dpi/PacketProcessor.hpp>
-#include <dpi/DPIRunner.hpp>
+//#include <dpi/DPIRunner.hpp>
+#include <dpi/NDPIPacketProcessor.hpp>
+#include <dpi/NetInterfaceNDPIProcessor.hpp>
 
 #include "Processor.hpp"
 
@@ -62,8 +66,28 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
   // init DPI
   auto packet_processor = std::make_shared<dpi::PacketProcessor>(
     user_storage, processor->event_logger());
-  auto dpi_runner = std::make_shared<dpi::DPIRunner>(config_path_str, packet_processor);
-  all_active_objects->add_child_object(dpi_runner);
+
+  std::shared_ptr<dpi::NDPIPacketProcessor> ndpi_packet_processor =
+    std::make_shared<dpi::NDPIPacketProcessor>(
+      config_path,
+      packet_processor,
+      0 // datalink_type
+    );
+
+  auto config = dpi::Config::read(config_path);
+
+  auto client_interface = std::make_shared<dpi::NetInterface>(
+    config.interface.c_str());
+
+  auto dpi_processor = std::make_shared<dpi::NetInterfaceNDPIProcessor>(
+    ndpi_packet_processor,
+    client_interface
+    );
+
+  ndpi_packet_processor->set_datalink_type(
+    (int)pcap_datalink(client_interface->pcap_handle()));
+
+  all_active_objects->add_child_object(dpi_processor);
   all_active_objects->activate_object();
 }
 

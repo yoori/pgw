@@ -7,8 +7,9 @@
 namespace dpi
 {
   // User impl.
-  User::User(std::string msisdn)
-    : msisdn_(std::move(msisdn))
+  User::User(std::string msisdn, uint32_t ip)
+    : msisdn_(std::move(msisdn)),
+      ip_(ip)
   {}
 
   void
@@ -176,7 +177,8 @@ namespace dpi
     }
   }
 
-  bool User::process_packet(
+  PacketProcessingState
+  User::process_packet(
     const SessionRuleConfig& session_rule_config,
     const SessionKey& session_key,
     const Gears::Time& now,
@@ -185,6 +187,7 @@ namespace dpi
     const SessionRuleConfig::SessionTypeRule& session_rule =
       get_session_rule_(session_rule_config, session_key);
 
+    bool block_packet = false;
     bool opened_new_session = false;
     SessionPtr del_session;
 
@@ -205,8 +208,6 @@ namespace dpi
 
       if (!session)
       {
-        //std::cout << "CREATE SESSION FOR traffic_type = " << session_key.traffic_type <<
-        //  ", category_type = " << session_key.category_type << std::endl;
         session = std::make_shared<Session>(session_key);
         session->first_packet_timestamp = now;
         opened_new_session = true;
@@ -214,10 +215,17 @@ namespace dpi
 
       session->last_packet_timestamp = now;
 
-      traffic_sums_[session_key] += TrafficState(1, size);
+      if (is_session_blocked_i_(session_key, now))
+      {
+        block_packet = true;
+      }
+      else
+      {
+        traffic_sums_[session_key] += TrafficState(1, size);
+      }
     }
 
-    return opened_new_session;
+    return PacketProcessingState(block_packet, opened_new_session);
   }
 
   void User::session_block(
@@ -227,10 +235,18 @@ namespace dpi
     blocked_sessions_[key] = BlockSessionHolder{block_timestamp};
   }
 
-  bool User::is_session_blocked(
-    const SessionKey& key, const Gears::Time& now) const
+  bool
+  User::is_session_blocked(const SessionKey& key, const Gears::Time& now)
+    const
   {
     std::unique_lock lock{block_lock_};
+    return is_session_blocked_i_(key, now);
+  }
+
+  bool
+  User::is_session_blocked_i_(const SessionKey& key, const Gears::Time& now)
+    const
+  {
     auto block_it = blocked_sessions_.find(key);
     if (block_it == blocked_sessions_.end())
     {
