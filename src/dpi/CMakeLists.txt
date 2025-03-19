@@ -11,9 +11,9 @@ add_library(dpi
   Logger.cpp
   NetInterfaceProcessor.cpp
   NetInterfaceBridgeNDPIProcessor.cpp
-  StatsDumper.cpp
   UserSessionPacketProcessor.cpp
   MainUserSessionPacketProcessor.cpp
+  StatUserSessionPacketProcessor.cpp
   )
 
 target_link_libraries(dpi

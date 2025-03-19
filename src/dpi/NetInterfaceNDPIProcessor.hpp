@@ -2,6 +2,7 @@
 
 #include "NetInterfaceProcessor.hpp"
 #include "NDPIPacketProcessor.hpp"
+#include "UserSessionPacketProcessor.hpp"
 
 namespace dpi
 {
@@ -11,9 +12,12 @@ namespace dpi
     NetInterfaceNDPIProcessor(
       std::shared_ptr<dpi::NDPIPacketProcessor> ndpi_packet_processor,
       NetInterfacePtr interface,
-      unsigned int threads = 1)
+      unsigned int threads = 1,
+      UserSessionPacketProcessor::Direction direction =
+        UserSessionPacketProcessor::Direction::D_NONE)
       : dpi::NetInterfaceProcessor(std::move(interface), threads),
-        ndpi_packet_processor_(std::move(ndpi_packet_processor))
+        ndpi_packet_processor_(std::move(ndpi_packet_processor)),
+        direction_(direction)
     {}
 
     virtual void process_packet(
@@ -22,10 +26,14 @@ namespace dpi
       const u_char* packet)
       override
     {
-      bool send_packet = ndpi_packet_processor_->process_packet(header, packet);
+      ndpi_packet_processor_->process_packet(
+        header,
+        packet,
+        direction_);
     }
 
   private:
-    std::shared_ptr<dpi::NDPIPacketProcessor> ndpi_packet_processor_;
+    const std::shared_ptr<dpi::NDPIPacketProcessor> ndpi_packet_processor_;
+    const UserSessionPacketProcessor::Direction direction_;
   };
 }

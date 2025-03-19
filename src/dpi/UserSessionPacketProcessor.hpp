@@ -8,11 +8,19 @@ namespace dpi
   class UserSessionPacketProcessor
   {
   public:
+    enum Direction
+    {
+      D_NONE = 0,
+      D_OUTPUT,
+      D_INPUT
+    };
+
     virtual PacketProcessingState process_user_session_packet(
       const Gears::Time& time,
       const UserPtr& user,
       uint32_t src_ip,
       uint32_t dst_ip,
+      Direction direction,
       const SessionKey& session_key,
       uint64_t packet_size) = 0;
   };
@@ -31,10 +39,14 @@ namespace dpi
       const UserPtr& user,
       uint32_t src_ip,
       uint32_t dst_ip,
+      Direction direction,
       const SessionKey& session_key,
       uint64_t packet_size) override;
 
   private:
     std::vector<UserSessionPacketProcessorPtr> childs_;
   };
+
+  const std::string&
+  direction_to_string(UserSessionPacketProcessor::Direction direction);
 }

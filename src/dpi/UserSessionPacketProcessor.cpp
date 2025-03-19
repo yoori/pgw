@@ -2,6 +2,29 @@
 
 namespace dpi
 {
+  namespace
+  {
+    const std::string DIRECTION_NONE_STR("none");
+    const std::string DIRECTION_OUTPUT_STR("output");
+    const std::string DIRECTION_INPUT_STR("input");
+  };
+
+  const std::string&
+  direction_to_string(UserSessionPacketProcessor::Direction direction)
+  {
+    if (direction == UserSessionPacketProcessor::Direction::D_OUTPUT)
+    {
+      return DIRECTION_OUTPUT_STR;
+    }
+
+    if (direction == UserSessionPacketProcessor::Direction::D_INPUT)
+    {
+      return DIRECTION_INPUT_STR;
+    }
+
+    return DIRECTION_NONE_STR;
+  }
+
   CompositeUserSessionPacketProcessor::CompositeUserSessionPacketProcessor()
   {}
 
@@ -18,6 +41,7 @@ namespace dpi
     const UserPtr& user,
     uint32_t src_ip,
     uint32_t dst_ip,
+    Direction direction,
     const SessionKey& session_key,
     uint64_t packet_size)
   {
@@ -30,6 +54,7 @@ namespace dpi
         user,
         src_ip,
         dst_ip,
+        direction,
         session_key,
         packet_size);
 

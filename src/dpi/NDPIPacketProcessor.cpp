@@ -1371,15 +1371,17 @@ namespace dpi
 
   bool NDPIPacketProcessor::process_packet(
     const struct pcap_pkthdr* header,
-    const void* packet)
+    const void* packet,
+    UserSessionPacketProcessor::Direction direction)
   {
-    return process_packet_(0, header, packet);
+    return process_packet_(0, header, packet, direction);
   }
 
   bool NDPIPacketProcessor::process_packet_(
     unsigned int thread_id,
     const struct pcap_pkthdr* header,
-    const void* packet)
+    const void* packet,
+    UserSessionPacketProcessor::Direction direction)
   {
     // allocate an exact size buffer to check overflows
     uint8_t* packet_checked = (uint8_t*)ndpi_malloc(header->caplen);
@@ -1415,7 +1417,8 @@ namespace dpi
     bool res = packet_processor_->process_packet(
       dpi_handle_info.ndpi_thread_info[thread_id].workflow,
       flow,
-      header);
+      header,
+      direction);
 
     // Idle flows cleanup
     if (::live_capture)
@@ -1631,6 +1634,13 @@ namespace dpi
       ndpi_free(packet_checked);
       packet_checked = NULL;
     }
+
+    /*
+    if (!res)
+    {
+      std::cout << "BLOCK PACKET ON NDPI" << std::endl;
+    }
+    */
 
     return res;
   }

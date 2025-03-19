@@ -107,6 +107,21 @@ namespace dpi
         closed_sessions_arr.emplace_back(std::move(closed_session));
       }
       result_json["closed_sessions"] = closed_sessions_arr;
+
+      // fill blocked sessions
+      std::vector<jsoncons::json> blocked_sessions_arr;
+      for (const auto& [session_key, block_session_holder] : blocked_sessions_)
+      {
+        jsoncons::json blocked_session;
+        blocked_session["traffic_type"] = session_key.traffic_type;
+        if (!session_key.category_type.empty())
+        {
+          blocked_session["category"] = session_key.category_type;
+        }
+        blocked_session["block_timestamp"] = block_session_holder.block_timestamp.gm_ft();
+        blocked_sessions_arr.emplace_back(std::move(blocked_session));
+      }
+      result_json["blocked_sessions"] = blocked_sessions_arr;
     }
 
     jsoncons::json_options json_print_options;

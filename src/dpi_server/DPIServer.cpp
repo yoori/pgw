@@ -4,6 +4,8 @@
 #include <dpi/NDPIPacketProcessor.hpp>
 #include <dpi/NetInterfaceNDPIProcessor.hpp>
 #include <dpi/NetInterfaceBridgeNDPIProcessor.hpp>
+#include <dpi/StatUserSessionPacketProcessor.hpp>
+#include <dpi/MainUserSessionPacketProcessor.hpp>
 #include <http_server/HttpServer.hpp>
 
 std::shared_ptr<Gears::ActiveObject> interrupter;
@@ -42,7 +44,29 @@ int main(int argc, char **argv)
   auto logger = std::make_shared<dpi::StreamLogger>(std::cout);
   auto event_logger = std::make_shared<dpi::StreamLogger>(std::cout);
   auto user_storage = std::make_shared<dpi::UserStorage>(event_logger, session_rule_config);
-  auto packet_processor = std::make_shared<dpi::PacketProcessor>(user_storage, event_logger);
+
+  auto main_user_session_packet_processor = std::make_shared<dpi::MainUserSessionPacketProcessor>(
+    user_storage, event_logger);
+  main_user_session_packet_processor->set_session_rule_config(session_rule_config);
+
+  auto composite_user_session_packet_processor = std::make_shared<dpi::CompositeUserSessionPacketProcessor>();
+  composite_user_session_packet_processor->add_child_object(
+    main_user_session_packet_processor);
+
+  if (!config.dump_stat_root.empty())
+  {
+    auto stat_user_session_packet_processor = std::make_shared<dpi::StatUserSessionPacketProcessor>(
+      config.dump_stat_root);
+    composite_user_session_packet_processor->add_child_object(
+      stat_user_session_packet_processor);
+    composite_active_object->add_child_object(stat_user_session_packet_processor);
+  }
+
+  auto packet_processor = std::make_shared<dpi::PacketProcessor>(
+    user_storage,
+    composite_user_session_packet_processor,
+    event_logger);
+
   auto http_server = std::make_shared<dpi::HttpServer>(
     logger,
     user_storage,

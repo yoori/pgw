@@ -22,48 +22,50 @@ namespace dpi
   UserPtr
   UserStorage::add_user(std::string_view msisdn, uint32_t ip)
   {
-    log_event_(
-      std::string("add user msisdn = ") +
-      std::string(msisdn) + ", ip = " + ipv4_address_to_string(ip));
-
     std::string msisdn_val(msisdn);
     UserPtr added_user;
 
-    std::unique_lock lock{lock_};
-
-    auto it = users_by_msisdn_.find(msisdn_val);
-    if (it != users_by_msisdn_.end())
     {
-      added_user = it->second;
-      uint32_t prev_ip = added_user->ip();
+      std::unique_lock lock{lock_};
 
-      if (prev_ip != ip && ip != 0)
-        // don't change ip if it is defined
+      auto it = users_by_msisdn_.find(msisdn_val);
+      if (it != users_by_msisdn_.end())
       {
-        if (prev_ip != 0)
+        added_user = it->second;
+        uint32_t prev_ip = added_user->ip();
+
+        if (prev_ip != ip && ip != 0)
+          // don't change ip if it is defined
         {
-          users_by_ip_.erase(prev_ip);
+          if (prev_ip != 0)
+          {
+            users_by_ip_.erase(prev_ip);
+          }
+
+          if (ip != 0)
+          {
+            users_by_ip_.emplace(ip, added_user);
+          }
+
+          added_user->set_ip(ip);
         }
+      }
+      else
+      {
+        added_user = std::make_shared<User>(msisdn_val, ip);
 
         if (ip != 0)
         {
           users_by_ip_.emplace(ip, added_user);
         }
 
-        added_user->set_ip(ip);
+        users_by_msisdn_.emplace(msisdn_val, added_user);
       }
     }
-    else
-    {
-      added_user = std::make_shared<User>(msisdn_val, ip);
 
-      if (ip != 0)
-      {
-        users_by_ip_.emplace(ip, added_user);
-      }
-
-      users_by_msisdn_.emplace(msisdn_val, added_user);
-    }
+    log_event_(
+      std::string("add user msisdn = ") +
+      std::string(msisdn) + ", ip = " + ipv4_address_to_string(added_user->ip()));
 
     return added_user;
   }

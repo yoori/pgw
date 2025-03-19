@@ -11,6 +11,7 @@
 #include "NetworkPacketProcessor.hpp"
 #include "ReaderUtil.hpp"
 #include "DPIPrintUtils.hpp"
+#include "UserSessionPacketProcessor.hpp"
 
 namespace dpi
 {
@@ -29,7 +30,9 @@ namespace dpi
 
     virtual bool process_packet(
       const struct pcap_pkthdr* header,
-      const void* packet) override;
+      const void* packet,
+      UserSessionPacketProcessor::Direction direction)
+      override;
 
     void set_datalink_type(int datalink_type);
 
@@ -37,7 +40,8 @@ namespace dpi
     bool process_packet_(
       unsigned int thread_id,
       const struct pcap_pkthdr* header,
-      const void* packet);
+      const void* packet,
+      UserSessionPacketProcessor::Direction direction);
 
     void init_();
 

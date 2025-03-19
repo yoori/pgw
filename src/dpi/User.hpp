@@ -19,8 +19,6 @@ namespace dpi
 
     SessionKey(std::string traffic_type, std::string category_type);
 
-    //SessionKey& operator=(const SessionKey& right);
-
     bool operator==(const SessionKey& right) const;
 
     unsigned long hash() const;
@@ -163,17 +161,6 @@ namespace dpi
   {
     calc_hash_();
   }
-
-  /*
-  inline
-  SessionKey& SessionKey::operator=(const SessionKey& right)
-  {
-    traffic_type = right.traffic_type;
-    category_type = right.category_type;
-    hash_ = right.hash_;
-    return *this;
-  }
-  */
 
   inline
   bool SessionKey::operator==(const SessionKey& right) const

@@ -31,6 +31,7 @@ namespace dpi
     const UserPtr& user,
     uint32_t src_ip,
     uint32_t dst_ip,
+    Direction /*direction*/,
     const SessionKey& session_key,
     uint64_t packet_size)
   {
