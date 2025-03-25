@@ -12,6 +12,7 @@ target_link_libraries(radius_module
     DiameterPacketConstructor
     Gears
     dpi
+    http_server
   )
 
 # dpi

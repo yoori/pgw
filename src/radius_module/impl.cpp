@@ -11,8 +11,12 @@
 #include <dpi/PacketProcessor.hpp>
 //#include <dpi/DPIRunner.hpp>
 #include <dpi/NDPIPacketProcessor.hpp>
-#include <dpi/NetInterfaceNDPIProcessor.hpp>
+//#include <dpi/NetInterfaceNDPIProcessor.hpp>
+#include <dpi/NetInterfaceBridgeNDPIProcessor.hpp>
 #include <dpi/MainUserSessionPacketProcessor.hpp>
+#include <dpi/StatUserSessionPacketProcessor.hpp>
+
+#include <http_server/HttpServer.hpp>
 
 #include "Processor.hpp"
 
@@ -67,15 +71,25 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
   user_storage->set_event_logger(processor->event_logger());
 
   // init DPI
+  auto event_processor = std::make_shared<dpi::EventProcessor>(processor->event_logger());
+
   auto main_user_session_packet_processor = std::make_shared<dpi::MainUserSessionPacketProcessor>(
     user_storage,
-    processor->event_logger());
+    event_processor);
   main_user_session_packet_processor->set_session_rule_config(session_rule_config);
 
-  auto composite_user_session_packet_processor =
-    std::make_shared<dpi::CompositeUserSessionPacketProcessor>();
+  auto composite_user_session_packet_processor = std::make_shared<dpi::CompositeUserSessionPacketProcessor>();
   composite_user_session_packet_processor->add_child_object(
     main_user_session_packet_processor);
+
+  if (!config.dump_stat_root.empty())
+  {
+    auto stat_user_session_packet_processor = std::make_shared<dpi::StatUserSessionPacketProcessor>(
+      config.dump_stat_root);
+    composite_user_session_packet_processor->add_child_object(
+      stat_user_session_packet_processor);
+    all_active_objects->add_child_object(stat_user_session_packet_processor);
+  }
 
   auto packet_processor = std::make_shared<dpi::PacketProcessor>(
     user_storage,
@@ -83,25 +97,50 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
     processor->event_logger(),
     config.ip_rules_root);
 
+  if (config.http_port > 0)
+  {
+    auto http_server = std::make_shared<dpi::HttpServer>(
+      processor->logger(),
+      user_storage,
+      event_processor,
+      config.http_port,
+      ""
+    );
+    all_active_objects->add_child_object(http_server);
+  }
+
   std::shared_ptr<dpi::NDPIPacketProcessor> ndpi_packet_processor =
     std::make_shared<dpi::NDPIPacketProcessor>(
       config_path,
-      packet_processor,
       0 // datalink_type
     );
 
-  auto client_interface = std::make_shared<dpi::NetInterface>(
+  auto client_interface = std::make_shared<dpi::PcapNetInterface>(
     config.interface.c_str());
 
+  auto server_interface = std::make_shared<dpi::PcapNetInterface>(
+    config.interface2.c_str());
+
+  auto bridge = std::make_shared<dpi::NetInterfaceBridgeNDPIProcessor>(
+    ndpi_packet_processor,
+    packet_processor,
+    client_interface,
+    server_interface,
+    1,
+    processor->logger()
+    );
+
+  /*
   auto dpi_processor = std::make_shared<dpi::NetInterfaceNDPIProcessor>(
     ndpi_packet_processor,
     client_interface
     );
+  */
 
   ndpi_packet_processor->set_datalink_type(
     (int)pcap_datalink(client_interface->pcap_handle()));
 
-  all_active_objects->add_child_object(dpi_processor);
+  all_active_objects->add_child_object(bridge);
   all_active_objects->activate_object();
 }
 
