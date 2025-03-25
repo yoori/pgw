@@ -52,7 +52,7 @@
 
 std::shared_ptr<dpi::Config> config;
 std::list<std::string> str_holders;
-const char *_pcap_file[MAX_NUM_READER_THREADS]; /**< Ingress pcap file/interfaces */
+//const char *_pcap_file[MAX_NUM_READER_THREADS]; /**< Ingress pcap file/interfaces */
 
 #ifndef USE_DPDK
 static FILE *playlist_fp[MAX_NUM_READER_THREADS] = { NULL }; /**< Ingress playlist */
@@ -226,17 +226,6 @@ static u_int8_t doh_centroids[NUM_DOH_BINS][PLEN_NUM_BINS] = {
   { 23,25,3,0,26,0,0,0,0,0,0,0,0,0,2,0,0,15,3,0,0,0,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 },
   { 35,30,21,0,0,0,2,4,0,0,5,1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0 }
 };
-
-void init_doh_bins()
-{
-  for (u_int i = 0; i < NUM_DOH_BINS; i++)
-  {
-    ndpi_init_bin(&doh_ndpi_bins[i], ndpi_bin_family8, PLEN_NUM_BINS);
-    ndpi_free_bin(&doh_ndpi_bins[i]);
-    //< Hack: we use static bins (see below), so we need to free the dynamic ones just allocated
-    doh_ndpi_bins[i].u.bins8 = doh_centroids[i];
-  }
-}
 
 void help(u_int long_help)
 {
@@ -619,7 +608,6 @@ int reader_add_cfg(const char *proto, const char *param, const char *value, int 
 
 void parse_parameters(int argc, char **argv)
 {
-  enable_doh_dot_detection = 0;
   dump_internal_stats = 0;
   num_bin_clusters = 32;
   human_readeable_string_len = 5;
@@ -628,7 +616,6 @@ void parse_parameters(int argc, char **argv)
   _maliciousJA4Path = NULL;
   _maliciousSHA1Path = NULL;
   //bpfFilter = NULL;
-  std::string config_path;
 
   int option_idx = 0;
   int opt;
@@ -639,7 +626,6 @@ void parse_parameters(int argc, char **argv)
     switch (opt)
     {
     case 'y':
-      config_path = optarg;
       break;
 
     case 'd':
@@ -648,11 +634,6 @@ void parse_parameters(int argc, char **argv)
         printf("Invalid parameter [%s] [num:%d/%d]\n", optarg, num_cfgs, MAX_NUM_CFGS);
         exit(1);
       }
-      break;
-
-    case 'i':
-    case '3':
-      _pcap_file[0] = optarg;
       break;
 
     case 'm':
@@ -1037,7 +1018,6 @@ void parse_parameters(int argc, char **argv)
 
 void parse_options(int argc, char **argv)
 {
-  char *__pcap_file = NULL;
   int thread_id;
 #ifdef __linux__
   u_int num_cores = sysconf(_SC_NPROCESSORS_ONLN);
@@ -1066,38 +1046,10 @@ void parse_options(int argc, char **argv)
     quiet_mode = 1;
   }
 
-  if (!domain_to_check && !ip_port_to_check)
-  {
-    if (_pcap_file[0] == NULL)
-      help(0);
-
-    if (strchr(_pcap_file[0], ','))
-    {
-      num_threads = 0;
-      Gears::StringManip::SplitComma splitter{Gears::SubString(_pcap_file[0])};
-      Gears::SubString token;
-      while (splitter.get_token(token) && num_threads < MAX_NUM_READER_THREADS)
-      {
-        str_holders.emplace_back(token.str());
-        _pcap_file[num_threads++] = str_holders.back().c_str();
-      }
-    }
-    else
-    {
-      if (num_threads > MAX_NUM_READER_THREADS) num_threads = MAX_NUM_READER_THREADS;
-      for (thread_id = 1; thread_id < num_threads; thread_id++)
-        _pcap_file[thread_id] = _pcap_file[0];
-    }
-
-    if (num_threads > 1 && enable_malloc_bins == 1)
-    {
-      printf("Memory profiling ('-M') is incompatible with multi-thread enviroment");
-      exit(1);
-    }
-  }
-
   for (thread_id = 0; thread_id < num_threads; thread_id++)
+  {
     core_affinity[thread_id] = -1;
+  }
 
   if (num_cores > 1 && bind_mask != NULL)
   {
@@ -1112,103 +1064,9 @@ void parse_options(int argc, char **argv)
   }
 }
 
-void node_proto_guess_walker(
-  const void *node, ndpi_VISIT which, int depth, void *user_data)
-{
-  struct ndpi_flow_info *flow = *(struct ndpi_flow_info **) node;
-  u_int16_t thread_id = *((u_int16_t *) user_data), proto, fpc_proto;
-
-  (void)depth;
-
-  if (flow == NULL)
-  {
-    return;
-  }
-  
-  if ((which == ndpi_preorder) || (which == ndpi_leaf))
-  {
-    // avoid walking the same node multiple times
-    if ((!flow->detection_completed) && flow->ndpi_flow)
-    {
-      u_int8_t proto_guessed;
-
-      malloc_size_stats = 1;
-      flow->detected_protocol = ndpi_detection_giveup(
-        dpi_handle_holder.info->ndpi_thread_info[0].workflow->ndpi_struct,
-        flow->ndpi_flow, &proto_guessed);
-      malloc_size_stats = 0;
-
-      if (proto_guessed)
-      {
-        dpi_handle_holder.info->ndpi_thread_info[thread_id].workflow->stats.guessed_flow_protocols++;
-      }
-    }
-
-    process_ndpi_collected_info(dpi_handle_holder.info->ndpi_thread_info[thread_id].workflow, flow);
-
-    proto = flow->detected_protocol.proto.app_protocol ? flow->detected_protocol.proto.app_protocol :
-      flow->detected_protocol.proto.master_protocol;
-    proto = ndpi_map_user_proto_id_to_ndpi_id(
-      dpi_handle_holder.info->ndpi_thread_info[thread_id].workflow->ndpi_struct, proto);
-
-    fpc_proto = flow->fpc.proto.app_protocol ? flow->fpc.proto.app_protocol : flow->fpc.proto.master_protocol;
-    fpc_proto = ndpi_map_user_proto_id_to_ndpi_id(
-      dpi_handle_holder.info->ndpi_thread_info[thread_id].workflow->ndpi_struct, fpc_proto);
-
-    dpi_handle_holder.info->ndpi_thread_info[thread_id].workflow->stats.protocol_counter[proto] +=
-      flow->src2dst_packets + flow->dst2src_packets;
-    dpi_handle_holder.info->ndpi_thread_info[thread_id].workflow->stats.protocol_counter_bytes[proto] +=
-      flow->src2dst_bytes + flow->dst2src_bytes;
-    dpi_handle_holder.info->ndpi_thread_info[thread_id].workflow->stats.protocol_flows[proto]++;
-    dpi_handle_holder.info->ndpi_thread_info[thread_id].workflow->stats.flow_confidence[flow->confidence]++;
-    dpi_handle_holder.info->ndpi_thread_info[thread_id].workflow->stats.num_dissector_calls +=
-      flow->num_dissector_calls;
-    dpi_handle_holder.info->ndpi_thread_info[thread_id].workflow->stats.fpc_protocol_counter[fpc_proto] +=
-      flow->src2dst_packets + flow->dst2src_packets;
-    dpi_handle_holder.info->ndpi_thread_info[thread_id].workflow->stats.fpc_protocol_counter_bytes[fpc_proto] +=
-      flow->src2dst_bytes + flow->dst2src_bytes;
-    dpi_handle_holder.info->ndpi_thread_info[thread_id].workflow->stats.fpc_protocol_flows[fpc_proto]++;
-    dpi_handle_holder.info->ndpi_thread_info[thread_id].workflow->stats.fpc_flow_confidence[flow->fpc.confidence]++;
-  }
-}
-
 int acceptable(u_int32_t num_pkts)
 {
   return num_pkts > 5;
-}
-
-void node_idle_scan_walker(const void *node, ndpi_VISIT which, int depth, void *user_data)
-{
-  struct ndpi_flow_info* flow = *(struct ndpi_flow_info**)node;
-  u_int16_t thread_id = *((u_int16_t*)user_data);
-
-  if (dpi_handle_holder.info->ndpi_thread_info[thread_id].num_idle_flows == IDLE_SCAN_BUDGET)
-    // TODO optimise with a budget-based walk
-  {
-    return;
-  }
-
-  if ((which == ndpi_preorder) || (which == ndpi_leaf))
-  {
-    // Avoid walking the same node multiple times
-    if (flow->last_seen_ms + MAX_IDLE_TIME < dpi_handle_holder.info->ndpi_thread_info[thread_id].workflow->last_time)
-    {
-      // update stats
-      node_proto_guess_walker(node, which, depth, user_data);
-
-      if ((flow->detected_protocol.proto.app_protocol == NDPI_PROTOCOL_UNKNOWN) &&
-        !undetected_flows_deleted)
-      {
-        undetected_flows_deleted = 1;
-      }
-
-      ndpi_flow_info_free_data(flow);
-
-      // adding to a queue (we can't delete it from the tree inline)
-      dpi_handle_holder.info->ndpi_thread_info[thread_id].idle_flows[
-        dpi_handle_holder.info->ndpi_thread_info[thread_id].num_idle_flows++] = flow;
-    }
-  }
 }
 
 int is_realtime_protocol(ndpi_protocol proto)
@@ -1352,9 +1210,9 @@ void bpf_filter_port_array_add(int filter_array[], int size, int port)
 namespace dpi
 {
   NDPIPacketProcessor::NDPIPacketProcessor(
-    std::string_view config_path,
+    const Config& config,
     int datalink_type)
-    : config_path_(config_path),
+    : config_(config),
       datalink_type_(datalink_type)
   {
     init_();
@@ -1388,12 +1246,16 @@ namespace dpi
       if (dpi_handle_info.ndpi_thread_info[thread_id].last_idle_scan_time + IDLE_SCAN_PERIOD <
         dpi_handle_info.ndpi_thread_info[thread_id].workflow->last_time)
       {
+        NDPIThreadContext ndpi_thread_context;
+        ndpi_thread_context.ndpi_packet_processor = this;
+        ndpi_thread_context.thread_id = thread_id;
+
         // Scan for idle flows
         ndpi_twalk(
           dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_flows_root[
             dpi_handle_info.ndpi_thread_info[thread_id].idle_scan_idx],
-          node_idle_scan_walker,
-          &thread_id);
+          NDPIPacketProcessor::node_idle_scan_walker_,
+          &ndpi_thread_context);
 
         // Remove idle flows (unfortunately we cannot do this inline)
         while (dpi_handle_info.ndpi_thread_info[thread_id].num_idle_flows > 0)
@@ -1534,8 +1396,6 @@ namespace dpi
 
   void NDPIPacketProcessor::init_()
   {
-    std::string_view config_path = config_path_;
-
     // read config
     int i;
 
@@ -1548,32 +1408,8 @@ namespace dpi
 
     gettimeofday(&startup_time, NULL);
 
-    config = std::make_shared<dpi::Config>(
-      !config_path.empty() ? dpi::Config::read(config_path) : dpi::Config());
-
-    if (!config->pcap_file.empty())
-    {
-      _pcap_file[0] = config->pcap_file.c_str();
-    }
-    else if (!config->interface.empty())
-    {
-      _pcap_file[0] = config->interface.c_str();
-    }
-
     char* argv[] = {0};
     parse_options(0, argv);
-
-    if (enable_doh_dot_detection)
-    {
-      init_doh_bins();
-
-      // Clusters are not really used in DoH/DoT detection, but because of how
-      // the code has been written, we need to enable also clustering feature
-      if (num_bin_clusters == 0)
-      {
-        num_bin_clusters = 1;
-      }
-    }
   }
 
   void NDPIPacketProcessor::init_ndpi_()
@@ -1759,15 +1595,6 @@ namespace dpi
       }
     }
 
-    if (enable_doh_dot_detection)
-    {
-      ndpi_set_config(
-        dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
-        "tls",
-        "application_blocks_tracking",
-        "enable");
-    }
-
     if (addr_dump_path != NULL)
     {
       ndpi_cache_address_restore(
@@ -1826,5 +1653,111 @@ namespace dpi
     }
 
     ndpi_free(_disabled_protocols);
+  }
+
+  void NDPIPacketProcessor::node_proto_guess_walker_(
+    const void* node,
+    ndpi_VISIT which,
+    int depth,
+    void* user_data)
+  {
+    const NDPIThreadContext* ndpi_thread_context = static_cast<NDPIThreadContext*>(user_data);
+    const u_int16_t thread_id = ndpi_thread_context->thread_id;
+    DPIHandleHolder::Info& dpi_handle_info = *ndpi_thread_context->ndpi_packet_processor->dpi_handle_holder_.info;
+
+    struct ndpi_flow_info* flow = *(struct ndpi_flow_info **) node;
+    u_int16_t proto;
+    u_int16_t fpc_proto;
+
+    (void)depth;
+
+    if (flow == NULL)
+    {
+      return;
+    }
+
+    if ((which == ndpi_preorder) || (which == ndpi_leaf))
+    {
+      // avoid walking the same node multiple times
+      if ((!flow->detection_completed) && flow->ndpi_flow)
+      {
+        u_int8_t proto_guessed;
+
+        malloc_size_stats = 1;
+        flow->detected_protocol = ndpi_detection_giveup(
+          dpi_handle_info.ndpi_thread_info[0].workflow->ndpi_struct,
+          flow->ndpi_flow, &proto_guessed);
+        malloc_size_stats = 0;
+
+        if (proto_guessed)
+        {
+          dpi_handle_info.ndpi_thread_info[thread_id].workflow->stats.guessed_flow_protocols++;
+        }
+      }
+
+      process_ndpi_collected_info(dpi_handle_info.ndpi_thread_info[thread_id].workflow, flow);
+
+      proto = flow->detected_protocol.proto.app_protocol ? flow->detected_protocol.proto.app_protocol :
+        flow->detected_protocol.proto.master_protocol;
+      proto = ndpi_map_user_proto_id_to_ndpi_id(
+        dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct, proto);
+
+      fpc_proto = flow->fpc.proto.app_protocol ? flow->fpc.proto.app_protocol : flow->fpc.proto.master_protocol;
+      fpc_proto = ndpi_map_user_proto_id_to_ndpi_id(
+        dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct, fpc_proto);
+
+      dpi_handle_info.ndpi_thread_info[thread_id].workflow->stats.protocol_counter[proto] +=
+        flow->src2dst_packets + flow->dst2src_packets;
+      dpi_handle_info.ndpi_thread_info[thread_id].workflow->stats.protocol_counter_bytes[proto] +=
+        flow->src2dst_bytes + flow->dst2src_bytes;
+      dpi_handle_info.ndpi_thread_info[thread_id].workflow->stats.protocol_flows[proto]++;
+      dpi_handle_info.ndpi_thread_info[thread_id].workflow->stats.flow_confidence[flow->confidence]++;
+      dpi_handle_info.ndpi_thread_info[thread_id].workflow->stats.num_dissector_calls +=
+        flow->num_dissector_calls;
+      dpi_handle_info.ndpi_thread_info[thread_id].workflow->stats.fpc_protocol_counter[fpc_proto] +=
+        flow->src2dst_packets + flow->dst2src_packets;
+      dpi_handle_info.ndpi_thread_info[thread_id].workflow->stats.fpc_protocol_counter_bytes[fpc_proto] +=
+        flow->src2dst_bytes + flow->dst2src_bytes;
+      dpi_handle_info.ndpi_thread_info[thread_id].workflow->stats.fpc_protocol_flows[fpc_proto]++;
+      dpi_handle_info.ndpi_thread_info[thread_id].workflow->stats.fpc_flow_confidence[flow->fpc.confidence]++;
+    }
+  }
+
+  void NDPIPacketProcessor::node_idle_scan_walker_(
+    const void *node, ndpi_VISIT which, int depth, void* user_data)
+  {
+    const NDPIThreadContext* ndpi_thread_context = static_cast<NDPIThreadContext*>(user_data);
+    DPIHandleHolder::Info& dpi_handle_info = *ndpi_thread_context->ndpi_packet_processor->dpi_handle_holder_.info;
+    const u_int16_t thread_id = ndpi_thread_context->thread_id;
+
+    struct ndpi_flow_info* flow = *(struct ndpi_flow_info**)node;
+
+    if (dpi_handle_info.ndpi_thread_info[thread_id].num_idle_flows == IDLE_SCAN_BUDGET)
+      // TODO optimise with a budget-based walk
+    {
+      return;
+    }
+
+    if ((which == ndpi_preorder) || (which == ndpi_leaf))
+    {
+      // Avoid walking the same node multiple times
+      if (flow->last_seen_ms + MAX_IDLE_TIME < dpi_handle_info.ndpi_thread_info[thread_id].workflow->last_time)
+      {
+        // update stats
+        node_proto_guess_walker_(node, which, depth, user_data);
+
+        if ((flow->detected_protocol.proto.app_protocol == NDPI_PROTOCOL_UNKNOWN) &&
+          !undetected_flows_deleted)
+        {
+          undetected_flows_deleted = 1;
+        }
+
+        ndpi_flow_info_free_data(flow);
+
+        // adding to a queue (we can't delete it from the tree inline)
+        dpi_handle_info.ndpi_thread_info[thread_id].idle_flows[
+          dpi_handle_info.ndpi_thread_info[thread_id].num_idle_flows++] = flow;
+      }
+    }
   }
 }

@@ -105,7 +105,7 @@ struct DPIHandleHolder
   std::shared_ptr<Gears::ActiveObject> interrupter;
 };
 
-extern DPIHandleHolder dpi_handle_holder;
+//extern DPIHandleHolder dpi_handle_holder;
 
 void flowGetBDMeanandVariance(struct ndpi_flow_info* flow);
 

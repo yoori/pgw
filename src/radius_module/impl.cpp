@@ -111,7 +111,7 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
 
   std::shared_ptr<dpi::NDPIPacketProcessor> ndpi_packet_processor =
     std::make_shared<dpi::NDPIPacketProcessor>(
-      config_path,
+      config,
       0 // datalink_type
     );
 

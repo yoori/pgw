@@ -29,6 +29,8 @@ namespace dpi
 
     const std::string& category_type() const;
 
+    std::string to_string() const;
+
   protected:
     void calc_hash_();
 
@@ -222,6 +224,13 @@ namespace dpi
     category_type_ = init.category_type_;
     hash_ = init.hash_;
     return *this;
+  }
+
+  inline std::string
+  SessionKey::to_string() const
+  {
+    return std::string("{traffic_type = ") + traffic_type_ +
+      ", category_type = " + category_type_ + "}";
   }
 
   // User inlines

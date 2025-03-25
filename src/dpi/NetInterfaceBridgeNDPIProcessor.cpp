@@ -34,7 +34,7 @@ namespace dpi
         header,
         packet);
 
-      std::cout << "flow_traits.proto = " << flow_traits.proto << std::endl;
+      //std::cout << "flow_traits.proto = " << flow_traits.proto << std::endl;
 
       if(packet_processor_->process_packet(
         flow_traits,

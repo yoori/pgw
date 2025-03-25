@@ -611,36 +611,6 @@ int cmp_flows(const void *_a, const void *_b)
   return(0);
 }
 
-u_int check_bin_doh_similarity(struct ndpi_bin *bin, float *similarity)
-{
-  float lowest_similarity = 9999999999.0f;
-
-  for (u_int i = 0; i < NUM_DOH_BINS; i++)
-  {
-    *similarity = ndpi_bin_similarity(&doh_ndpi_bins[i], bin, 0, 0);
-
-    if (*similarity < 0) /* Error */
-    {
-      return 0;
-    }
-
-    if (*similarity <= doh_max_distance)
-    {
-      return 1;
-    }
-
-    if (*similarity < lowest_similarity)
-    {
-      lowest_similarity = *similarity;
-    }
-    
-  }
-
-  *similarity = lowest_similarity;
-
-  return 0;
-}
-
 void deleteScanners(struct single_flow_info *scanners)
 {
   struct single_flow_info *s, *tmp;

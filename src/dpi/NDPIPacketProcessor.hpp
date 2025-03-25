@@ -13,6 +13,7 @@
 #include "DPIPrintUtils.hpp"
 #include "UserSessionPacketProcessor.hpp"
 #include "FlowTraits.hpp"
+#include "Config.hpp"
 
 namespace dpi
 {
@@ -22,7 +23,7 @@ namespace dpi
     DECLARE_EXCEPTION(Exception, Gears::DescriptiveException);
 
     NDPIPacketProcessor(
-      std::string_view config_path,
+      const Config& config,
       int datalink_type
       );
 
@@ -35,6 +36,12 @@ namespace dpi
     void set_datalink_type(int datalink_type);
 
   private:
+    struct NDPIThreadContext
+    {
+      NDPIPacketProcessor* ndpi_packet_processor;
+      unsigned int thread_id;
+    };
+
   private:
     FlowTraits ndpi_process_packet_(
       unsigned int thread_id,
@@ -60,8 +67,17 @@ namespace dpi
 
     void clear_idle_flows_(unsigned int thread_id);
 
+    static void node_proto_guess_walker_(
+      const void* node,
+      ndpi_VISIT which,
+      int depth,
+      void* user_data);
+
+    static void node_idle_scan_walker_(
+      const void *node, ndpi_VISIT which, int depth, void *user_data);
+
   private:
-    const std::string config_path_;
+    const Config config_;
     const PacketProcessorPtr packet_processor_;
     int datalink_type_;
     DPIHandleHolder dpi_handle_holder_;

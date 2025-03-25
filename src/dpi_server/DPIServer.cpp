@@ -79,7 +79,7 @@ int main(int argc, char **argv)
 
   std::shared_ptr<dpi::NDPIPacketProcessor> ndpi_packet_processor =
     std::make_shared<dpi::NDPIPacketProcessor>(
-      *opt_config,
+      config,
       0 // datalink_type
     );
 
