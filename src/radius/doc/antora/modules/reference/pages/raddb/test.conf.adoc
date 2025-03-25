@@ -1,9 +1,0 @@
-
-== Default Configuration
-
-```
-security {
-        allow_vulnerable_openssl = yes
-}
-$INCLUDE radiusd.conf
-```
