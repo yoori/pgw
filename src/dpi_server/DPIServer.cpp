@@ -45,8 +45,9 @@ int main(int argc, char **argv)
   auto event_logger = std::make_shared<dpi::StreamLogger>(std::cout);
   auto user_storage = std::make_shared<dpi::UserStorage>(event_logger, session_rule_config);
 
+  auto event_processor = std::make_shared<dpi::EventProcessor>(event_logger);
   auto main_user_session_packet_processor = std::make_shared<dpi::MainUserSessionPacketProcessor>(
-    user_storage, event_logger);
+    user_storage, event_processor);
   main_user_session_packet_processor->set_session_rule_config(session_rule_config);
 
   auto composite_user_session_packet_processor = std::make_shared<dpi::CompositeUserSessionPacketProcessor>();
@@ -71,6 +72,7 @@ int main(int argc, char **argv)
   auto http_server = std::make_shared<dpi::HttpServer>(
     logger,
     user_storage,
+    event_processor,
     *opt_http_port,
     ""
   );
@@ -78,11 +80,10 @@ int main(int argc, char **argv)
   std::shared_ptr<dpi::NDPIPacketProcessor> ndpi_packet_processor =
     std::make_shared<dpi::NDPIPacketProcessor>(
       *opt_config,
-      packet_processor,
       0 // datalink_type
     );
 
-  auto interface = std::make_shared<dpi::NetInterface>(config.interface.c_str());
+  auto interface = std::make_shared<dpi::PcapNetInterface>(config.interface.c_str());
 
   if (config.interface2.empty())
   {
@@ -98,11 +99,14 @@ int main(int argc, char **argv)
     // bridge mode
     std::cout << "Start in bridge mode" << std::endl;
 
-    auto interface2 = std::make_shared<dpi::NetInterface>(config.interface2.c_str());
+    auto interface2 = std::make_shared<dpi::PcapNetInterface>(config.interface2.c_str());
     auto bridge = std::make_shared<dpi::NetInterfaceBridgeNDPIProcessor>(
       ndpi_packet_processor,
+      packet_processor,
       interface,
-      interface2
+      interface2,
+      1,
+      logger
     );
     interrupter = bridge;
   }
