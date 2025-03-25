@@ -12,7 +12,8 @@ namespace dpi
     virtual bool process_packet(
       const struct pcap_pkthdr* header,
       const void* packet,
-      UserSessionPacketProcessor::Direction direction) = 0;
+      UserSessionPacketProcessor::Direction direction,
+      const NetInterfacePtr& send_interface) = 0;
   };
 
   using NetworkPacketProcessorPtr = std::shared_ptr<NetworkPacketProcessor>;

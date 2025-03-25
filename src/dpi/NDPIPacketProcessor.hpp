@@ -12,36 +12,34 @@
 #include "ReaderUtil.hpp"
 #include "DPIPrintUtils.hpp"
 #include "UserSessionPacketProcessor.hpp"
+#include "FlowTraits.hpp"
 
 namespace dpi
 {
-  class NDPIPacketProcessor: public NetworkPacketProcessor
+  class NDPIPacketProcessor
   {
   public:
     DECLARE_EXCEPTION(Exception, Gears::DescriptiveException);
 
     NDPIPacketProcessor(
       std::string_view config_path,
-      PacketProcessorPtr packet_processor,
       int datalink_type
       );
 
     virtual ~NDPIPacketProcessor() noexcept;
 
-    virtual bool process_packet(
+    FlowTraits process_packet(
       const struct pcap_pkthdr* header,
-      const void* packet,
-      UserSessionPacketProcessor::Direction direction)
-      override;
+      const void* packet);
 
     void set_datalink_type(int datalink_type);
 
   private:
-    bool process_packet_(
+  private:
+    FlowTraits ndpi_process_packet_(
       unsigned int thread_id,
       const struct pcap_pkthdr* header,
-      const void* packet,
-      UserSessionPacketProcessor::Direction direction);
+      const void* packet);
 
     void init_();
 
@@ -59,6 +57,8 @@ namespace dpi
     void terminate_detection_(
       DPIHandleHolder::Info& dpi_handle_info,
       u_int16_t thread_id);
+
+    void clear_idle_flows_(unsigned int thread_id);
 
   private:
     const std::string config_path_;

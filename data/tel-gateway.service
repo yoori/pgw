@@ -3,6 +3,7 @@ Description=Tel Gateway.
 After=syslog.target network-online.target ipa.service dirsrv.target
 
 [Service]
+LimitCORE=infinity
 Type=forking
 PIDFile=/opt/tel-gateway/var/run/radiusd/radiusd.pid
 ExecStartPre=-/bin/chown -R tel_gateway.tel_gateway /opt/tel-gateway/var/run/radiusd
@@ -12,6 +13,7 @@ ExecStart=/opt/tel-gateway/sbin/radiusd -d /opt/tel-gateway/etc/raddb
 ExecReload=/opt/tel-gateway/sbin/radiusd -C
 ExecReload=/bin/kill -HUP $MAINPID
 Environment=LD_LIBRARY_PATH=/opt/tel-gateway/lib/
+Environment=DEBUGGER_ATTACHED=yes
 
 [Install]
 WantedBy=multi-user.target

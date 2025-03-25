@@ -2,15 +2,19 @@
 
 #include "UserSessionPacketProcessor.hpp"
 #include "UserStorage.hpp"
+#include "EventProcessor.hpp"
+#include "ShapingManager.hpp"
 
 namespace dpi
 {
-  class MainUserSessionPacketProcessor: public UserSessionPacketProcessor
+  class MainUserSessionPacketProcessor:
+    public UserSessionPacketProcessor,
+    public Gears::CompositeActiveObject
   {
   public:
     MainUserSessionPacketProcessor(
       UserStoragePtr user_storage,
-      LoggerPtr event_logger);
+      EventProcessorPtr event_processor);
 
     void
     set_session_rule_config(const SessionRuleConfig& session_rule_config);
@@ -23,17 +27,19 @@ namespace dpi
       uint32_t dst_ip,
       Direction direction,
       const SessionKey& session_key,
-      uint64_t packet_size) override;
+      uint64_t packet_size,
+      const void* packet) override;
 
   private:
-    void check_user_state_(
+    // return true if need to send packet
+    bool check_user_state_(
       User& user,
       const SessionKey& trigger_session_key,
       uint32_t src_ip,
       uint32_t dst_ip,
       const Gears::Time& now);
 
-    void log_event_(
+    bool process_event_(
       const std::string& event,
       const Gears::Time& now,
       uint32_t src_ip,
@@ -41,7 +47,9 @@ namespace dpi
 
   private:
     const UserStoragePtr user_storage_;
-    const LoggerPtr event_logger_;
+    const EventProcessorPtr event_processor_;
+    const ShapingManagerPtr shaping_manager_;
+
     Gears::GnuHashSet<SessionKey> recheck_state_session_keys_;
     SessionRuleConfig session_rule_config_;
   };

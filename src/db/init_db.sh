@@ -1,7 +1,5 @@
 #!/bin/bash
 
-# clickhouse-client --user aggregatoradmin --password aggregator --multiquery
-
 clickhouse-client --multiquery <<EOF
 
 CREATE DATABASE gateway;

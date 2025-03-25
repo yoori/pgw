@@ -30,7 +30,8 @@ namespace dpi
       uint32_t dst_ip,
       Direction direction,
       const SessionKey& session_key,
-      uint64_t packet_size) override;
+      uint64_t packet_size,
+      const void* packet) override;
 
     void
     dump();

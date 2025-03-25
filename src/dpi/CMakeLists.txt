@@ -15,6 +15,8 @@ add_library(dpi
   MainUserSessionPacketProcessor.cpp
   StatUserSessionPacketProcessor.cpp
   IpList.cpp
+  EventProcessor.cpp
+  ShapingManager.cpp
   )
 
 target_link_libraries(dpi

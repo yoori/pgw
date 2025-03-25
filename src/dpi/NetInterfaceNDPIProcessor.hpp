@@ -12,12 +12,9 @@ namespace dpi
     NetInterfaceNDPIProcessor(
       std::shared_ptr<dpi::NDPIPacketProcessor> ndpi_packet_processor,
       NetInterfacePtr interface,
-      unsigned int threads = 1,
-      UserSessionPacketProcessor::Direction direction =
-        UserSessionPacketProcessor::Direction::D_NONE)
+      unsigned int threads = 1)
       : dpi::NetInterfaceProcessor(std::move(interface), threads),
-        ndpi_packet_processor_(std::move(ndpi_packet_processor)),
-        direction_(direction)
+        ndpi_packet_processor_(std::move(ndpi_packet_processor))
     {}
 
     virtual void process_packet(
@@ -28,12 +25,10 @@ namespace dpi
     {
       ndpi_packet_processor_->process_packet(
         header,
-        packet,
-        direction_);
+        packet);
     }
 
   private:
     const std::shared_ptr<dpi::NDPIPacketProcessor> ndpi_packet_processor_;
-    const UserSessionPacketProcessor::Direction direction_;
   };
 }

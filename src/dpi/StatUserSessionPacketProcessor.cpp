@@ -92,7 +92,9 @@ namespace dpi
     uint32_t dst_ip,
     Direction direction,
     const SessionKey& session_key,
-    uint64_t packet_size)
+    uint64_t packet_size,
+    const void* // packet
+    )
   {
     const Gears::Time log_time(time.tv_sec / 60 * 60);
 
@@ -100,8 +102,8 @@ namespace dpi
       StatKey(
         log_time,
         user ? user->msisdn() : std::string(),
-        session_key.traffic_type,
-        session_key.category_type,
+        session_key.traffic_type(),
+        session_key.category_type(),
         src_ip,
         dst_ip,
         direction

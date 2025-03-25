@@ -30,7 +30,7 @@ namespace dpi
           request_json.contains("category_type") ?
             request_json["category_type"].as_string() : std::string()
           );
-        const Gears::Time block_timestamp = Gears::Time::get_time_of_day() + (
+        const Gears::Time block_timestamp = Gears::Time::get_time_of_day() + Gears::Time(
           request_json.contains("block_for") ?
           request_json["block_for"].as_integer<uint64_t>() : 60);
         UserPtr user = user_storage_->add_user(msisdn, 0);

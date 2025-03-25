@@ -7,15 +7,17 @@ namespace dpi
 {
   MainUserSessionPacketProcessor::MainUserSessionPacketProcessor(
     UserStoragePtr user_storage,
-    LoggerPtr event_logger)
+    EventProcessorPtr event_processor)
     : user_storage_(std::move(user_storage)),
-      event_logger_(std::move(event_logger))
+      event_processor_(std::move(event_processor))
   {
     recheck_state_session_keys_.emplace(SessionKey("rdp", std::string()));
+    recheck_state_session_keys_.emplace(SessionKey("anydesk", std::string()));
     recheck_state_session_keys_.emplace(SessionKey("telegram_voip", std::string()));
     recheck_state_session_keys_.emplace(SessionKey("tls", "sber-online"));
     recheck_state_session_keys_.emplace(SessionKey("tls", "gosuslugi"));
     recheck_state_session_keys_.emplace(SessionKey("tls", "alfabank-online"));
+    recheck_state_session_keys_.emplace(SessionKey("tls", "anydesk"));
     recheck_state_session_keys_.emplace(SessionKey("", "fishing"));
   }
 
@@ -34,7 +36,8 @@ namespace dpi
     uint32_t dst_ip,
     Direction /*direction*/,
     const SessionKey& session_key,
-    uint64_t packet_size)
+    uint64_t packet_size,
+    const void* packet)
   {
     PacketProcessingState packet_processing_state = user->process_packet(
       session_rule_config_,
@@ -42,10 +45,13 @@ namespace dpi
       now,
       packet_size);
 
-    if (session_key.category_type == "fishing")
+    if (session_key.category_type() == "fishing")
     {
-      log_event_(session_key.category_type, now, src_ip, dst_ip);
-      packet_processing_state.block_packet = true;
+      // fishing event
+      if (!process_event_(session_key.category_type(), now, src_ip, dst_ip))
+      {
+        packet_processing_state.block_packet = true;
+      }
     }
 
     // Check possible state changes
@@ -63,10 +69,14 @@ namespace dpi
         //< check events state change only if new session opened
       {
         if (recheck_state_session_keys_.find(session_key) != recheck_state_session_keys_.end() ||
-          recheck_state_session_keys_.find(SessionKey(std::string(), session_key.category_type)) !=
+          recheck_state_session_keys_.find(SessionKey(std::string(), session_key.category_type())) !=
             recheck_state_session_keys_.end())
         {
-          check_user_state_(*user, session_key, src_ip, dst_ip, now);
+          bool local_send_packet = check_user_state_(*user, session_key, src_ip, dst_ip, now);
+          if (!local_send_packet)
+          {
+            packet_processing_state.block_packet = true;
+          }
         }
       }
     }
@@ -74,59 +84,89 @@ namespace dpi
     return packet_processing_state;
   }
 
-  void MainUserSessionPacketProcessor::check_user_state_(
+  struct NamedSessionKey
+  {
+    SessionKey session_key;
+    std::string name;
+  };
+
+  bool MainUserSessionPacketProcessor::check_user_state_(
     User& user,
     const SessionKey& trigger_session_key,
     uint32_t src_ip,
     uint32_t dst_ip,
     const Gears::Time& now)
   {
+    bool send_packet = true;
+
     // if now opened telegram call
-    if (trigger_session_key.traffic_type == "telegram_voip" ||
-      trigger_session_key.traffic_type == "rdp")
+    if (trigger_session_key.traffic_type() == "telegram_voip")
     {
       auto ts = user.session_open_timestamp(trigger_session_key);
       if (ts.has_value() && *ts == now)
       {
-        log_event_(trigger_session_key.traffic_type, now, src_ip, dst_ip);
+        bool local_send_packet = process_event_(
+          trigger_session_key.traffic_type() + " open", now, src_ip, dst_ip);
+        send_packet = send_packet && local_send_packet;
       }
     }
 
-    if (trigger_session_key.traffic_type == "tls" && (
-      trigger_session_key.category_type == "sber-online" ||
-      trigger_session_key.category_type == "alfabank-online" ||
-      trigger_session_key.category_type == "gosuslugi"))
+    if (trigger_session_key.traffic_type() == "rdp" ||
+      trigger_session_key.traffic_type() == "anydesk" ||
+      (trigger_session_key.traffic_type() == "tls" && trigger_session_key.category_type() == "anydesk"))
+    {
+      std::cout << "AnyDesk !" << std::endl;
+      auto ts = user.session_open_timestamp(trigger_session_key);
+      if (ts.has_value() && *ts == now)
+      {
+        bool local_send_packet = process_event_(
+          "remote-control open", now, src_ip, dst_ip);
+        send_packet = send_packet && local_send_packet;
+      }
+    }
+
+    if (trigger_session_key.traffic_type() == "tls" && (
+      trigger_session_key.category_type() == "sber-online" ||
+      trigger_session_key.category_type() == "alfabank-online" ||
+      trigger_session_key.category_type() == "gosuslugi"))
     {
       auto ts = user.session_open_timestamp(trigger_session_key);
       if (ts.has_value() && *ts == now)
       {
         // check that telegram session is opened
-        const char* CHECK_SESSIONS[] = {
-          "telegram_voip",
-          "rdp"
+        NamedSessionKey CHECK_SESSIONS[] = {
+          { SessionKey("telegram_voip", ""), "telegram_voip" },
+          { SessionKey("rdp", ""), "remote-control" },
+          { SessionKey("anydesk", ""), "remote-control" },
+          { SessionKey("tls", "anydesk"), "remote-control" }
         };
 
         for (int check_i = 0; check_i < sizeof(CHECK_SESSIONS) / sizeof(CHECK_SESSIONS[0]); ++check_i)
         {
-          auto check_ts = user.session_open_timestamp(SessionKey(CHECK_SESSIONS[check_i], std::string()));
+          auto check_ts = user.session_open_timestamp(CHECK_SESSIONS[check_i].session_key);
           if (check_ts.has_value())
           {
-            log_event_(
-              trigger_session_key.category_type + " open on " + CHECK_SESSIONS[check_i],
+            bool local_send_packet = process_event_(
+              trigger_session_key.category_type() + " open on " + CHECK_SESSIONS[check_i].name,
               now,
               src_ip,
               dst_ip);
+            send_packet = send_packet && local_send_packet;
           }
           else
           {
-            log_event_(trigger_session_key.category_type + " open", now, src_ip, dst_ip);
+            bool local_send_packet = process_event_(
+              trigger_session_key.category_type() + " open", now, src_ip, dst_ip);
+            send_packet = send_packet && local_send_packet;
           }
         }
       }
     }
+
+    return send_packet;
   }
 
-  void MainUserSessionPacketProcessor::log_event_(
+  bool MainUserSessionPacketProcessor::process_event_(
     const std::string& event,
     const Gears::Time& now,
     uint32_t src_ip,
@@ -151,9 +191,8 @@ namespace dpi
     }
 
     std::ostringstream ostr;
-    ostr << "[" << Gears::Time::get_time_of_day().gm_ft() << "] [sber-telecom] EVENT '" << event << "': " <<
-      user->to_string() << ", destination ip = " << ipv4_address_to_string(dst_ip) <<
-      std::endl;
-    event_logger_->log(ostr.str());
+    ostr << ", destination ip = " << ipv4_address_to_string(dst_ip);
+
+    return event_processor_->process_event(user, event, ostr.str());
   }
 }

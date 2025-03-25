@@ -44,6 +44,11 @@ namespace dpi
       result.ip_rules_root = document["ip_rules_root"].GetString();
     }
 
+    if (document.HasMember("http_port"))
+    {
+      result.http_port = document["http_port"].GetInt();
+    }
+
     return result;
   }
 }

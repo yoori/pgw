@@ -19,17 +19,22 @@ namespace dpi
 
     SessionKey(std::string traffic_type, std::string category_type);
 
+    SessionKey& operator=(const SessionKey& init);
+
     bool operator==(const SessionKey& right) const;
 
     unsigned long hash() const;
 
-    const std::string traffic_type;
-    const std::string category_type;
+    const std::string& traffic_type() const;
+
+    const std::string& category_type() const;
 
   protected:
     void calc_hash_();
 
   protected:
+    std::string traffic_type_;
+    std::string category_type_;
     unsigned long hash_;
   };
 
@@ -107,11 +112,25 @@ namespace dpi
     bool is_session_blocked(
       const SessionKey& key, const Gears::Time& now) const;
 
+    void set_shaping(
+      const std::vector<SessionKey>& session_keys,
+      unsigned long bytes_limit);
+
   private:
     struct BlockSessionHolder
     {
       Gears::Time block_timestamp;
     };
+
+    struct ShapeGroup
+    {
+      unsigned long bytes_limit = 0;
+      Gears::Time last_timestamp;
+      unsigned long bytes = 0;
+      unsigned long deferred_bytes = 0;
+    };
+
+    using ShapeGroupPtr = std::shared_ptr<ShapeGroup>;
 
   private:
     bool is_session_blocked_i_(
@@ -137,6 +156,7 @@ namespace dpi
     Gears::HashTable<SessionKey, SessionPtr> opened_sessions_;
     // closed sessions
     std::map<Gears::Time, SessionPtr> closed_sessions_;
+    Gears::HashTable<SessionKey, std::vector<ShapeGroupPtr>> shape_groups_;
 
     // blocked sessions
     mutable std::mutex block_lock_;
@@ -155,8 +175,8 @@ namespace dpi
 
   inline
   SessionKey::SessionKey(std::string traffic_type_val, std::string category_type_val)
-    : traffic_type(std::move(traffic_type_val)),
-      category_type(std::move(category_type_val)),
+    : traffic_type_(std::move(traffic_type_val)),
+      category_type_(std::move(category_type_val)),
       hash_(0)
   {
     calc_hash_();
@@ -165,8 +185,8 @@ namespace dpi
   inline
   bool SessionKey::operator==(const SessionKey& right) const
   {
-    return traffic_type == right.traffic_type &&
-      category_type == right.category_type;
+    return traffic_type_ == right.traffic_type_ &&
+      category_type_ == right.category_type_;
   }
 
   inline unsigned long
@@ -175,12 +195,33 @@ namespace dpi
     return hash_;
   }
 
+  inline const std::string&
+  SessionKey::traffic_type() const
+  {
+    return traffic_type_;
+  }
+
+  inline const std::string&
+  SessionKey::category_type() const
+  {
+    return category_type_;
+  }
+
   inline void
   SessionKey::calc_hash_()
   {
     Gears::Murmur64Hash hasher(hash_);
-    hash_add(hasher, traffic_type);
-    hash_add(hasher, category_type);
+    hash_add(hasher, traffic_type_);
+    hash_add(hasher, category_type_);
+  }
+
+  inline SessionKey&
+  SessionKey::operator=(const SessionKey& init)
+  {
+    traffic_type_ = init.traffic_type_;
+    category_type_ = init.category_type_;
+    hash_ = init.hash_;
+    return *this;
   }
 
   // User inlines

@@ -181,7 +181,6 @@ namespace dpi
     protocol_session_keys_.emplace(NDPI_PROTOCOL_AMAZON_ALEXA, SessionKey("amazon_alexa", std::string()));
     protocol_session_keys_.emplace(NDPI_PROTOCOL_KERBEROS, SessionKey("kerberos", std::string()));
     protocol_session_keys_.emplace(NDPI_PROTOCOL_LDAP, SessionKey("ldap", std::string()));
-    protocol_session_keys_.emplace(NDPI_PROTOCOL_MAPLESTORY, SessionKey("maplestory", std::string()));
     protocol_session_keys_.emplace(NDPI_PROTOCOL_MSSQL_TDS, SessionKey("mssql_tds", std::string()));
     protocol_session_keys_.emplace(NDPI_PROTOCOL_PPTP, SessionKey("pptp", std::string()));
     protocol_session_keys_.emplace(NDPI_PROTOCOL_WARCRAFT3, SessionKey("warcraft3", std::string()));
@@ -518,30 +517,22 @@ namespace dpi
 
   
   bool PacketProcessor::process_packet(
-    struct ndpi_workflow* workflow,
-    const ndpi_flow_info* flow,
-    const pcap_pkthdr* header,
-    UserSessionPacketProcessor::Direction direction)
+    const FlowTraits& flow_traits,
+    unsigned long packet_size,
+    const void* packet,
+    UserSessionPacketProcessor::Direction direction,
+    NetInterfacePtr send_interface)
   {
     ++packet_i_;
 
-    const u_int16_t proto = flow ?
-      (flow->detected_protocol.proto.app_protocol ? flow->detected_protocol.proto.app_protocol :
-        flow->detected_protocol.proto.master_protocol) :
-      0;
-
-    bool res = true;
-
-    if (flow)
-    {
-      res = process_packet_(
-        proto,
-        flow->src_ip,
-        flow->dst_ip,
-        header->len,
-        direction
-        );
-    }
+    bool res = process_packet_(
+      flow_traits.proto,
+      flow_traits.src_ip,
+      flow_traits.dst_ip,
+      packet_size,
+      direction,
+      packet
+      );
 
     return res;
   }
@@ -563,7 +554,8 @@ namespace dpi
     uint32_t src_ip,
     uint32_t dst_ip,
     uint64_t packet_size,
-    UserSessionPacketProcessor::Direction direction
+    UserSessionPacketProcessor::Direction direction,
+    const void* packet
     )
   {
     // find SessionKey by proto
@@ -588,7 +580,7 @@ namespace dpi
     }
 
     SessionKey use_session_key = !category ? base_session_key :
-      SessionKey(base_session_key.traffic_type, *category);
+      SessionKey(base_session_key.traffic_type(), *category);
 
     const Gears::Time now = Gears::Time::get_time_of_day();
 
@@ -602,14 +594,29 @@ namespace dpi
         dst_ip,
         direction,
         use_session_key,
-        packet_size);
+        packet_size,
+        packet);
+
+    // If packet shaped - push it to shapingmanager and block here.
+    /*
+    if (processing_state.shaped)
+    {
+      shaping_manager_->add_shaped_packet(
+        now,
+        user,
+        use_session_key,
+        packet_size,
+        packet,
+        );
+    }
+    */
 
     /*
     if (processing_state.block_packet)
     {
       std::cout << "BLOCK PACKET BY: "
-        "traffic_type = '" << use_session_key.traffic_type << "', "
-        "category_type = '" << use_session_key.category_type << "'" <<
+        "traffic_type = '" << use_session_key.traffic_type() << "', "
+        "category_type = '" << use_session_key.category_type() << "'" <<
         std::endl;
     }
     */

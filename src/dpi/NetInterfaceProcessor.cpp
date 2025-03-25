@@ -36,14 +36,21 @@ namespace dpi
     }
   }
 
-  // NetInterface impl
   NetInterface::NetInterface(
+    const char* interface_name)
+    : interface_name_(interface_name)
+  {}
+
+  // PcapNetInterface impl
+  PcapNetInterface::PcapNetInterface(
     const char* interface_name,
     unsigned int snaplen)
-    : interface_name_(interface_name)
+    : NetInterface(interface_name)
   {
     int promisc = 1;
     char pcap_error_buffer[PCAP_ERRBUF_SIZE];
+
+    std::cout << "NetInterface: snaplen = " << snaplen << std::endl;
 
     // Trying to open the interface
     if ((pcap_handle_ = pcap_open_live(
@@ -74,7 +81,7 @@ namespace dpi
     }
   }
 
-  NetInterface::~NetInterface() noexcept
+  PcapNetInterface::~PcapNetInterface() noexcept
   {
     if (pcap_handle_)
     {
@@ -83,13 +90,16 @@ namespace dpi
     }
   }
 
-  pcap_t* NetInterface::pcap_handle() const
+  pcap_t*
+  PcapNetInterface::pcap_handle() const
   {
     return pcap_handle_;
   }
 
-  void NetInterface::send(const void* packet_buf, int packet_buf_size)
+  void
+  PcapNetInterface::send(const void* packet_buf, int packet_buf_size)
   {
+    /*
     int ret = pcap_inject(pcap_handle_, packet_buf, packet_buf_size);
 
     if (ret == PCAP_ERROR)
@@ -105,9 +115,20 @@ namespace dpi
       ostr << "Error on packet sending, sent only part of packet: " << ret << "/" << packet_buf_size;
       throw Exception(ostr.str());
     }
+    */
+
+    int ret = pcap_sendpacket(pcap_handle_, static_cast<const u_char*>(packet_buf), packet_buf_size);
+
+    if (ret < 0)
+    {
+      std::ostringstream ostr;
+      ostr << "Error on packet sending(size = " << packet_buf_size << "): " << pcap_geterr(pcap_handle_);
+      throw Exception(ostr.str());
+    }
   }
 
-  bool NetInterface::live_capture() const
+  bool
+  PcapNetInterface::live_capture() const
   {
     return live_capture_;
   }

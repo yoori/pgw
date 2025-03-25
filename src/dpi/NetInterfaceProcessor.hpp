@@ -17,17 +17,34 @@ namespace dpi
     DECLARE_EXCEPTION(Exception, Gears::DescriptiveException);
 
   public:
-    NetInterface(
-      const char* interface_name,
-      unsigned int snaplen = 1536);
+    NetInterface(const char* interface_name);
 
-    virtual ~NetInterface() noexcept;
+    virtual ~NetInterface() noexcept {}
 
     const std::string& interface_name() const;
 
+    virtual pcap_t* pcap_handle() const = 0;
+
+    virtual void send(const void* packet_buf, int packet_buf_size) = 0;
+
+    virtual bool live_capture() const = 0;
+
+  protected:
+    const std::string interface_name_;
+  };
+
+  class PcapNetInterface: public NetInterface
+  {
+  public:
+    PcapNetInterface(
+      const char* interface_name,
+      unsigned int snaplen = 6000);
+
+    virtual ~PcapNetInterface() noexcept;
+
     pcap_t* pcap_handle() const;
 
-    void send(const void* packet_buf, int packet_buf_size);
+    virtual void send(const void* packet_buf, int packet_buf_size);
 
     bool live_capture() const;
 

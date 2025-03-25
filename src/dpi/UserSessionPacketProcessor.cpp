@@ -43,7 +43,8 @@ namespace dpi
     uint32_t dst_ip,
     Direction direction,
     const SessionKey& session_key,
-    uint64_t packet_size)
+    uint64_t packet_size,
+    const void* packet)
   {
     PacketProcessingState processing_state;
 
@@ -56,7 +57,8 @@ namespace dpi
         dst_ip,
         direction,
         session_key,
-        packet_size);
+        packet_size,
+        packet);
 
       if (processing_state.block_packet)
       {

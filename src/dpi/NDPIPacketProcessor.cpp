@@ -1353,10 +1353,8 @@ namespace dpi
 {
   NDPIPacketProcessor::NDPIPacketProcessor(
     std::string_view config_path,
-    PacketProcessorPtr packet_processor,
     int datalink_type)
     : config_path_(config_path),
-      packet_processor_(std::move(packet_processor)),
       datalink_type_(datalink_type)
   {
     init_();
@@ -1369,56 +1367,20 @@ namespace dpi
     clear_();
   }
 
-  bool NDPIPacketProcessor::process_packet(
+  FlowTraits
+  NDPIPacketProcessor::process_packet(
     const struct pcap_pkthdr* header,
-    const void* packet,
-    UserSessionPacketProcessor::Direction direction)
+    const void* packet)
   {
-    return process_packet_(0, header, packet, direction);
+    return ndpi_process_packet_(
+      0, // thread_id
+      header,
+      packet);
   }
 
-  bool NDPIPacketProcessor::process_packet_(
-    unsigned int thread_id,
-    const struct pcap_pkthdr* header,
-    const void* packet,
-    UserSessionPacketProcessor::Direction direction)
+  void NDPIPacketProcessor::clear_idle_flows_(unsigned int thread_id)
   {
-    // allocate an exact size buffer to check overflows
-    uint8_t* packet_checked = (uint8_t*)ndpi_malloc(header->caplen);
-
-    if (packet_checked == NULL)
-    {
-      return true;
-    }
-
-    ::memcpy(packet_checked, packet, header->caplen);
-
     DPIHandleHolder::Info& dpi_handle_info = *dpi_handle_holder_.info;
-
-    ndpi_risk flow_risk;
-    struct ndpi_flow_info* flow;
-    struct ndpi_proto p = ndpi_workflow_process_packet(
-      dpi_handle_info.ndpi_thread_info[thread_id].workflow,
-      header,
-      packet_checked,
-      &flow_risk,
-      &flow,
-      datalink_type_);
-
-    if (!pcap_start.tv_sec)
-    {
-      pcap_start.tv_sec = header->ts.tv_sec;
-      pcap_start.tv_usec = header->ts.tv_usec;
-    }
-
-    pcap_end.tv_sec = header->ts.tv_sec;
-    pcap_end.tv_usec = header->ts.tv_usec;
-
-    bool res = packet_processor_->process_packet(
-      dpi_handle_info.ndpi_thread_info[thread_id].workflow,
-      flow,
-      header,
-      direction);
 
     // Idle flows cleanup
     if (::live_capture)
@@ -1464,131 +1426,57 @@ namespace dpi
           dpi_handle_info.ndpi_thread_info[thread_id].workflow->last_time;
       }
     }
+  }
 
-    if (extcap_dumper && (
-      extcap_packet_filter == (u_int16_t)-1 ||
-      p.proto.app_protocol == extcap_packet_filter ||
-      p.proto.master_protocol == extcap_packet_filter)
-    )
+  FlowTraits
+  NDPIPacketProcessor::ndpi_process_packet_(
+    unsigned int thread_id,
+    const struct pcap_pkthdr* header,
+    const void* packet)
+  {
+    // allocate an exact size buffer to check overflows
+    uint8_t* packet_checked = (uint8_t*)ndpi_malloc(header->caplen);
+
+    if (packet_checked == NULL)
     {
-      struct pcap_pkthdr h;
-      u_int32_t *crc, delta = sizeof(struct ndpi_packet_trailer);
-      struct ndpi_packet_trailer *trailer;
-      u_int16_t cli_score, srv_score;
-
-      memcpy(&h, header, sizeof(h));
-
-      if (extcap_add_crc)
-      {
-        delta += 4; // ethernet trailer
-      }
-
-      if (h.caplen > (sizeof(extcap_buf) - delta))
-      {
-        printf("INTERNAL ERROR: caplen=%u\n", h.caplen);
-        h.caplen = sizeof(extcap_buf) - delta;
-      }
-
-      trailer = (struct ndpi_packet_trailer*)&extcap_buf[h.caplen];
-      memcpy(extcap_buf, packet, h.caplen);
-      memset(trailer, 0, sizeof(struct ndpi_packet_trailer));
-      trailer->magic = htonl(WIRESHARK_NTOP_MAGIC);
-      if (flow)
-      {
-        trailer->flags = flow->current_pkt_from_client_to_server;
-        trailer->flags |= (flow->detection_completed << 2);
-      }
-      else
-      {
-        trailer->flags = 0 | (2 << 2);
-      }
-      trailer->flow_risk = htonl64(flow_risk);
-      trailer->flow_score = htons(ndpi_risk2score(flow_risk, &cli_score, &srv_score));
-      trailer->flow_risk_info_len = ntohs(WIRESHARK_FLOW_RISK_INFO_SIZE);
-      if (flow && flow->risk_str)
-      {
-        ::strncpy(trailer->flow_risk_info, flow->risk_str, sizeof(trailer->flow_risk_info));
-      }
-      trailer->flow_risk_info[sizeof(trailer->flow_risk_info) - 1] = '\0';
-      trailer->proto.master_protocol = htons(p.proto.master_protocol);
-      trailer->proto.app_protocol = htons(p.proto.app_protocol);
-      ndpi_protocol2name(
-        dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_struct,
-        p,
-        trailer->name,
-        sizeof(trailer->name));
-
-      // Metadata are (all) available in `flow` only after nDPI completed its work!
-      // We export them only once
-      // TODO: boundary check. Right now there is always enough room, but we should check it if we are
-      // going to extend the list of the metadata exported
-      trailer->metadata_len = ntohs(WIRESHARK_METADATA_SIZE);
-      struct ndpi_packet_tlv *tlv = (struct ndpi_packet_tlv *)trailer->metadata;
-      int tot_len = 0;
-
-      if (flow && flow->detection_completed == 1)
-      {
-        if (flow->host_server_name[0] != '\0')
-        {
-          tlv->type = ntohs(WIRESHARK_METADATA_SERVERNAME);
-          tlv->length = ntohs(sizeof(flow->host_server_name));
-          memcpy(tlv->data, flow->host_server_name, sizeof(flow->host_server_name));
-          // TODO: boundary check
-          tot_len += 4 + htons(tlv->length);
-          tlv = (struct ndpi_packet_tlv *)&trailer->metadata[tot_len];
-        }
-
-        if (flow->ssh_tls.ja4_client[0] != '\0')
-        {
-          tlv->type = ntohs(WIRESHARK_METADATA_JA4C);
-          tlv->length = ntohs(sizeof(flow->ssh_tls.ja4_client));
-          memcpy(tlv->data, flow->ssh_tls.ja4_client, sizeof(flow->ssh_tls.ja4_client));
-          // TODO: boundary check
-          tot_len += 4 + htons(tlv->length);
-          tlv = (struct ndpi_packet_tlv *)&trailer->metadata[tot_len];
-        }
-
-        if (flow->ssh_tls.obfuscated_heur_matching_set.pkts[0] != 0)
-        {
-          tlv->type = ntohs(WIRESHARK_METADATA_TLS_HEURISTICS_MATCHING_FINGERPRINT);
-          tlv->length = ntohs(sizeof(struct ndpi_tls_obfuscated_heuristic_matching_set));
-          struct ndpi_tls_obfuscated_heuristic_matching_set* s =
-            (struct ndpi_tls_obfuscated_heuristic_matching_set *)tlv->data;
-          s->bytes[0] = ntohl(flow->ssh_tls.obfuscated_heur_matching_set.bytes[0]);
-          s->bytes[1] = ntohl(flow->ssh_tls.obfuscated_heur_matching_set.bytes[1]);
-          s->bytes[2] = ntohl(flow->ssh_tls.obfuscated_heur_matching_set.bytes[2]);
-          s->bytes[3] = ntohl(flow->ssh_tls.obfuscated_heur_matching_set.bytes[3]);
-          s->pkts[0] = ntohl(flow->ssh_tls.obfuscated_heur_matching_set.pkts[0]);
-          s->pkts[1] = ntohl(flow->ssh_tls.obfuscated_heur_matching_set.pkts[1]);
-          s->pkts[2] = ntohl(flow->ssh_tls.obfuscated_heur_matching_set.pkts[2]);
-          s->pkts[3] = ntohl(flow->ssh_tls.obfuscated_heur_matching_set.pkts[3]);
-          // TODO: boundary check
-          tot_len += 4 + htons(tlv->length);
-          tlv = (struct ndpi_packet_tlv *)&trailer->metadata[tot_len];
-        }
-
-        flow->detection_completed = 2;
-        //< Avoid exporting metadata again.
-        // If we really want to have the metadata on Wireshark for *all*
-        // the future packets of this flow, simply remove that assignment
-      }
-
-      // Last: padding
-      tlv->type = 0;
-      tlv->length = ntohs(WIRESHARK_METADATA_SIZE - tot_len - 4);
-      // The remaining bytes are already set to 0
-
-      if (extcap_add_crc)
-      {
-        crc = (uint32_t*)&extcap_buf[h.caplen + sizeof(struct ndpi_packet_trailer)];
-        *crc = ndpi_crc32((const void*)extcap_buf, h.caplen + sizeof(struct ndpi_packet_trailer), 0);
-      }
-      h.caplen += delta;
-      h.len += delta;
-
-      pcap_dump((u_char*)extcap_dumper, &h, (const u_char *)extcap_buf);
-      pcap_dump_flush(extcap_dumper);
+      return FlowTraits();
     }
+
+    ::memcpy(packet_checked, packet, header->caplen);
+
+    DPIHandleHolder::Info& dpi_handle_info = *dpi_handle_holder_.info;
+
+    ndpi_risk flow_risk;
+    struct ndpi_flow_info* flow;
+    struct ndpi_proto p = ndpi_workflow_process_packet(
+      dpi_handle_info.ndpi_thread_info[thread_id].workflow,
+      header,
+      packet_checked,
+      &flow_risk,
+      &flow,
+      datalink_type_);
+
+    if (!pcap_start.tv_sec)
+    {
+      pcap_start.tv_sec = header->ts.tv_sec;
+      pcap_start.tv_usec = header->ts.tv_usec;
+    }
+
+    pcap_end.tv_sec = header->ts.tv_sec;
+    pcap_end.tv_usec = header->ts.tv_usec;
+
+    FlowTraits flow_traits;
+
+    if (flow)
+    {
+      flow_traits.proto = flow->detected_protocol.proto.app_protocol ?
+        flow->detected_protocol.proto.app_protocol :
+        flow->detected_protocol.proto.master_protocol;
+      flow_traits.src_ip = flow->src_ip;
+      flow_traits.dst_ip = flow->dst_ip;
+    }
+  
+    clear_idle_flows_(thread_id);
 
     // Check for buffer changes
     if (::memcmp(packet, packet_checked, header->caplen) != 0)
@@ -1635,14 +1523,7 @@ namespace dpi
       packet_checked = NULL;
     }
 
-    /*
-    if (!res)
-    {
-      std::cout << "BLOCK PACKET ON NDPI" << std::endl;
-    }
-    */
-
-    return res;
+    return flow_traits;
   }
 
   void

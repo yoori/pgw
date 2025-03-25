@@ -66,10 +66,10 @@ namespace dpi
       for (const auto& [session_key, traffic_sum] : traffic_sums_)
       {
         jsoncons::json traffic_state;
-        traffic_state["traffic_type"] = session_key.traffic_type;
-        if (!session_key.category_type.empty())
+        traffic_state["traffic_type"] = session_key.traffic_type();
+        if (!session_key.category_type().empty())
         {
-          traffic_state["category"] = session_key.category_type;
+          traffic_state["category"] = session_key.category_type();
         }
         traffic_state["packets"] = traffic_sum.packets;
         traffic_state["size"] = traffic_sum.size;
@@ -81,10 +81,10 @@ namespace dpi
       for (const auto& [session_key, session] : opened_sessions_)
       {
         jsoncons::json opened_session;
-        opened_session["traffic_type"] = session_key.traffic_type;
-        if (!session_key.category_type.empty())
+        opened_session["traffic_type"] = session_key.traffic_type();
+        if (!session_key.category_type().empty())
         {
-          opened_session["category"] = session_key.category_type;
+          opened_session["category"] = session_key.category_type();
         }
         opened_session["first_packet_timestamp"] = session->first_packet_timestamp.gm_ft();
         opened_session["last_packet_timestamp"] = session->last_packet_timestamp.gm_ft();
@@ -97,10 +97,10 @@ namespace dpi
       for (const auto& [close_timestamp, session] : closed_sessions_)
       {
         jsoncons::json closed_session;
-        closed_session["traffic_type"] = session->session_key.traffic_type;
-        if (!session->session_key.category_type.empty())
+        closed_session["traffic_type"] = session->session_key.traffic_type();
+        if (!session->session_key.category_type().empty())
         {
-          closed_session["category"] = session->session_key.category_type;
+          closed_session["category"] = session->session_key.category_type();
         }
         closed_session["first_packet_timestamp"] = session->first_packet_timestamp.gm_ft();
         closed_session["last_packet_timestamp"] = session->last_packet_timestamp.gm_ft();
@@ -113,10 +113,10 @@ namespace dpi
       for (const auto& [session_key, block_session_holder] : blocked_sessions_)
       {
         jsoncons::json blocked_session;
-        blocked_session["traffic_type"] = session_key.traffic_type;
-        if (!session_key.category_type.empty())
+        blocked_session["traffic_type"] = session_key.traffic_type();
+        if (!session_key.category_type().empty())
         {
-          blocked_session["category"] = session_key.category_type;
+          blocked_session["category"] = session_key.category_type();
         }
         blocked_session["block_timestamp"] = block_session_holder.block_timestamp.gm_ft();
         blocked_sessions_arr.emplace_back(std::move(blocked_session));
@@ -132,6 +132,21 @@ namespace dpi
     return ostr.str();
   }
 
+  void
+  User::set_shaping(
+    const std::vector<SessionKey>& session_keys,
+    unsigned long bytes_limit)
+  {
+    ShapeGroupPtr shape_group = std::make_shared<ShapeGroup>();
+    shape_group->bytes_limit = bytes_limit;
+
+    std::unique_lock lock{lock_};
+    for (const auto& session_key : session_keys)
+    {
+      shape_groups_[session_key].emplace_back(shape_group);
+    }
+  }
+
   const SessionRuleConfig::SessionTypeRule&
   User::get_session_rule_(
     const SessionRuleConfig& session_rule_config,
@@ -144,7 +159,7 @@ namespace dpi
     }
 
     rule_it = session_rule_config.session_rules.find(
-      SessionKey(session_key.traffic_type, std::string()));
+      SessionKey(session_key.traffic_type(), std::string()));
     if (rule_it != session_rule_config.session_rules.end())
     {
       return rule_it->second;
@@ -203,6 +218,7 @@ namespace dpi
       get_session_rule_(session_rule_config, session_key);
 
     bool block_packet = false;
+    bool shape_packet = false;
     bool opened_new_session = false;
     SessionPtr del_session;
 
@@ -234,13 +250,41 @@ namespace dpi
       {
         block_packet = true;
       }
-      else
+
+      if (!block_packet)
       {
+        auto shape_group_it = shape_groups_.find(session_key);
+        if (shape_group_it != shape_groups_.end())
+        {
+          const Gears::Time now_sec(now.tv_sec);
+
+          for (const auto& shape_group : shape_group_it->second)
+          {
+            if (shape_group->last_timestamp < now_sec)
+            {
+              shape_group->last_timestamp = now_sec;
+              shape_group->bytes = 0;
+            }
+            else if (shape_group->bytes + size >= shape_group->bytes_limit)
+            {
+              shape_packet = true;
+            }
+          }
+
+          if (!shape_packet)
+          {
+            for (const auto& shape_group : shape_group_it->second)
+            {
+              shape_group->bytes += size;
+            }
+          }
+        }
+
         traffic_sums_[session_key] += TrafficState(1, size);
       }
     }
 
-    return PacketProcessingState(block_packet, opened_new_session);
+    return PacketProcessingState(block_packet, opened_new_session, shape_packet);
   }
 
   void User::session_block(

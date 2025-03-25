@@ -22,7 +22,8 @@ namespace dpi
       uint32_t dst_ip,
       Direction direction,
       const SessionKey& session_key,
-      uint64_t packet_size) = 0;
+      uint64_t packet_size,
+      const void* packet) = 0;
   };
 
   using UserSessionPacketProcessorPtr = std::shared_ptr<UserSessionPacketProcessor>;
@@ -41,7 +42,8 @@ namespace dpi
       uint32_t dst_ip,
       Direction direction,
       const SessionKey& session_key,
-      uint64_t packet_size) override;
+      uint64_t packet_size,
+      const void* packet) override;
 
   private:
     std::vector<UserSessionPacketProcessorPtr> childs_;

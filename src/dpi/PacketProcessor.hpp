@@ -12,6 +12,8 @@
 #include "UserStorage.hpp"
 #include "ReaderUtil.hpp"
 #include "UserSessionPacketProcessor.hpp"
+#include "FlowTraits.hpp"
+#include "NetInterfaceProcessor.hpp"
 
 namespace dpi
 {
@@ -25,10 +27,11 @@ namespace dpi
       std::string_view ip_rules_path);
 
     bool process_packet(
-      struct ndpi_workflow* workflow,
-      const ndpi_flow_info* flow,
-      const pcap_pkthdr* header,
-      UserSessionPacketProcessor::Direction direction);
+      const FlowTraits& flow_traits,
+      unsigned long packet_size,
+      const void* packet,
+      UserSessionPacketProcessor::Direction direction,
+      NetInterfacePtr send_interface);
 
   private:
     struct ClientState
@@ -46,7 +49,8 @@ namespace dpi
       uint32_t src_ip,
       uint32_t dst_ip,
       uint64_t packet_size,
-      UserSessionPacketProcessor::Direction direction);
+      UserSessionPacketProcessor::Direction direction,
+      const void* packet);
 
     bool process_session_packet_(
       uint32_t src_ip,

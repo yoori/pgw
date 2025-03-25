@@ -82,8 +82,8 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  auto int1 = std::make_shared<dpi::NetInterface>(opt_int1->c_str());
-  auto int2 = std::make_shared<dpi::NetInterface>(opt_int2->c_str());
+  auto int1 = std::make_shared<dpi::PcapNetInterface>(opt_int1->c_str());
+  auto int2 = std::make_shared<dpi::PcapNetInterface>(opt_int2->c_str());
   auto net_bridge = std::make_shared<NetBridge>(int1, int2);
   net_bridge->activate_object();
   net_bridge->wait_object();
