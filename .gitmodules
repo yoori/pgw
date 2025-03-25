@@ -7,6 +7,6 @@
 	url = https://github.com/danielaparker/jsoncons.git
 	branch = master
 [submodule "ependencies/nDPI"]
-	path = ependencies/nDPI
+	path = dependencies/nDPI
 	url = https://github.com/yoori/nDPI.git
 	branch = dev
