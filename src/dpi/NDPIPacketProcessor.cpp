@@ -1306,75 +1306,79 @@ namespace dpi
 
     ::memcpy(packet_checked, packet, header->caplen);
 
-    DPIHandleHolder::Info& dpi_handle_info = *dpi_handle_holder_.info;
-
-    ndpi_risk flow_risk;
-    struct ndpi_flow_info* flow;
-    struct ndpi_proto p = ndpi_workflow_process_packet(
-      dpi_handle_info.ndpi_thread_info[thread_id].workflow,
-      header,
-      packet_checked,
-      &flow_risk,
-      &flow,
-      datalink_type_);
-
-    if (!pcap_start.tv_sec)
-    {
-      pcap_start.tv_sec = header->ts.tv_sec;
-      pcap_start.tv_usec = header->ts.tv_usec;
-    }
-
-    pcap_end.tv_sec = header->ts.tv_sec;
-    pcap_end.tv_usec = header->ts.tv_usec;
-
     FlowTraits flow_traits;
 
-    if (flow)
     {
-      flow_traits.proto = flow->detected_protocol.proto.app_protocol ?
-        flow->detected_protocol.proto.app_protocol :
-        flow->detected_protocol.proto.master_protocol;
-      flow_traits.src_ip = flow->src_ip;
-      flow_traits.dst_ip = flow->dst_ip;
-    }
-  
-    clear_idle_flows_(thread_id);
+      std::unique_lock<std::mutex> guard(ndpi_lock_);
 
-    // Check for buffer changes
-    if (::memcmp(packet, packet_checked, header->caplen) != 0)
-    {
-      printf("INTERNAL ERROR: ingress packet was modified by nDPI: this should not happen [thread_id=%u, packetId=%lu, caplen=%u]\n",
-        thread_id,
-        (unsigned long)dpi_handle_info.ndpi_thread_info[thread_id].workflow->stats.raw_packet_count,
-        header->caplen);
-    }
+      DPIHandleHolder::Info& dpi_handle_info = *dpi_handle_holder_.info;
 
-    if ((u_int32_t)(pcap_end.tv_sec-pcap_start.tv_sec) > pcap_analysis_duration)
-    {
-      u_int64_t processing_time_usec, setup_time_usec;
+      ndpi_risk flow_risk;
+      struct ndpi_flow_info* flow;
+      struct ndpi_proto p = ndpi_workflow_process_packet(
+	dpi_handle_info.ndpi_thread_info[thread_id].workflow,
+	header,
+	packet_checked,
+	&flow_risk,
+	&flow,
+	datalink_type_);
 
-      gettimeofday(&end, NULL);
-      processing_time_usec = (u_int64_t)end.tv_sec*1000000 + end.tv_usec -
-        ((u_int64_t)begin.tv_sec*1000000 + begin.tv_usec);
-      setup_time_usec = (u_int64_t)begin.tv_sec*1000000 + begin.tv_usec -
-        ((u_int64_t)startup_time.tv_sec*1000000 + startup_time.tv_usec);
-
-      for (unsigned int i = 0;
-        i < dpi_handle_info.ndpi_thread_info[thread_id].workflow->prefs.num_roots; ++i)
+      if (!pcap_start.tv_sec)
       {
-        ndpi_tdestroy(
-          dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_flows_root[i],
-          ndpi_flow_info_freer);
-        dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_flows_root[i] = NULL;
-
-        ::memset(
-          &dpi_handle_info.ndpi_thread_info[thread_id].workflow->stats,
-          0,
-          sizeof(struct ndpi_stats));
+	pcap_start.tv_sec = header->ts.tv_sec;
+	pcap_start.tv_usec = header->ts.tv_usec;
       }
 
-      ::memcpy(&begin, &end, sizeof(begin));
-      ::memcpy(&pcap_start, &pcap_end, sizeof(pcap_start));
+      pcap_end.tv_sec = header->ts.tv_sec;
+      pcap_end.tv_usec = header->ts.tv_usec;
+
+      if (flow)
+      {
+	flow_traits.proto = flow->detected_protocol.proto.app_protocol ?
+	  flow->detected_protocol.proto.app_protocol :
+	  flow->detected_protocol.proto.master_protocol;
+	flow_traits.src_ip = flow->src_ip;
+	flow_traits.dst_ip = flow->dst_ip;
+      }
+
+      clear_idle_flows_(thread_id);
+
+      // Check for buffer changes
+      if (::memcmp(packet, packet_checked, header->caplen) != 0)
+      {
+	printf("INTERNAL ERROR: ingress packet was modified by nDPI: this should not happen [thread_id=%u, packetId=%lu, caplen=%u]\n",
+	  thread_id,
+	  (unsigned long)dpi_handle_info.ndpi_thread_info[thread_id].workflow->stats.raw_packet_count,
+	  header->caplen);
+      }
+
+      if ((u_int32_t)(pcap_end.tv_sec-pcap_start.tv_sec) > pcap_analysis_duration)
+      {
+	u_int64_t processing_time_usec, setup_time_usec;
+
+	gettimeofday(&end, NULL);
+	processing_time_usec = (u_int64_t)end.tv_sec*1000000 + end.tv_usec -
+	  ((u_int64_t)begin.tv_sec*1000000 + begin.tv_usec);
+	setup_time_usec = (u_int64_t)begin.tv_sec*1000000 + begin.tv_usec -
+	  ((u_int64_t)startup_time.tv_sec*1000000 + startup_time.tv_usec);
+
+	for (unsigned int i = 0;
+	  i < dpi_handle_info.ndpi_thread_info[thread_id].workflow->prefs.num_roots; ++i)
+	{
+	  ndpi_tdestroy(
+	    dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_flows_root[i],
+	    ndpi_flow_info_freer);
+	  dpi_handle_info.ndpi_thread_info[thread_id].workflow->ndpi_flows_root[i] = NULL;
+
+	  ::memset(
+	    &dpi_handle_info.ndpi_thread_info[thread_id].workflow->stats,
+	    0,
+	    sizeof(struct ndpi_stats));
+	}
+
+	::memcpy(&begin, &end, sizeof(begin));
+	::memcpy(&pcap_start, &pcap_end, sizeof(pcap_start));
+      }
     }
 
     // Leave the free as last statement to avoid crashes when ndpi_detection_giveup()

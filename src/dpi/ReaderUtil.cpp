@@ -24,6 +24,9 @@
 
 #include <iostream>
 
+#define NDPI_LIB_COMPILATION
+#include <ndpi_private.h>
+
 #include "ReaderUtil.hpp"
 
 
@@ -1923,9 +1926,10 @@ void process_ndpi_collected_info(struct ndpi_workflow * workflow, struct ndpi_fl
       ndpi_serialize_string_string(&flow->ndpi_flow_serializer, "server_hostname", flow->server_hostname);
   }
 
-  if (flow->detection_completed && (!flow->check_extra_packets))
+  if (flow->detection_completed && !flow->check_extra_packets)
   {
-    flow->flow_payload = flow->ndpi_flow->flow_payload, flow->flow_payload_len = flow->ndpi_flow->flow_payload_len;
+    flow->flow_payload = flow->ndpi_flow->flow_payload;
+    flow->flow_payload_len = flow->ndpi_flow->flow_payload_len;
     flow->ndpi_flow->flow_payload = NULL; /* We'll free the memory */
 
     if (workflow->flow_callback != NULL)
@@ -2283,6 +2287,16 @@ static struct ndpi_proto packet_processing(
     input_info.in_pkt_dir = NDPI_IN_PKT_DIR_UNKNOWN;
     input_info.seen_flow_beginning = NDPI_FLOW_BEGINNING_UNKNOWN;
     malloc_size_stats = 1;
+
+    /*
+    if (payload_len > 100)
+    {
+    std::cout << "workflow = " << (void*)workflow <<
+      ", packet.payload_packet_len = " <<
+      workflow->ndpi_struct->packet.payload_packet_len << std::endl;
+    }
+    */
+
     flow->detected_protocol = ndpi_detection_process_packet(
       workflow->ndpi_struct, ndpi_flow,
       iph ? (uint8_t *)iph : (uint8_t *)iph6,

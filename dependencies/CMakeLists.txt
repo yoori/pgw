@@ -48,6 +48,10 @@ SET(LIBHTTPSERVER_LIB_DIR ${CMAKE_BINARY_DIR}/libhttpserver-install/lib)
 add_library(libhttpserver INTERFACE)
 add_dependencies(libhttpserver libhttpserver_ext)
 target_link_libraries(libhttpserver INTERFACE ${LIBHTTPSERVER_LIB_DIR}/libhttpserver.so.0.19.0)
-target_include_directories(libhttpserver INTERFACE ${CMAKE_BINARY_DIR}/libhttpserver-install/include)
+target_include_directories(libhttpserver
+  INTERFACE
+    ${CMAKE_BINARY_DIR}/libhttpserver-install/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/nDPI/src/include
+)
 install(FILES ${LIBHTTPSERVER_LIB_DIR}/libhttpserver.so.0.19.0 DESTINATION lib)
 install(FILES ${LIBHTTPSERVER_LIB_DIR}/libhttpserver.so.0.19.0 DESTINATION lib RENAME libhttpserver.so.0)

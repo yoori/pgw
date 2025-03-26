@@ -3,6 +3,7 @@
 #include <memory>
 #include <string>
 #include <thread>
+#include <mutex>
 
 #include <gears/Exception.hpp>
 #include <gears/ActiveObject.hpp>
@@ -82,6 +83,7 @@ namespace dpi
     int datalink_type_;
     DPIHandleHolder dpi_handle_holder_;
     struct ndpi_global_context* g_ctx_;
+    std::mutex ndpi_lock_;
   };
 
   using NDPIPacketProcessorPtr = std::shared_ptr<NDPIPacketProcessor>;
