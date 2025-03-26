@@ -23,8 +23,7 @@ namespace dpi
     process_user_session_packet(
       const Gears::Time& time,
       const UserPtr& user,
-      uint32_t src_ip,
-      uint32_t dst_ip,
+      const FlowTraits& flow_traits,
       Direction direction,
       const SessionKey& session_key,
       uint64_t packet_size,

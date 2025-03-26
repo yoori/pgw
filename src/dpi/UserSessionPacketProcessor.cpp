@@ -35,37 +35,28 @@ namespace dpi
     childs_.emplace_back(std::move(child));
   }
 
-  PacketProcessingState
+  void
   CompositeUserSessionPacketProcessor::process_user_session_packet(
+    PacketProcessingState& packet_processing_state,
     const Gears::Time& time,
     const UserPtr& user,
-    uint32_t src_ip,
-    uint32_t dst_ip,
+    const FlowTraits& flow_traits,
     Direction direction,
     const SessionKey& session_key,
     uint64_t packet_size,
     const void* packet)
   {
-    PacketProcessingState processing_state;
-
     for (auto& child : childs_)
     {
-      processing_state += child->process_user_session_packet(
+      child->process_user_session_packet(
+        packet_processing_state,
         time,
         user,
-        src_ip,
-        dst_ip,
+        flow_traits,
         direction,
         session_key,
         packet_size,
         packet);
-
-      if (processing_state.block_packet)
-      {
-        break;
-      }
     }
-
-    return processing_state;
   }
 }

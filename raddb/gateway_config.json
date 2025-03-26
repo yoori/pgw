@@ -22,6 +22,7 @@
 	"origin-realm": "epc.mnc050.mcc250.3gppnetwork.org",
 	"destination-host": "dra01.msk.epc.mnc050.mcc250.3gppnetwork.org"
     },
+    "http_port": 8080,
     "dpi_interface": "eno1",
     "dpi_interface2": "eno2",
     "ip_rules_root": "/home/jurij_kuznecov/projects/telecom-gateway/data/ip_rules/",

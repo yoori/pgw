@@ -28,18 +28,18 @@ namespace dpi
     session_rule_config_ = session_rule_config;
   }
 
-  PacketProcessingState
+  void
   MainUserSessionPacketProcessor::process_user_session_packet(
+    PacketProcessingState& packet_processing_state,
     const Gears::Time& now,
     const UserPtr& user,
-    uint32_t src_ip,
-    uint32_t dst_ip,
+    const FlowTraits& flow_traits,
     Direction /*direction*/,
     const SessionKey& session_key,
     uint64_t packet_size,
     const void* packet)
   {
-    PacketProcessingState packet_processing_state = user->process_packet(
+    PacketProcessingState local_packet_processing_state = user->process_packet(
       session_rule_config_,
       session_key,
       now,
@@ -48,7 +48,11 @@ namespace dpi
     if (session_key.category_type() == "fishing")
     {
       // fishing event
-      if (!process_event_(session_key.category_type(), now, src_ip, dst_ip))
+      if (!process_event_(
+            session_key.category_type(),
+            now,
+            flow_traits.src_ip,
+            flow_traits.dst_ip))
       {
         packet_processing_state.block_packet = true;
       }
@@ -65,23 +69,31 @@ namespace dpi
         std::endl;
       */
 
-      if (packet_processing_state.opened_new_session)
+      if (local_packet_processing_state.opened_new_session)
         //< check events state change only if new session opened
       {
+        packet_processing_state.opened_new_session = true;
+
         if (recheck_state_session_keys_.find(session_key) != recheck_state_session_keys_.end() ||
           recheck_state_session_keys_.find(SessionKey(std::string(), session_key.category_type())) !=
             recheck_state_session_keys_.end())
         {
-          bool local_send_packet = check_user_state_(*user, session_key, src_ip, dst_ip, now);
+          bool local_send_packet = check_user_state_(
+            *user,
+            session_key,
+            flow_traits.src_ip,
+            flow_traits.dst_ip,
+            now);
           if (!local_send_packet)
           {
             packet_processing_state.block_packet = true;
           }
         }
       }
-    }
 
-    return packet_processing_state;
+      packet_processing_state.shaped =
+        packet_processing_state.shaped || local_packet_processing_state.shaped;
+    }
   }
 
   struct NamedSessionKey

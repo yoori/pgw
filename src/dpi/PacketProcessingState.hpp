@@ -1,22 +1,26 @@
 #pragma once
 
+#include "SessionKey.hpp"
+
 namespace dpi
 {
+  class User;
+
   struct PacketProcessingState
   {
-    PacketProcessingState() {};
+    PacketProcessingState();
 
     PacketProcessingState(
       bool block_packet_val,
       bool opened_new_session_val,
-      bool shape_packet_val = false)
-      : block_packet(block_packet_val),
-        opened_new_session(opened_new_session_val),
-        shaped(shape_packet_val)
-    {}
+      bool shape_packet_val = false);
+
+    ~PacketProcessingState();
 
     PacketProcessingState& operator+=(const PacketProcessingState& right);
 
+    std::shared_ptr<User> user;
+    SessionKey session_key;
     bool block_packet = false;
     bool opened_new_session = false;
     bool shaped = false;

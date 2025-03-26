@@ -17,6 +17,7 @@ add_library(dpi
   IpList.cpp
   EventProcessor.cpp
   ShapingManager.cpp
+  PacketProcessingState.cpp
   )
 
 target_link_libraries(dpi

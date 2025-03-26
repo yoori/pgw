@@ -2,6 +2,7 @@
 
 #include "User.hpp"
 #include "PacketProcessingState.hpp"
+#include "FlowTraits.hpp"
 
 namespace dpi
 {
@@ -15,11 +16,11 @@ namespace dpi
       D_INPUT
     };
 
-    virtual PacketProcessingState process_user_session_packet(
+    virtual void process_user_session_packet(
+      PacketProcessingState& packet_processing_state,
       const Gears::Time& time,
       const UserPtr& user,
-      uint32_t src_ip,
-      uint32_t dst_ip,
+      const FlowTraits& flow_traits,
       Direction direction,
       const SessionKey& session_key,
       uint64_t packet_size,
@@ -35,11 +36,11 @@ namespace dpi
 
     void add_child_object(UserSessionPacketProcessorPtr);
 
-    virtual PacketProcessingState process_user_session_packet(
+    virtual void process_user_session_packet(
+      PacketProcessingState& packet_processing_state,
       const Gears::Time& time,
       const UserPtr& user,
-      uint32_t src_ip,
-      uint32_t dst_ip,
+      const FlowTraits& flow_traits,
       Direction direction,
       const SessionKey& session_key,
       uint64_t packet_size,

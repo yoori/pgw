@@ -27,7 +27,10 @@ namespace dpi
 
     virtual void send(const void* packet_buf, int packet_buf_size) = 0;
 
-    virtual bool live_capture() const = 0;
+    virtual bool live_capture() const
+    {
+      return true;
+    }
 
   protected:
     const std::string interface_name_;

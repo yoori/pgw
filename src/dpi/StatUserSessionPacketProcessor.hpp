@@ -23,11 +23,11 @@ namespace dpi
       std::string ch_dump_path,
       const Gears::Time& dump_period = Gears::Time::ONE_MINUTE);
 
-    virtual PacketProcessingState process_user_session_packet(
+    virtual void process_user_session_packet(
+      PacketProcessingState& packet_processing_state,
       const Gears::Time& time,
       const UserPtr& user,
-      uint32_t src_ip,
-      uint32_t dst_ip,
+      const FlowTraits& flow_traits,
       Direction direction,
       const SessionKey& session_key,
       uint64_t packet_size,
@@ -77,13 +77,23 @@ namespace dpi
     {
       StatValue();
 
-      StatValue(int64_t packets_val, int64_t bytes_val);
+      StatValue(
+        int64_t packets_val,
+        int64_t bytes_val,
+        int64_t shaped_packets_val,
+        int64_t shaped_bytes_val,
+        int64_t dropped_packets_val,
+        int64_t dropped_bytes_val);
 
       StatValue&
       operator+=(const StatValue& right) noexcept;
 
-      int64_t packets;
-      int64_t bytes;
+      int64_t packets = 0;
+      int64_t bytes = 0;
+      int64_t shaped_packets = 0;
+      int64_t shaped_bytes = 0;
+      int64_t dropped_packets = 0;
+      int64_t dropped_bytes = 0;
     };
 
     friend std::ostream&
@@ -123,15 +133,22 @@ namespace dpi
   // StatUserSessionPacketProcessor::StatValue
   inline
   StatUserSessionPacketProcessor::StatValue::StatValue()
-    : packets(0),
-      bytes(0)
   {}
 
   inline
   StatUserSessionPacketProcessor::StatValue::StatValue(
-    int64_t packets_val, int64_t bytes_val)
+    int64_t packets_val,
+    int64_t bytes_val,
+    int64_t shaped_packets_val,
+    int64_t shaped_bytes_val,
+    int64_t dropped_packets_val,
+    int64_t dropped_bytes_val)
     : packets(packets_val),
-      bytes(bytes_val)
+      bytes(bytes_val),
+      shaped_packets(shaped_packets_val),
+      shaped_bytes(shaped_bytes_val),
+      dropped_packets(dropped_packets_val),
+      dropped_bytes(dropped_bytes_val)
   {}
 
   inline StatUserSessionPacketProcessor::StatValue&
@@ -140,6 +157,10 @@ namespace dpi
   {
     packets += right.packets;
     bytes += right.bytes;
+    shaped_packets += right.shaped_packets;
+    shaped_bytes += right.shaped_bytes;
+    dropped_packets += right.dropped_packets;
+    dropped_bytes += right.dropped_bytes;
     return *this;
   }
 
@@ -198,7 +219,9 @@ namespace dpi
   inline std::ostream&
   operator<<(std::ostream& out, const StatUserSessionPacketProcessor::StatValue& dump_value)
   {
-    out << dump_value.packets << "," << dump_value.bytes;
+    out << dump_value.packets << "," << dump_value.bytes << "," <<
+      dump_value.shaped_packets << "," << dump_value.shaped_bytes << "," <<
+      dump_value.dropped_packets << "," << dump_value.dropped_bytes;
     return out;
   }
 

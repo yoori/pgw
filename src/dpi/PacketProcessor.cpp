@@ -516,7 +516,8 @@ namespace dpi
   }
 
   
-  bool PacketProcessor::process_packet(
+  PacketProcessingState
+  PacketProcessor::process_packet(
     const FlowTraits& flow_traits,
     unsigned long packet_size,
     const void* packet,
@@ -525,7 +526,7 @@ namespace dpi
   {
     ++packet_i_;
 
-    bool res = process_packet_(
+    return process_packet_(
       flow_traits.proto,
       flow_traits.src_ip,
       flow_traits.dst_ip,
@@ -533,8 +534,6 @@ namespace dpi
       direction,
       packet
       );
-
-    return res;
   }
 
   const SessionKey&
@@ -549,7 +548,8 @@ namespace dpi
     return unknown_session_key_;
   }
 
-  bool PacketProcessor::process_packet_(
+  PacketProcessingState
+  PacketProcessor::process_packet_(
     u_int16_t proto,
     uint32_t src_ip,
     uint32_t dst_ip,
@@ -586,42 +586,25 @@ namespace dpi
 
     UserPtr user = get_user_(src_ip, dst_ip, now);
 
-    PacketProcessingState processing_state =
-      user_session_packet_processor_->process_user_session_packet(
-        now,
-        user,
-        src_ip,
-        dst_ip,
-        direction,
-        use_session_key,
-        packet_size,
-        packet);
+    FlowTraits flow_traits;
+    flow_traits.proto = proto;
+    flow_traits.src_ip = src_ip;
+    flow_traits.dst_ip = dst_ip;
 
-    // If packet shaped - push it to shapingmanager and block here.
-    /*
-    if (processing_state.shaped)
-    {
-      shaping_manager_->add_shaped_packet(
-        now,
-        user,
-        use_session_key,
-        packet_size,
-        packet,
-        );
-    }
-    */
+    PacketProcessingState processing_state;
+    processing_state.user = user;
+    processing_state.session_key = use_session_key;
+    user_session_packet_processor_->process_user_session_packet(
+      processing_state,
+      now,
+      user,
+      flow_traits,
+      direction,
+      use_session_key,
+      packet_size,
+      packet);
 
-    /*
-    if (processing_state.block_packet)
-    {
-      std::cout << "BLOCK PACKET BY: "
-        "traffic_type = '" << use_session_key.traffic_type() << "', "
-        "category_type = '" << use_session_key.category_type() << "'" <<
-        std::endl;
-    }
-    */
-
-    return !processing_state.block_packet;
+    return processing_state;
   }
 
   UserPtr PacketProcessor::get_user_(

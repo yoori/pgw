@@ -21,6 +21,8 @@ namespace dpi
     void add_shaped_packet(
       const Gears::Time& now,
       UserPtr user,
+      const FlowTraits& flow_traits,
+      UserSessionPacketProcessor::Direction direction,
       const SessionKey& session_key,
       unsigned long size,
       const void* packet,
@@ -32,12 +34,18 @@ namespace dpi
       PacketHolder(
         const Gears::Time& timestamp,
         UserPtr user,
+        const FlowTraits& flow_traits,
+        UserSessionPacketProcessor::Direction direction,
+        const SessionKey& session_key,
         std::vector<unsigned char> packet,
         NetInterfacePtr net_interface
         );
 
       Gears::Time timestamp;
-      UserPtr user;
+      const UserPtr user;
+      const FlowTraits flow_traits;
+      const UserSessionPacketProcessor::Direction direction;
+      const SessionKey session_key;
       std::vector<unsigned char> packet;
       NetInterfacePtr net_interface;
     };
@@ -53,9 +61,15 @@ namespace dpi
     class CheckPacketsTask;
 
   private:
+    void add_shaped_packet_(
+      const Gears::Time& now,
+      PacketHolderPtr packet_holder);
+
     Gears::Time check_packets_();
 
   private:
+    const Gears::Time drop_timeout_;
+    const Gears::Time resend_period_;
     const UserSessionPacketProcessorPtr shaped_user_session_packet_processor_;
     Gears::Planner_var planner_;
     Gears::TaskRunner_var task_runner_;

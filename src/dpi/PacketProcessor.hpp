@@ -14,6 +14,7 @@
 #include "UserSessionPacketProcessor.hpp"
 #include "FlowTraits.hpp"
 #include "NetInterfaceProcessor.hpp"
+#include "ShapingManager.hpp"
 
 namespace dpi
 {
@@ -26,13 +27,20 @@ namespace dpi
       LoggerPtr event_logger,
       std::string_view ip_rules_path);
 
-    bool process_packet(
+    PacketProcessingState
+    process_packet(
       const FlowTraits& flow_traits,
       unsigned long packet_size,
       const void* packet,
       UserSessionPacketProcessor::Direction direction,
       NetInterfacePtr send_interface);
 
+    const UserSessionPacketProcessorPtr&
+    user_session_packet_processor()
+    {
+      return user_session_packet_processor_;
+    }
+    
   private:
     struct ClientState
     {
@@ -44,7 +52,7 @@ namespace dpi
       Gears::Time sber_packet_last_timestamp;
     };
 
-    bool process_packet_(
+    PacketProcessingState process_packet_(
       u_int16_t proto,
       uint32_t src_ip,
       uint32_t dst_ip,

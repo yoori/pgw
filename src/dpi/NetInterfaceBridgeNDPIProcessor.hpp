@@ -8,6 +8,7 @@
 #include "NetInterfaceProcessor.hpp"
 #include "NDPIPacketProcessor.hpp"
 #include "PacketProcessor.hpp"
+#include "ShapingManager.hpp"
 
 namespace dpi
 {
@@ -26,6 +27,7 @@ namespace dpi
 
   private:
     LoggerPtr logger_;
+    ShapingManagerPtr shaping_manager_;
     NetInterfaceProcessorPtr int1_to_int2_processor_;
     NetInterfaceProcessorPtr int2_to_int1_processor_;
   };

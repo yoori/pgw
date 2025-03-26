@@ -84,12 +84,12 @@ namespace dpi
       std::make_shared<StatsDumpTask>(planner_, task_runner_, this));
   }
 
-  PacketProcessingState
+  void
   StatUserSessionPacketProcessor::process_user_session_packet(
+    PacketProcessingState& packet_processing_state,
     const Gears::Time& time,
     const UserPtr& user,
-    uint32_t src_ip,
-    uint32_t dst_ip,
+    const FlowTraits& flow_traits,
     Direction direction,
     const SessionKey& session_key,
     uint64_t packet_size,
@@ -104,16 +104,22 @@ namespace dpi
         user ? user->msisdn() : std::string(),
         session_key.traffic_type(),
         session_key.category_type(),
-        src_ip,
-        dst_ip,
+        flow_traits.src_ip,
+        flow_traits.dst_ip,
         direction
         ),
       StatValue(
-        1,
-        packet_size
+        (!packet_processing_state.block_packet && !packet_processing_state.shaped ?
+          1 : 0),
+        (!packet_processing_state.block_packet && !packet_processing_state.shaped ?
+          packet_size : 0),
+        (!packet_processing_state.block_packet && packet_processing_state.shaped ?
+         1 : 0), //< shaped packets
+        (!packet_processing_state.block_packet && packet_processing_state.shaped ?
+          packet_size : 0),
+        packet_processing_state.block_packet ? 1 : 0, //< dropped packets
+        packet_processing_state.block_packet ? packet_size : 0
         ));
-
-    return PacketProcessingState();
   }
 
   std::pair<std::string, std::string>

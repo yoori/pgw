@@ -19,12 +19,12 @@ namespace dpi
     void
     set_session_rule_config(const SessionRuleConfig& session_rule_config);
 
-    virtual PacketProcessingState
+    virtual void
     process_user_session_packet(
+      PacketProcessingState& packet_processing_state,
       const Gears::Time& time,
       const UserPtr& user,
-      uint32_t src_ip,
-      uint32_t dst_ip,
+      const FlowTraits& flow_traits,
       Direction direction,
       const SessionKey& session_key,
       uint64_t packet_size,

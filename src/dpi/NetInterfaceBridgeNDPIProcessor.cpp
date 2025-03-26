@@ -9,6 +9,7 @@ namespace dpi
     NetInterfaceBridgeProcessor(
       std::shared_ptr<dpi::NDPIPacketProcessor> ndpi_packet_processor,
       PacketProcessorPtr packet_processor,
+      ShapingManagerPtr shaping_manager,
       NetInterfacePtr interface,
       NetInterfacePtr send_interface,
       unsigned int threads = 1,
@@ -19,6 +20,7 @@ namespace dpi
       : dpi::NetInterfaceProcessor(std::move(interface), threads),
         ndpi_packet_processor_(std::move(ndpi_packet_processor)),
         packet_processor_(std::move(packet_processor)),
+        shaping_manager_(std::move(shaping_manager)),
         send_interface_(std::move(send_interface)),
         direction_(direction),
         logger_(std::move(logger))
@@ -36,19 +38,39 @@ namespace dpi
 
       //std::cout << "flow_traits.proto = " << flow_traits.proto << std::endl;
 
-      if(packet_processor_->process_packet(
+      PacketProcessingState packet_processing_state = packet_processor_->process_packet(
         flow_traits,
         header->caplen,
         packet,
         direction_,
-        send_interface_))
+        send_interface_);
+
+      if (!packet_processing_state.block_packet)
       {
-        try
+        if (packet_processing_state.shaped)
         {
-          send_interface_->send(packet, header->caplen);
+          if (packet_processing_state.user)
+          {
+            shaping_manager_->add_shaped_packet(
+              Gears::Time::get_time_of_day() + Gears::Time::ONE_SECOND / 2,
+              packet_processing_state.user,
+              flow_traits,
+              direction_,
+              packet_processing_state.session_key,
+              header->caplen,
+              packet,
+              send_interface_);
+          }
         }
-        catch(const Gears::Exception&)
-        {}
+        else
+        {
+          try
+          {
+            send_interface_->send(packet, header->caplen);
+          }
+          catch(const Gears::Exception&)
+          {}
+        }
       }
       else
       {
@@ -65,6 +87,7 @@ namespace dpi
   private:
     std::shared_ptr<dpi::NDPIPacketProcessor> ndpi_packet_processor_;
     PacketProcessorPtr packet_processor_;
+    ShapingManagerPtr shaping_manager_;
     NetInterfacePtr send_interface_;
     const UserSessionPacketProcessor::Direction direction_;
     const LoggerPtr logger_;
@@ -77,12 +100,14 @@ namespace dpi
     NetInterfacePtr interface2,
     unsigned int threads,
     const LoggerPtr& logger)
-    :
+    : shaping_manager_(
+        std::make_shared<ShapingManager>(packet_processor->user_session_packet_processor())),
       // interface1 => interface2 direction
       int1_to_int2_processor_(
         std::make_shared<NetInterfaceBridgeProcessor>(
           ndpi_packet_processor,
           packet_processor,
+          shaping_manager_,
           interface1,
           interface2,
           threads,
@@ -94,6 +119,7 @@ namespace dpi
         std::make_shared<NetInterfaceBridgeProcessor>(
           ndpi_packet_processor,
           packet_processor,
+          shaping_manager_,
           interface2,
           interface1,
           threads,
@@ -103,5 +129,6 @@ namespace dpi
   {
     add_child_object(int1_to_int2_processor_);
     add_child_object(int2_to_int1_processor_);
+    add_child_object(shaping_manager_);
   }
 }

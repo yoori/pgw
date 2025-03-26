@@ -2,9 +2,50 @@
 
 #include <dpi/User.hpp>
 #include <dpi/ShapingManager.hpp>
+#include <dpi/NetInterfaceProcessor.hpp>
+
+class TestUserSessionPacketProcessor: public dpi::UserSessionPacketProcessor
+{
+public:
+  virtual void process_user_session_packet(
+    dpi::PacketProcessingState& processing_state,
+    const Gears::Time& time,
+    const dpi::UserPtr& user,
+    const dpi::FlowTraits& flow_traits,
+    Direction direction,
+    const dpi::SessionKey& session_key,
+    uint64_t packet_size,
+    const void* packet) override
+  {}
+};
+
+class TestNetInterface: public dpi::NetInterface
+{
+public:
+  TestNetInterface()
+    : NetInterface("test_interface")
+  {}
+
+  virtual pcap_t* pcap_handle() const override
+  {
+    return nullptr;
+  }
+
+  virtual void send(const void* packet_buf, int packet_buf_size) override
+  {
+    std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] "
+      "send packet, size = " << packet_buf_size << std::endl;
+  }
+};
 
 int main()
 {
+  auto user_session_packet_processor = std::make_shared<TestUserSessionPacketProcessor>();
+  auto shaping_manager = std::make_shared<dpi::ShapingManager>(user_session_packet_processor);
+  shaping_manager->activate_object();
+
+  auto send_interface = std::make_shared<TestNetInterface>();
+
   dpi::SessionRuleConfig session_rule_config;
   session_rule_config.clear_closed_sessions_timeout = Gears::Time::ONE_DAY;
   session_rule_config.default_rule.close_timeout = Gears::Time(30);
@@ -24,6 +65,24 @@ int main()
 
   auto state2 = user->process_packet(session_rule_config, key2, start_time, 1000);
   std::cout << "state2.shaped = " << state2.shaped << std::endl;
+
+  if (state2.shaped)
+  {
+    shaping_manager->add_shaped_packet(
+      start_time,
+      user,
+      dpi::FlowTraits(),
+      dpi::UserSessionPacketProcessor::Direction::D_NONE,
+      key2,
+      0,
+      nullptr, //< packet buffer
+      send_interface);
+  }
+
+  sleep(10);
+
+  shaping_manager->deactivate_object();
+  shaping_manager->wait_object();
 
   return 0;
 }

@@ -5,6 +5,7 @@ add_library(http_server
   UserAddHttpResource.cpp
   UserBlockHttpResource.cpp
   SetEventActionHttpResource.cpp
+  UserSetShapingHttpResource.cpp
   )
 
 target_link_libraries(http_server
