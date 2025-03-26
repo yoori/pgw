@@ -25,7 +25,7 @@ int main(int argc, char **argv)
   Gears::AppUtils::StringOption opt_config;
   Gears::AppUtils::Option<unsigned int> opt_http_port(8080);
   args.add(Gears::AppUtils::equal_name("config") || Gears::AppUtils::short_name("y"), opt_config);
-  args.add(Gears::AppUtils::equal_name("http-port"), opt_http_port);
+  //args.add(Gears::AppUtils::equal_name("http-port"), opt_http_port);
   args.parse(argc - 1, argv + 1);
 
   if (opt_config->empty())
@@ -73,7 +73,7 @@ int main(int argc, char **argv)
     logger,
     user_storage,
     event_processor,
-    *opt_http_port,
+    config.http_port,
     ""
   );
 

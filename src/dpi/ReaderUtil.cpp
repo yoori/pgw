@@ -2042,23 +2042,31 @@ static struct ndpi_proto packet_processing(
   struct ndpi_proto nproto = NDPI_PROTOCOL_NULL;
 
   if (workflow->prefs.ignore_vlanid)
+  {
     vlan_id = 0;
+  }
 
   if (iph)
-    flow = get_ndpi_flow_info(workflow, IPVERSION, vlan_id,
-			      tunnel_type, iph, NULL,
-			      ipsize,
-			      ntohs(iph->tot_len) ? (ntohs(iph->tot_len) - (iph->ihl * 4)) : ipsize - (iph->ihl * 4) /* TSO */,
-			      iph->ihl * 4,
-			      &tcph, &udph, &sport, &dport,
-			      &proto,
-			      &payload, &payload_len, &src_to_dst_direction, when);
+  {
+    flow = get_ndpi_flow_info(
+      workflow, IPVERSION, vlan_id,
+      tunnel_type, iph, NULL,
+      ipsize,
+      ntohs(iph->tot_len) ? (ntohs(iph->tot_len) - (iph->ihl * 4)) : ipsize - (iph->ihl * 4) /* TSO */,
+      iph->ihl * 4,
+      &tcph, &udph, &sport, &dport,
+      &proto,
+      &payload, &payload_len, &src_to_dst_direction, when);
+  }
   else
-    flow = get_ndpi_flow_info6(workflow, vlan_id,
-			       tunnel_type, iph6, ipsize,
-			       &tcph, &udph, &sport, &dport,
-			       &proto,
-			       &payload, &payload_len, &src_to_dst_direction, when);
+  {
+    flow = get_ndpi_flow_info6(
+      workflow, vlan_id,
+      tunnel_type, iph6, ipsize,
+      &tcph, &udph, &sport, &dport,
+      &proto,
+      &payload, &payload_len, &src_to_dst_direction, when);
+  }
 
   if (flow != NULL)
   {
@@ -2165,12 +2173,12 @@ static struct ndpi_proto packet_processing(
         workflow->stats.ip_packet_count);
     }
 
+    /*
     if (enable_flow_stats)
     {
-      /* Update BD, distribution and mean. */
       ndpi_flow_update_byte_count(flow, payload, payload_len, src_to_dst_direction);
       ndpi_flow_update_byte_dist_mean_var(flow, payload, payload_len, src_to_dst_direction);
-      /* Update SPLT scores for first 32 packets. */
+
       if ((flow->entropy->src2dst_pkt_count+flow->entropy->dst2src_pkt_count) <= max_num_packets_per_flow)
       {
         if (flow->bidirectional)
@@ -2196,6 +2204,7 @@ static struct ndpi_proto packet_processing(
         }
       }
     }
+    */
 
     if (flow->first_seen_ms == 0)
       flow->first_seen_ms = time_ms;
@@ -2288,19 +2297,13 @@ static struct ndpi_proto packet_processing(
     input_info.seen_flow_beginning = NDPI_FLOW_BEGINNING_UNKNOWN;
     malloc_size_stats = 1;
 
-    /*
-    if (payload_len > 100)
-    {
-    std::cout << "workflow = " << (void*)workflow <<
-      ", packet.payload_packet_len = " <<
-      workflow->ndpi_struct->packet.payload_packet_len << std::endl;
-    }
-    */
-
     flow->detected_protocol = ndpi_detection_process_packet(
-      workflow->ndpi_struct, ndpi_flow,
+      workflow->ndpi_struct,
+      ndpi_flow,
       iph ? (uint8_t *)iph : (uint8_t *)iph6,
-      ipsize, time_ms, &input_info);
+      ipsize,
+      time_ms,
+      &input_info);
 
     if (monitoring_enabled)
     {
