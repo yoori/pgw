@@ -356,21 +356,32 @@ namespace dpi
   }
 
   bool
+  User::is_session_blocked_by_equal_key_i_(
+    const SessionKey& key, const Gears::Time& now) const
+  {
+    auto block_it = blocked_sessions_.find(key);
+
+    if (block_it != blocked_sessions_.end())
+    {
+      if (block_it->second.block_timestamp > now)
+      {
+        return true;
+      }
+      else
+      {
+        blocked_sessions_.erase(key);
+      }
+    }
+
+    return false;
+  }
+
+  bool
   User::is_session_blocked_i_(const SessionKey& key, const Gears::Time& now)
     const
   {
-    auto block_it = blocked_sessions_.find(key);
-    if (block_it == blocked_sessions_.end())
-    {
-      return false;
-    }
-
-    if (block_it->second.block_timestamp < now)
-    {
-      blocked_sessions_.erase(key);
-      return false;
-    }
-
-    return true;
+    return is_session_blocked_by_equal_key_i_(key, now) ||
+      (!key.category_type().empty() && is_session_blocked_by_equal_key_i_(
+        SessionKey(key.traffic_type(), std::string()), now));
   }
 }

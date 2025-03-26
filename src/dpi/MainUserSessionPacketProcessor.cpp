@@ -39,11 +39,15 @@ namespace dpi
     uint64_t packet_size,
     const void* packet)
   {
-    PacketProcessingState local_packet_processing_state = user->process_packet(
-      session_rule_config_,
-      session_key,
-      now,
-      packet_size);
+    {
+      PacketProcessingState local_packet_processing_state = user->process_packet(
+        session_rule_config_,
+        session_key,
+        now,
+        packet_size);
+
+      packet_processing_state += local_packet_processing_state;
+    }
 
     if (session_key.category_type() == "fishing")
     {
@@ -69,7 +73,7 @@ namespace dpi
         std::endl;
       */
 
-      if (local_packet_processing_state.opened_new_session)
+      if (packet_processing_state.opened_new_session)
         //< check events state change only if new session opened
       {
         packet_processing_state.opened_new_session = true;
@@ -90,9 +94,6 @@ namespace dpi
           }
         }
       }
-
-      packet_processing_state.shaped =
-        packet_processing_state.shaped || local_packet_processing_state.shaped;
     }
   }
 

@@ -75,7 +75,7 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
       config.diameter_url->destination_host
     );
   }
-  
+
   auto user_storage = std::make_shared<dpi::UserStorage>(nullptr, session_rule_config);
   processor = std::make_shared<Processor>(user_storage, diameter_session);
   std::string config_path_str(config_path, config_path_len);

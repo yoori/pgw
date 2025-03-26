@@ -74,13 +74,7 @@ namespace dpi
       }
       else
       {
-        /*
-        std::cout << "BLOCK PACKET" << std::endl;
-        if (logger_)
-        {
-          logger_->log("BLOCK PACKET");
-        }
-        */
+        //std::cout << "NetInterfaceBridgeProcessor::process_packet(): block packet" << std::endl;
       }
     }
 

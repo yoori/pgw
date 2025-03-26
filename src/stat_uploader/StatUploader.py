@@ -127,27 +127,28 @@ def check_stat_files(
     processing_groups: typing.Dict[str, typing.List] = {}
 
     for check_file in check_files :
-      logger.debug("Check file '" + check_file + "'")
-      check_file_parts = check_file.replace('_', '.').split('.')
-      if len(check_file_parts) > 0 :
-        prefix = check_file_parts[0]
-        if prefix in processors :
-          full_file = os.path.join(check_root, check_file)
-          if prefix not in processing_groups:
-            processing_groups[prefix] = []
-          processing_groups[prefix].append(full_file)
+      if not check_file.startswith('~'):
+        logger.debug("Check file '" + check_file + "'")
+        check_file_parts = check_file.replace('_', '.').split('.')
+        if len(check_file_parts) > 0 :
+          prefix = check_file_parts[0]
+          if prefix in processors :
+            full_file = os.path.join(check_root, check_file)
+            if prefix not in processing_groups:
+              processing_groups[prefix] = []
+            processing_groups[prefix].append(full_file)
 
-          if len(processing_groups[prefix]) >= config.batch:
-            process_files = processing_groups[prefix]
-            processor = processors[prefix]
-            try :
-              processor.process(process_files)
-            except Exception as e :
-              logger.exception("error on upload " + " ".join(process_files) + ": " + str(e))
-              if config.error_root:
-                for full_file in process_files:
-                  shutil.move(full_file, config.error_root)
-            processing_groups[prefix] = []
+            if len(processing_groups[prefix]) >= config.batch:
+              process_files = processing_groups[prefix]
+              processor = processors[prefix]
+              try :
+                processor.process(process_files)
+              except Exception as e :
+                logger.exception("error on upload " + " ".join(process_files) + ": " + str(e))
+                if config.error_root:
+                  for full_file in process_files:
+                    shutil.move(full_file, config.error_root)
+              processing_groups[prefix] = []
 
     for prefix, process_files in processing_groups.items():
       processor = processors[prefix]

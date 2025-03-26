@@ -92,6 +92,9 @@ namespace dpi
       const std::vector<SessionKey>& session_keys,
       unsigned long bytes_limit);
 
+    bool is_session_blocked_by_equal_key_i_(
+      const SessionKey& key, const Gears::Time& now) const;
+
   private:
     struct BlockSessionHolder
     {
