@@ -8,7 +8,7 @@
 #include <gears/StringManip.hpp>
 #include <gears/AppUtils.hpp>
 
-#include <radius_module/DiameterSession.hpp>
+#include <dpi/DiameterSession.hpp>
 
 std::atomic<int> req_count(0);
 

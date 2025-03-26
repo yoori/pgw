@@ -91,8 +91,6 @@ namespace dpi
     const void* packet,
     NetInterfacePtr net_interface)
   {
-    std::cout << "add_shaped_packet" << std::endl;
-
     const Gears::Time time_to_send(now.tv_sec + 1);
     std::vector<unsigned char> packet_copy(
       static_cast<const unsigned char*>(packet),
@@ -167,6 +165,7 @@ namespace dpi
     {
       if (send_timestamp + drop_timeout_ >= now)
       {
+        /*
         PacketProcessingState processing_state;
         shaped_user_session_packet_processor_->process_user_session_packet(
           processing_state,
@@ -193,6 +192,7 @@ namespace dpi
               send_packet->packet.size());
           }
         }
+        */
       }
       else
       {

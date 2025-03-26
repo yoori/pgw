@@ -5,14 +5,16 @@
 #include <dpi/UserStorage.hpp>
 #include <dpi/Logger.hpp>
 
-#include "DiameterSession.hpp"
+#include <dpi/DiameterSession.hpp>
 
 class Processor
 {
 public:
   DECLARE_EXCEPTION(Invalid, Gears::DescriptiveException);
 
-  Processor(dpi::UserStoragePtr user_storage = nullptr);
+  Processor(
+    dpi::UserStoragePtr user_storage,
+    DiameterSessionPtr diameter_session);
 
   void load_config(std::string_view config_path);
 
@@ -31,7 +33,7 @@ private:
   dpi::UserStoragePtr user_storage_;
   std::string config_path_;
   std::string diameter_url_;
-  std::unique_ptr<DiameterSession> diameter_session_;
+  DiameterSessionPtr diameter_session_;
 };
 
 using ProcessorPtr = std::shared_ptr<Processor>;

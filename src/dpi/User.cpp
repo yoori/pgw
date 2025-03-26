@@ -207,6 +207,73 @@ namespace dpi
     }
   }
 
+  bool
+  User::process_shaping_i_(
+    const Gears::Time& now,
+    const SessionKey& session_key,
+    unsigned long size)
+  {
+    bool shape_packet = false;
+    auto shape_group_it = shape_groups_.find(session_key);
+
+    if (shape_group_it == shape_groups_.end() &&
+      !session_key.category_type().empty())
+    {
+      shape_group_it = shape_groups_.find(
+        SessionKey(
+          session_key.traffic_type(),
+          session_key.category_type()));
+    }
+
+    if (shape_group_it != shape_groups_.end())
+    {
+      const Gears::Time now_sec(now.tv_sec);
+
+      for (const auto& shape_group : shape_group_it->second)
+      {
+        /*
+        std::cout << "PRE SHAPE GROUP:"
+          " traffic_type = " << session_key.traffic_type() <<
+          ", category_type = " << session_key.category_type() <<
+          ", last_timestamp = " << shape_group->last_timestamp.tv_sec <<
+          ", bytes = " << shape_group->bytes <<
+          std::endl;
+        */
+
+        if (shape_group->last_timestamp < now_sec)
+        {
+          shape_group->last_timestamp = now_sec;
+          shape_group->bytes = 0;
+        }
+
+        if (shape_group->bytes + size > shape_group->bytes_limit)
+        {
+          shape_packet = true;
+        }
+
+        /*
+        std::cout << "POST SHAPE GROUP:"
+          " traffic_type = " << session_key.traffic_type() <<
+          ", category_type = " << session_key.category_type() <<
+          ", last_timestamp = " << shape_group->last_timestamp.tv_sec <<
+          ", bytes = " << shape_group->bytes <<
+          ", shape_packet = " << shape_packet <<
+          std::endl;
+        */
+      }
+
+      if (!shape_packet)
+      {
+        for (const auto& shape_group : shape_group_it->second)
+        {
+          shape_group->bytes += size;
+        }
+      }
+    }
+
+    return shape_packet;
+  }
+
   PacketProcessingState
   User::process_packet(
     const SessionRuleConfig& session_rule_config,
@@ -253,31 +320,17 @@ namespace dpi
 
       if (!block_packet)
       {
-        auto shape_group_it = shape_groups_.find(session_key);
-        if (shape_group_it != shape_groups_.end())
+        shape_packet = process_shaping_i_(now, session_key, size);
+        if (!session_key.category_type().empty())
         {
-          const Gears::Time now_sec(now.tv_sec);
+          bool local_shape_packet = process_shaping_i_(
+            now,
+            SessionKey(
+              session_key.traffic_type(),
+              std::string()),
+            size);
 
-          for (const auto& shape_group : shape_group_it->second)
-          {
-            if (shape_group->last_timestamp < now_sec)
-            {
-              shape_group->last_timestamp = now_sec;
-              shape_group->bytes = 0;
-            }
-            else if (shape_group->bytes + size >= shape_group->bytes_limit)
-            {
-              shape_packet = true;
-            }
-          }
-
-          if (!shape_packet)
-          {
-            for (const auto& shape_group : shape_group_it->second)
-            {
-              shape_group->bytes += size;
-            }
-          }
+          shape_packet = shape_packet || local_shape_packet;
         }
 
         traffic_sums_[session_key] += TrafficState(1, size);

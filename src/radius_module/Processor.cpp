@@ -10,15 +10,18 @@
 
 #include <Diameter/Packet.hpp>
 
-#include "AVPUtils.hpp"
+#include <dpi/AVPUtils.hpp>
 #include "Processor.hpp"
 
 
 const std::string LOG_PREFIX = "[tel-gateway] ";
 
 
-Processor::Processor(dpi::UserStoragePtr user_storage)
+Processor::Processor(
+  dpi::UserStoragePtr user_storage,
+  DiameterSessionPtr diameter_session)
   : user_storage_(std::move(user_storage)),
+    diameter_session_(std::move(diameter_session)),
     logger_(std::make_shared<dpi::StreamLogger>(std::cout)),
     event_logger_(std::make_shared<dpi::StreamLogger>(std::cout))
 {}
@@ -64,6 +67,7 @@ void Processor::load_config(std::string_view config_path)
         document["event_log_file"].GetString());
     }
 
+    /*
     if (document.HasMember("diameter_url"))
     {
       const auto& diameter_url_obj = document["diameter_url"];
@@ -102,6 +106,7 @@ void Processor::load_config(std::string_view config_path)
 	  std::nullopt
         );
     }
+    */
   }
 }
 

@@ -60,23 +60,40 @@ int main()
 
   user->set_shaping(shape_session_keys, 1000);
 
-  auto state1 = user->process_packet(session_rule_config, key1, start_time, 1000);
-  std::cout << "state1.shaped = " << state1.shaped << std::endl;
+  std::cout << "--- time step 1 ---" << std::endl;
 
-  auto state2 = user->process_packet(session_rule_config, key2, start_time, 1000);
-  std::cout << "state2.shaped = " << state2.shaped << std::endl;
-
-  if (state2.shaped)
   {
-    shaping_manager->add_shaped_packet(
-      start_time,
-      user,
-      dpi::FlowTraits(),
-      dpi::UserSessionPacketProcessor::Direction::D_NONE,
-      key2,
-      0,
-      nullptr, //< packet buffer
-      send_interface);
+    auto state1 = user->process_packet(session_rule_config, key1, start_time, 1000);
+    std::cout << "state1.shaped = " << state1.shaped << std::endl;
+
+    auto state2 = user->process_packet(session_rule_config, key2, start_time, 1000);
+    std::cout << "state2.shaped = " << state2.shaped << std::endl;
+
+    if (state2.shaped)
+    {
+      shaping_manager->add_shaped_packet(
+        start_time,
+        user,
+        dpi::FlowTraits(),
+        dpi::UserSessionPacketProcessor::Direction::D_NONE,
+        key2,
+        0,
+        nullptr, //< packet buffer
+        send_interface);
+    }
+
+    auto state3 = user->process_packet(session_rule_config, key2, start_time, 1000);
+    std::cout << "state3.shaped = " << state3.shaped << std::endl;
+  }
+
+  std::cout << "--- time step 2 ---" << std::endl;
+
+  {
+    auto state1 = user->process_packet(session_rule_config, key2, start_time + Gears::Time::ONE_SECOND, 1000);
+    std::cout << "state1.shaped = " << state1.shaped << std::endl;
+
+    auto state2 = user->process_packet(session_rule_config, key2, start_time + Gears::Time::ONE_SECOND, 1000);
+    std::cout << "state2.shaped = " << state2.shaped << std::endl;
   }
 
   sleep(10);

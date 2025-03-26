@@ -3,7 +3,7 @@ add_executable(sendUtil2
   )
 
 target_link_libraries(sendUtil2
-  PUBLIC radius_module Gears
+  PUBLIC dpi Gears
   PRIVATE Threads::Threads
   )
 

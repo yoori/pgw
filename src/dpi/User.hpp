@@ -109,6 +109,12 @@ namespace dpi
     using ShapeGroupPtr = std::shared_ptr<ShapeGroup>;
 
   private:
+    // return true if need to shape
+    bool process_shaping_i_(
+      const Gears::Time& now,
+      const SessionKey& session_key,
+      unsigned long size);
+
     bool is_session_blocked_i_(
       const SessionKey& key, const Gears::Time& now) const;
 

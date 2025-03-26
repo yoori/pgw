@@ -3,6 +3,8 @@
 #include <string>
 #include <optional>
 
+#include <gears/Exception.hpp>
+
 #include <Diameter/Packet.hpp>
 
 
@@ -107,3 +109,5 @@ private:
 
   int socket_fd_;
 };
+
+using DiameterSessionPtr = std::shared_ptr<DiameterSession>;

@@ -63,8 +63,21 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
   session_rule_config.clear_closed_sessions_timeout = Gears::Time::ONE_DAY;
   session_rule_config.default_rule.close_timeout = Gears::Time(30);
 
+  DiameterSessionPtr diameter_session;
+
+  if (config.diameter_url.has_value())
+  {
+    diameter_session = std::make_shared<DiameterSession>(
+      config.diameter_url->local_endpoints,
+      config.diameter_url->connect_endpoints,
+      config.diameter_url->origin_host,
+      config.diameter_url->origin_realm,
+      config.diameter_url->destination_host
+    );
+  }
+  
   auto user_storage = std::make_shared<dpi::UserStorage>(nullptr, session_rule_config);
-  processor = std::make_shared<Processor>(user_storage);
+  processor = std::make_shared<Processor>(user_storage, diameter_session);
   std::string config_path_str(config_path, config_path_len);
   processor->load_config(config_path_str);
 

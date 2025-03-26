@@ -96,7 +96,23 @@ namespace dpi
     const void* // packet
     )
   {
-    const Gears::Time log_time(time.tv_sec / 60 * 60);
+    //const Gears::Time log_time(time.tv_sec / 60 * 60);
+    const Gears::Time log_time(time.tv_sec);
+    int64_t bytes =
+      !packet_processing_state.block_packet && !packet_processing_state.shaped ?
+      packet_size : 0;
+
+    /*
+    if (session_key.traffic_type() == "telegram_voip")
+    {
+      std::cout << "STAT:"
+        " traffic_type = " << session_key.traffic_type() <<
+        ", category_type = " << session_key.category_type() <<
+        ", timestamp = " << time.tv_sec <<
+        ", bytes = " << bytes <<
+        std::endl;
+    }
+    */
 
     detailed_stat_collector_.add_record(
       StatKey(
@@ -111,8 +127,7 @@ namespace dpi
       StatValue(
         (!packet_processing_state.block_packet && !packet_processing_state.shaped ?
           1 : 0),
-        (!packet_processing_state.block_packet && !packet_processing_state.shaped ?
-          packet_size : 0),
+        bytes,
         (!packet_processing_state.block_packet && packet_processing_state.shaped ?
          1 : 0), //< shaped packets
         (!packet_processing_state.block_packet && packet_processing_state.shaped ?

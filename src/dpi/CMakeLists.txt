@@ -18,14 +18,19 @@ add_library(dpi
   EventProcessor.cpp
   ShapingManager.cpp
   PacketProcessingState.cpp
+  DiameterSession.cpp
+  AVPUtils.cpp
   )
 
 target_link_libraries(dpi
+  PRIVATE
+    sctp
   PUBLIC
     nDPI
     Gears
     libhttpserver
     jsoncons
+    DiameterPacketConstructor
   )
 
 target_include_directories(dpi

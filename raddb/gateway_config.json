@@ -20,7 +20,7 @@
 	],
 	"origin-host": "traflabpgw01.msk.epc.mnc050.mcc250.3gppnetwork.org",
 	"origin-realm": "epc.mnc050.mcc250.3gppnetwork.org",
-	"destination-host": "dra01.msk.epc.mnc050.mcc250.3gppnetwork.org"
+	"destination-host": "pcrf01.msk.epc.mnc050.mcc250.3gppnetwork.org"
     },
     "http_port": 8080,
     "dpi_interface": "eno1",

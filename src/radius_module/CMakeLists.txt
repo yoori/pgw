@@ -1,8 +1,6 @@
 add_library(radius_module SHARED
   impl.cpp
   Processor.cpp
-  AVPUtils.cpp
-  DiameterSession.cpp
   )
 
 target_link_libraries(radius_module
