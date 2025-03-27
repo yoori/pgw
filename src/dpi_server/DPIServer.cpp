@@ -45,7 +45,9 @@ int main(int argc, char **argv)
   auto event_logger = std::make_shared<dpi::StreamLogger>(std::cout);
   auto user_storage = std::make_shared<dpi::UserStorage>(event_logger, session_rule_config);
 
-  auto event_processor = std::make_shared<dpi::EventProcessor>(event_logger);
+  auto event_processor = std::make_shared<dpi::EventProcessor>(event_logger, config.dump_stat_root);
+  composite_active_object->add_child_object(event_processor);
+
   auto main_user_session_packet_processor = std::make_shared<dpi::MainUserSessionPacketProcessor>(
     user_storage, event_processor);
   main_user_session_packet_processor->set_session_rule_config(session_rule_config);

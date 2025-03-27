@@ -9,24 +9,27 @@
 
 namespace dpi
 {
-  class CerrCallback: public Gears::ActiveObjectCallback
+  namespace
   {
-  public:
-    virtual void
-    report_error(
-      Severity,
-      const Gears::SubString& description,
-      const char* = 0)
-      noexcept
+    class CerrCallback: public Gears::ActiveObjectCallback
     {
-      std::cerr << description.str() << std::endl;
-    }
+    public:
+      virtual void
+      report_error(
+        Severity,
+        const Gears::SubString& description,
+        const char* = 0)
+        noexcept
+      {
+        std::cerr << description.str() << std::endl;
+      }
 
-    virtual
-    ~CerrCallback() noexcept
-    {}
-  };
-
+      virtual
+      ~CerrCallback() noexcept
+      {}
+    };
+  }
+  
   // StatUserSessionPacketProcessor::StatsDumpTask
   class StatUserSessionPacketProcessor::StatsDumpTask: public Gears::TaskGoal
   {

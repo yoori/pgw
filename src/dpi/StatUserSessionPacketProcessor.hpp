@@ -191,8 +191,9 @@ namespace dpi
   StatUserSessionPacketProcessor::StatKey::operator==(const StatKey& right) const
   {
     return date == right.date &&
-      traffic_type == right.traffic_type &&
       msisdn == right.msisdn &&
+      traffic_type == right.traffic_type &&
+      traffic_category == right.traffic_category &&
       src_ip == right.src_ip &&
       dst_ip == right.dst_ip &&
       direction == right.direction;

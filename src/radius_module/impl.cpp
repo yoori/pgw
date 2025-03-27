@@ -84,7 +84,11 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
   user_storage->set_event_logger(processor->event_logger());
 
   // init DPI
-  auto event_processor = std::make_shared<dpi::EventProcessor>(processor->event_logger());
+  auto event_processor = std::make_shared<dpi::EventProcessor>(
+    processor->event_logger(),
+    config.dump_stat_root);
+
+  all_active_objects->add_child_object(event_processor);
 
   auto main_user_session_packet_processor = std::make_shared<dpi::MainUserSessionPacketProcessor>(
     user_storage,
