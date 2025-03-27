@@ -1,0 +1,4 @@
+1) curl 'http://localhost:8080/api/set_event_action' -H 'Content-Type: application/json' --data-raw '{"event": "sber-online open on telegram_voip", "block_sessions": [{"traffic_type": "telegram_voip", "block_for": 300}]}' -v
+2) start call
+3) open sberbank online
+check) expected call interrupt
