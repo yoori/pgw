@@ -46,6 +46,11 @@ namespace dpi
         now,
         packet_size);
 
+      if (local_packet_processing_state.block_packet)
+      {
+        std::cout << "MainUserSessionPacketProcessor::process_user_session_packet(): block packet" << std::endl;
+      }
+
       packet_processing_state += local_packet_processing_state;
     }
 

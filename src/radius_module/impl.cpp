@@ -68,6 +68,7 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
   if (config.diameter_url.has_value())
   {
     diameter_session = std::make_shared<DiameterSession>(
+      nullptr,
       config.diameter_url->local_endpoints,
       config.diameter_url->connect_endpoints,
       config.diameter_url->origin_host,
@@ -80,6 +81,15 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
   processor = std::make_shared<Processor>(user_storage, diameter_session);
   std::string config_path_str(config_path, config_path_len);
   processor->load_config(config_path_str);
+
+  if (diameter_session)
+  {
+    std::ostringstream ostr;
+    ostr << "  local_endpoints: " << config.diameter_url->local_endpoints.size() << std::endl <<
+      "  connect_endpoints: " << config.diameter_url->connect_endpoints.size() << std::endl;
+    processor->logger()->log(ostr.str());
+    diameter_session->set_logger(processor->logger());
+  }
 
   user_storage->set_event_logger(processor->event_logger());
 

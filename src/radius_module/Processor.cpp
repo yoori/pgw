@@ -116,12 +116,7 @@ bool Processor::process_request(
   uint32_t nas_ip_address
 )
 {
-  std::ostringstream ostr;
-  ostr << "tel_gateway_process_requestX {" <<
-    "called_station_id = " << called_station_id <<
-    ", framed_ip_address = " << framed_ip_address <<
-    ", nas_ip_address = " << nas_ip_address << "}";
-  std::cout << ostr.str() << std::endl;
+  logger_->log("process radius request");
 
   if (!called_station_id.empty() && framed_ip_address != 0)
   {
@@ -132,15 +127,24 @@ bool Processor::process_request(
   {
     try
     {
-      return diameter_session_->send_cc_init(
+      logger_->log("send diameter cc init");
+
+      unsigned int code = diameter_session_->send_cc_init(
         std::string(called_station_id), //< MSISDN
 	1, //< Service-Id
 	framed_ip_address, //< User IP address
 	nas_ip_address
         );
+
+      {
+        std::ostringstream ostr;
+        ostr << "diameter cc init response code: " << code;
+        logger_->log(ostr.str());
+      }
     }
-    catch(const std::exception&)
+    catch(const std::exception& ex)
     {
+      logger_->log(std::string("send diameter cc init error: ") + ex.what());
     }
   }
 

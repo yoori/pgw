@@ -45,6 +45,11 @@ namespace dpi
         direction_,
         send_interface_);
 
+      if (packet_processing_state.block_packet)
+      {
+        std::cout << "NetInterfaceBridgeProcessor::process_packet(): block packet" << std::endl;
+      }
+
       if (!packet_processing_state.block_packet)
       {
         if (packet_processing_state.shaped)

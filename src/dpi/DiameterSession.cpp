@@ -17,6 +17,7 @@
 
 
 DiameterSession::DiameterSession(
+  dpi::LoggerPtr logger,
   std::vector<Endpoint> local_endpoints,
   std::vector<Endpoint> connect_endpoints,
   std::string origin_host,
@@ -24,7 +25,8 @@ DiameterSession::DiameterSession(
   std::optional<std::string> destination_host,
   bool keep_open_connection
   )
-  : local_endpoints_(std::move(local_endpoints)),
+  : logger_(std::move(logger)),
+    local_endpoints_(std::move(local_endpoints)),
     connect_endpoints_(std::move(connect_endpoints)),
     origin_host_(std::move(origin_host)),
     origin_realm_(std::move(origin_realm)),
@@ -54,6 +56,12 @@ DiameterSession::DiameterSession(
 DiameterSession::~DiameterSession()
 {
   socket_close_();
+}
+
+void
+DiameterSession::set_logger(dpi::LoggerPtr logger)
+{
+  logger_.swap(logger);
 }
 
 unsigned int
@@ -91,7 +99,13 @@ DiameterSession::send_cc_init(
     }
     catch(const std::exception& ex)
     {
-      std::cout << "[DEBUG] Diameter exception: " << ex.what() << " (socket = " << socket_fd_ << ")" << std::endl;
+      if (logger_)
+      {
+        std::ostringstream ostr;
+        ostr << "[DEBUG] Diameter exception: " << ex.what() << " (socket = " << socket_fd_ << ")";
+        logger_->log(ostr.str());
+      }
+
       if (retry_i == RETRY_COUNT_ - 1)
       {
 	throw;
@@ -151,7 +165,7 @@ DiameterSession::socket_close_()
 }
 
 std::vector<unsigned char>
-DiameterSession::read_bytes_(unsigned long size) const
+DiameterSession::read_bytes_(unsigned long size)
 {
   std::vector<unsigned char> buf(size);
   int read_pos = 0;
@@ -173,6 +187,7 @@ DiameterSession::read_bytes_(unsigned long size) const
     {
       if (errno != EINPROGRESS || errno != EAGAIN)
       {
+        socket_close_();
 	throw ConnectionClosedOnRead("Connection closed on read");
       }
     }

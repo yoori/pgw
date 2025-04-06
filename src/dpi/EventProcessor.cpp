@@ -68,6 +68,9 @@ namespace dpi
     set_event_action("sber-online open on telegram_voip", {default_event_action});
     set_event_action("alfabank-online open on telegram_voip", {default_event_action});
     set_event_action("gosuslugi open on telegram_voip", {default_event_action});
+    set_event_action("sber-online open on remote-control", {default_event_action});
+    set_event_action("alfabank-online open on remote-control", {default_event_action});
+    set_event_action("gosuslugi open on remote-control", {default_event_action});
 
     EventAction block_current_session_event_action;
     block_current_session_event_action.block_current_session = true;

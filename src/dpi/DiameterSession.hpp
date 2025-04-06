@@ -7,6 +7,7 @@
 
 #include <Diameter/Packet.hpp>
 
+#include "Logger.hpp"
 
 class DiameterSession
 {
@@ -29,15 +30,18 @@ public:
   };
 
   DiameterSession(
+    dpi::LoggerPtr logger,
     std::vector<Endpoint> local_endpoints,
     std::vector<Endpoint> connect_endpoints,
     std::string origin_host,
     std::string origin_realm,
     std::optional<std::string> destination_host,
-    bool keep_open_connection = true
+    bool keep_open_connection = false
     );
 
   virtual ~DiameterSession();
+
+  void set_logger(dpi::LoggerPtr logger);
 
   void open();
 
@@ -89,11 +93,12 @@ private:
   void socket_init_();
 
   std::vector<unsigned char>
-  read_bytes_(unsigned long size) const;
+  read_bytes_(unsigned long size);
 
   static void fill_addr_(struct sockaddr_in& res, const Endpoint& endpoint);
 
 private:
+  dpi::LoggerPtr logger_;
   const int RETRY_COUNT_ = 2;
   const bool keep_open_connection_;
   std::vector<Endpoint> local_endpoints_;

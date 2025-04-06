@@ -22,7 +22,9 @@ namespace dpi
   void
   FileLogger::log(std::string_view msg)
   {
-    file_->write(msg.data(), msg.size());
+    std::string msg_copy(msg);
+    msg_copy += "\n";
+    file_->write(msg_copy.data(), msg_copy.size());
     file_->flush();
   }
 }

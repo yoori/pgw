@@ -54,7 +54,10 @@ int main(int argc, char* argv[])
       connect_endpoints.emplace_back(DiameterSession::Endpoint(*it, *opt_connect_port));
     }
 
+    auto logger = std::make_shared<dpi::StreamLogger>(std::cout);
+
     std::shared_ptr<DiameterSession> session = std::make_shared<DiameterSession>(
+      logger,
       local_endpoints,
       connect_endpoints,
       *opt_origin_host,
