@@ -230,7 +230,7 @@ def main() :
         logger.debug("To check stats: " + str(config.check_roots))
         check_stat_files(interrupter, config = config, logger = logger, processors = processors)
         logger.debug("From check stats")
-        time.sleep(60)
+        time.sleep(5)
   except Exception as e :
     logger.error("Global exception: " + str(e))
     

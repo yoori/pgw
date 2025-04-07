@@ -21,7 +21,7 @@ namespace dpi
   public:
     StatUserSessionPacketProcessor(
       std::string ch_dump_path,
-      const Gears::Time& dump_period = Gears::Time::ONE_MINUTE);
+      const Gears::Time& dump_period = Gears::Time(5));
 
     virtual void process_user_session_packet(
       PacketProcessingState& packet_processing_state,

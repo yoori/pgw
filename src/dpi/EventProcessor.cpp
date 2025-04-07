@@ -54,7 +54,8 @@ namespace dpi
 
   EventProcessor::EventProcessor(LoggerPtr event_logger, std::string ch_dump_path)
     : event_logger_(std::move(event_logger)),
-      ch_dump_path_(std::move(ch_dump_path))
+      ch_dump_path_(std::move(ch_dump_path)),
+      dump_period_(5) //< 5 seconds
   {
     // fill default rules
     EventAction default_event_action;
