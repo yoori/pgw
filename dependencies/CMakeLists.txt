@@ -1,7 +1,9 @@
 add_subdirectory(gears)
 add_subdirectory(DiameterPacketConstructor)
 add_subdirectory(jsoncons)
+add_subdirectory(async-radius)
 
+# nDPI
 set(nDPI_DESTDIR ${CMAKE_CURRENT_BINARY_DIR}/build/nDPI_install)
 
 ExternalProject_Add(nDPIBuild
@@ -33,6 +35,7 @@ target_link_libraries(nDPI INTERFACE
 add_dependencies(nDPI nDPIBuild)
 
 
+# libhttpserver
 set(ENV{LIBMICROHTTPD_CFLAGS} "")
 set(ENV{LIBMICROHTTPD_LIBS} "")
 
