@@ -4,12 +4,12 @@ Diameter::AVP
 create_avp(unsigned int avp_code, Diameter::AVP::Data data, std::optional<unsigned int> vendor_id)
 {
   auto header = Diameter::AVP::Header()
-   .setAVPCode(avp_code)
-   .setFlags(
-     Diameter::AVP::Header::Flags()
-       .setFlag(Diameter::AVP::Header::Flags::Bits::Mandatory, true)
-       .setFlag(Diameter::AVP::Header::Flags::Bits::VendorSpecific, vendor_id.has_value())
-   );
+    .setAVPCode(avp_code)
+    .setFlags(
+      Diameter::AVP::Header::Flags()
+        .setFlag(Diameter::AVP::Header::Flags::Bits::Mandatory, true)
+        .setFlag(Diameter::AVP::Header::Flags::Bits::VendorSpecific, vendor_id.has_value())
+    );
 
   if (vendor_id.has_value())
   {
@@ -77,7 +77,11 @@ create_uint16_avp(
   uint16_t val,
   std::optional<unsigned int> vendor_id)
 {
-  return create_avp(avp_code, ByteArray(&val, 2), vendor_id);
+  const uint8_t buf[] = {
+    static_cast<uint8_t>((val >> 8) & 0xFF),
+    static_cast<uint8_t>(0xFF)
+  };
+  return create_octets_avp(avp_code, ByteArray(buf, sizeof(buf)), vendor_id);
 }
 
 Diameter::AVP

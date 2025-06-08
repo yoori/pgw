@@ -139,7 +139,7 @@ bool Processor::process_request(
       dpi::DiameterSession::Request request;
       request.msisdn = called_station_id;
       request.imsi = imsi;
-      request.service_id = 1;
+      //request.service_id = 1;
       request.framed_ip_address = framed_ip_address;
       request.nas_ip_address = nas_ip_address;
       request.rat_type = rat_type;

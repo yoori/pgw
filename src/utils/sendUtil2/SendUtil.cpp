@@ -67,7 +67,7 @@ int main(int argc, char* argv[])
 
     dpi::DiameterSession::Request request;
     request.msisdn = "79662660021";
-    request.service_id = 1; // TO FILL
+    //request.service_id = 1; // TO FILL
     request.framed_ip_address = ipv4(10, 243, 64, 1);
     request.nas_ip_address = ipv4(10, 77, 21, 116);
     request.imsi = "250507712932915";
