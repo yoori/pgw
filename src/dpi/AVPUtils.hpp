@@ -8,7 +8,8 @@ Diameter::AVP
 create_avp(
   unsigned int avp_code,
   Diameter::AVP::Data data,
-  std::optional<unsigned int> vendor_id = std::nullopt);
+  std::optional<unsigned int> vendor_id = std::nullopt,
+  bool mandatory = false);
 
 Diameter::AVP
 create_string_avp(

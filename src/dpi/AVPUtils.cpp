@@ -1,13 +1,17 @@
 #include "AVPUtils.hpp"
 
 Diameter::AVP
-create_avp(unsigned int avp_code, Diameter::AVP::Data data, std::optional<unsigned int> vendor_id)
+create_avp(
+  unsigned int avp_code,
+  Diameter::AVP::Data data,
+  std::optional<unsigned int> vendor_id,
+  bool mandatory)
 {
   auto header = Diameter::AVP::Header()
     .setAVPCode(avp_code)
     .setFlags(
       Diameter::AVP::Header::Flags()
-        .setFlag(Diameter::AVP::Header::Flags::Bits::Mandatory, true)
+        .setFlag(Diameter::AVP::Header::Flags::Bits::Mandatory, mandatory)
         .setFlag(Diameter::AVP::Header::Flags::Bits::VendorSpecific, vendor_id.has_value())
     );
 
@@ -79,7 +83,7 @@ create_uint16_avp(
 {
   const uint8_t buf[] = {
     static_cast<uint8_t>((val >> 8) & 0xFF),
-    static_cast<uint8_t>(0xFF)
+    static_cast<uint8_t>(val & 0xFF)
   };
   return create_octets_avp(avp_code, ByteArray(buf, sizeof(buf)), vendor_id);
 }
@@ -133,10 +137,10 @@ create_ipv4_4bytes_avp(
   std::optional<unsigned int> vendor_id)
 {
   const uint8_t addr_buf[] = {
-    ((val >> 24) & 0xFF),
-    ((val >> 16) & 0xFF),
-    ((val >> 8) & 0xFF),
-    (val & 0xFF)
+    static_cast<uint8_t>((val >> 24) & 0xFF),
+    static_cast<uint8_t>((val >> 16) & 0xFF),
+    static_cast<uint8_t>((val >> 8) & 0xFF),
+    static_cast<uint8_t>(val & 0xFF)
   };
   return create_octets_avp(
     avp_code,
