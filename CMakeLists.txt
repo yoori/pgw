@@ -52,6 +52,8 @@ set(
 
 find_package(Threads REQUIRED)
 find_package(RapidJSON REQUIRED)
+find_package(OpenSSL REQUIRED)
+find_package(Boost REQUIRED)
 
 include(ExternalProject)
 

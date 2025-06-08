@@ -42,21 +42,21 @@ int main(int argc, char* argv[])
 
   try
   {
-    std::vector<DiameterSession::Endpoint> local_endpoints;
+    std::vector<dpi::DiameterSession::Endpoint> local_endpoints;
     for (auto it = opt_local_servers->begin(); it != opt_local_servers->end(); ++it)
     {
-      local_endpoints.emplace_back(DiameterSession::Endpoint(*it, *opt_local_port));
+      local_endpoints.emplace_back(dpi::DiameterSession::Endpoint(*it, *opt_local_port));
     }
 
-    std::vector<DiameterSession::Endpoint> connect_endpoints;
+    std::vector<dpi::DiameterSession::Endpoint> connect_endpoints;
     for (auto it = opt_connect_servers->begin(); it != opt_connect_servers->end(); ++it)
     {
-      connect_endpoints.emplace_back(DiameterSession::Endpoint(*it, *opt_connect_port));
+      connect_endpoints.emplace_back(dpi::DiameterSession::Endpoint(*it, *opt_connect_port));
     }
 
     auto logger = std::make_shared<dpi::StreamLogger>(std::cout);
 
-    std::shared_ptr<DiameterSession> session = std::make_shared<DiameterSession>(
+    std::shared_ptr<dpi::DiameterSession> session = std::make_shared<dpi::DiameterSession>(
       logger,
       local_endpoints,
       connect_endpoints,
@@ -65,12 +65,21 @@ int main(int argc, char* argv[])
       !opt_destination_host->empty() ? std::optional<std::string>(*opt_destination_host) : std::nullopt
       );
 
-    unsigned int result_code = session->send_cc_init(
-      "7995160073",
-      1, // Service Id
-      ipv4(10, 148, 199, 169), // Framed-IP-Address
-      ipv4(10, 77, 21, 116)  // NAS-IP-Address
-      );
+    dpi::DiameterSession::Request request;
+    request.msisdn = "79662660021";
+    request.service_id = 1; // TO FILL
+    request.framed_ip_address = ipv4(10, 243, 64, 1);
+    request.nas_ip_address = ipv4(10, 77, 21, 116);
+    request.imsi = "250507712932915";
+    request.rat_type = 6;
+    request.mcc = 250;
+    request.mnc = 20;
+    request.timezone = 33;
+    request.sgsn_ip_address = ipv4(185, 77, 17, 121);
+    request.access_network_charging_ip_address = ipv4(185, 174, 131, 53);
+    request.charging_id = 0x4188491;
+
+    unsigned int result_code = session->send_cc_init(request);
 
     std::cout << "Result-Code: " << result_code << std::endl;
   }

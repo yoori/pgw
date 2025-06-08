@@ -72,6 +72,15 @@ create_uint32_avp(
 }
 
 Diameter::AVP
+create_uint16_avp(
+  unsigned int avp_code,
+  uint16_t val,
+  std::optional<unsigned int> vendor_id)
+{
+  return create_avp(avp_code, ByteArray(&val, 2), vendor_id);
+}
+
+Diameter::AVP
 create_uint64_avp(unsigned int avp_code, uint64_t val)
 {
   return create_avp(avp_code, Diameter::AVP::Data().setUnsigned64(val));
@@ -99,7 +108,12 @@ create_ipv4_avp(
   std::optional<unsigned int> vendor_id)
 {
   const uint8_t addr_buf[] = {
-    0, 0x1, (val >> 24 && 0xFF), (val >> 16 && 0xFF), (val >> 8 && 0xFF), (val && 0xFF)
+    0,
+    0x1,
+    static_cast<uint8_t>((val >> 24) & 0xFF),
+    static_cast<uint8_t>((val >> 16) & 0xFF),
+    static_cast<uint8_t>((val >> 8) & 0xFF),
+    static_cast<uint8_t>(val & 0xFF)
   };
   return create_octets_avp(
     avp_code,
@@ -115,10 +129,10 @@ create_ipv4_4bytes_avp(
   std::optional<unsigned int> vendor_id)
 {
   const uint8_t addr_buf[] = {
-    static_cast<uint8_t>((val >> 24) & 0xFF),
-    static_cast<uint8_t>((val >> 16) & 0xFF),
-    static_cast<uint8_t>((val >> 8) & 0xFF),
-    static_cast<uint8_t>(val & 0xFF)
+    ((val >> 24) & 0xFF),
+    ((val >> 16) & 0xFF),
+    ((val >> 8) & 0xFF),
+    (val & 0xFF)
   };
   return create_octets_avp(
     avp_code,

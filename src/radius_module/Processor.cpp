@@ -19,7 +19,7 @@ const std::string LOG_PREFIX = "[tel-gateway] ";
 
 Processor::Processor(
   dpi::UserStoragePtr user_storage,
-  DiameterSessionPtr diameter_session)
+  dpi::DiameterSessionPtr diameter_session)
   : user_storage_(std::move(user_storage)),
     diameter_session_(std::move(diameter_session)),
     logger_(std::make_shared<dpi::StreamLogger>(std::cout)),
@@ -112,8 +112,15 @@ void Processor::load_config(std::string_view config_path)
 
 bool Processor::process_request(
   std::string_view called_station_id,
+  std::string_view imsi,
   uint32_t framed_ip_address,
-  uint32_t nas_ip_address
+  uint32_t nas_ip_address,
+  uint8_t rat_type,
+  std::string_view mcc_mnc,
+  uint8_t tz,
+  uint32_t sgsn_address,
+  uint32_t access_network_charging_address,
+  uint32_t charging_id
 )
 {
   logger_->log("process radius request");
@@ -129,12 +136,35 @@ bool Processor::process_request(
     {
       logger_->log("send diameter cc init");
 
-      unsigned int code = diameter_session_->send_cc_init(
-        std::string(called_station_id), //< MSISDN
-	1, //< Service-Id
-	framed_ip_address, //< User IP address
-	nas_ip_address
-        );
+      dpi::DiameterSession::Request request;
+      request.msisdn = called_station_id;
+      request.imsi = imsi;
+      request.service_id = 1;
+      request.framed_ip_address = framed_ip_address;
+      request.nas_ip_address = nas_ip_address;
+      request.rat_type = rat_type;
+      request.timezone = tz;
+      if (mcc_mnc.size() > 2)
+      {
+        request.mcc = std::stoi(
+          std::string(mcc_mnc.substr(0, mcc_mnc.size() - 2)));
+      } 
+
+      if (mcc_mnc.size() >= 2)
+      {
+        request.mnc = std::stoi(
+          std::string(mcc_mnc.substr(mcc_mnc.size() - 2)));
+      }
+
+      request.sgsn_ip_address = sgsn_address;
+      request.access_network_charging_ip_address = access_network_charging_address;
+      request.charging_id = charging_id;
+
+      std::cout << "========= REQUEST" << std::endl <<
+        request.to_string() << std::endl <<
+        "========================" << std::endl;
+
+      unsigned int code = diameter_session_->send_cc_init(request);
 
       {
         std::ostringstream ostr;

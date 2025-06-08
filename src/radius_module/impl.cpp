@@ -39,14 +39,35 @@ bool tel_gateway_process_request(
   const char* called_station_id_buf,
   int called_station_id_len,
   uint32_t framed_ip_address,
-  uint32_t nas_ip_address
+  uint32_t nas_ip_address,
+  const char* imsi_buf,
+  uint8_t rat_type,
+  const char* mcc_mnc,
+  uint8_t tz,
+  uint32_t sgsn_address,
+  uint32_t access_network_charging_address,
+  uint32_t charging_id
 )
 {
+  std::cout << ">>> imsi_buf: " << (imsi_buf ? imsi_buf : "NULL") << std::endl;
+  std::cout << ">>> tz: " << (unsigned int)tz << std::endl;
   std::string_view called_station_id = called_station_id_buf ?
     std::string_view(called_station_id_buf, called_station_id_len) :
     std::string_view();
 
-  processor->process_request(called_station_id, framed_ip_address, nas_ip_address);
+  processor->process_request(
+    called_station_id,
+    imsi_buf ? std::string_view(imsi_buf) : std::string_view(),
+    framed_ip_address,
+    nas_ip_address,
+    rat_type,
+    mcc_mnc,
+    tz,
+    sgsn_address,
+    access_network_charging_address,
+    charging_id
+  );
+
   return true;
 }
 
@@ -63,11 +84,11 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
   session_rule_config.clear_closed_sessions_timeout = Gears::Time::ONE_DAY;
   session_rule_config.default_rule.close_timeout = Gears::Time(30);
 
-  DiameterSessionPtr diameter_session;
+  dpi::DiameterSessionPtr diameter_session;
 
   if (config.diameter_url.has_value())
   {
-    diameter_session = std::make_shared<DiameterSession>(
+    diameter_session = std::make_shared<dpi::DiameterSession>(
       nullptr,
       config.diameter_url->local_endpoints,
       config.diameter_url->connect_endpoints,

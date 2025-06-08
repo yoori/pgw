@@ -29,6 +29,12 @@ create_octets_avp(
   std::optional<unsigned int> vendor_id = std::nullopt);
 
 Diameter::AVP
+create_uint16_avp(
+  unsigned int avp_code,
+  uint16_t val,
+  std::optional<unsigned int> vendor_id = std::nullopt);
+
+Diameter::AVP
 create_uint32_avp(
   unsigned int avp_code,
   uint32_t val,
@@ -46,6 +52,7 @@ create_int32_avp(
 Diameter::AVP
 create_int64_avp(unsigned int avp_code, int64_t val);
 
+// Generate 6 bytes AVP. For IPv4 filled : 0x00, 0x01, {4 bytes with IPv4}
 Diameter::AVP
 create_ipv4_avp(
   unsigned int avp_code,

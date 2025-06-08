@@ -25,6 +25,13 @@ static fr_dict_t const *dict_radius;
 static fr_dict_attr_t const *attr_calling_station_id;
 static fr_dict_attr_t const *attr_framed_ip_address;
 static fr_dict_attr_t const *attr_nas_ip_address;
+static fr_dict_attr_t const *attr_vendor_specific_3gpp_imsi;
+static fr_dict_attr_t const *attr_vendor_specific_3gpp_rat_type;
+static fr_dict_attr_t const *attr_vendor_specific_3gpp_sgsn_mcc_mnc;
+static fr_dict_attr_t const *attr_vendor_specific_3gpp_ms_timezone_tz;
+static fr_dict_attr_t const *attr_vendor_specific_3gpp_sgsn_address;
+static fr_dict_attr_t const *attr_vendor_specific_3gpp_access_network_charging_address;
+static fr_dict_attr_t const *attr_vendor_specific_3gpp_charging_id;
 
 extern fr_dict_autoload_t rlm_sber_dict[];
 fr_dict_autoload_t rlm_sber_dict[] = {
@@ -38,6 +45,52 @@ fr_dict_attr_autoload_t rlm_dict_attr[] = {
   { .out = &attr_calling_station_id, .name = "Calling-Station-Id", .type = FR_TYPE_STRING, .dict = &dict_radius },
   { .out = &attr_framed_ip_address, .name = "Framed-IP-Address", .type = FR_TYPE_IPV4_ADDR, .dict = &dict_radius },
   { .out = &attr_nas_ip_address, .name = "NAS-IP-Address", .type = FR_TYPE_IPV4_ADDR, .dict = &dict_radius },
+  {
+    .out = &attr_vendor_specific_3gpp_imsi,
+    .name = "Vendor-Specific.3GPP.IMSI",
+    .type = FR_TYPE_STRING,
+    .dict = &dict_radius
+  },
+  {
+    .out = &attr_vendor_specific_3gpp_rat_type,
+    .name = "Vendor-Specific.3GPP.RAT-Type",
+    .type = FR_TYPE_UINT8,
+    .dict = &dict_radius
+  },
+  {
+    .out = &attr_vendor_specific_3gpp_sgsn_mcc_mnc,
+    .name = "Vendor-Specific.3GPP.SGSN-MCC-MNC",
+    .type = FR_TYPE_STRING,
+    .dict = &dict_radius
+  },
+  {
+    .out = &attr_vendor_specific_3gpp_ms_timezone_tz,
+    .name = "Vendor-Specific.3GPP.MS-TimeZone.TZ",
+    .type = FR_TYPE_UINT8,
+    .dict = &dict_radius
+  },
+  {
+    .out = &attr_vendor_specific_3gpp_sgsn_address,
+    .name = "Vendor-Specific.3GPP.SGSN-Address",
+    .type = FR_TYPE_IPV4_ADDR,
+    .dict = &dict_radius
+  },
+  {
+    // In the context of RADIUS, CG-Address (also known as 3GPP CG-Address) refers to a RADIUS
+    // attribute used to identify the user's CG (Charging Group) address in a 3GPP network.
+    // It's a way to specify the IP address of the user's current charging group within the 3GPP
+    // network.
+    .out = &attr_vendor_specific_3gpp_access_network_charging_address,
+    .name = "Vendor-Specific.3GPP.CG-Address",
+    .type = FR_TYPE_IPV4_ADDR,
+    .dict = &dict_radius
+  },
+  {
+    .out = &attr_vendor_specific_3gpp_charging_id,
+    .name = "Vendor-Specific.3GPP.Charging-ID",
+    .type = FR_TYPE_UINT32,
+    .dict = &dict_radius
+  },
 
   { NULL }
 };
@@ -84,18 +137,51 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
   fr_pair_t *attr_called_station_vp;
   fr_pair_t *attr_framed_ip_address_vp;
   fr_pair_t *attr_nas_ip_address_vp;
+  fr_pair_t *attr_imsi_vp;
+  fr_pair_t *attr_rat_type_vp;
+  fr_pair_t *attr_sgsn_mcc_mnc_vp;
+  fr_pair_t *attr_ms_timezone_tz_vp;
+  fr_pair_t *attr_sgsn_address_vp;
+  fr_pair_t *attr_access_network_charging_address_vp;
+  fr_pair_t *attr_charging_id_vp;
   bool res;
   (void)mctx;
 
-  attr_called_station_vp = fr_pair_find_by_da_nested(&request->request_pairs, NULL, attr_calling_station_id);
-  attr_framed_ip_address_vp = fr_pair_find_by_da_nested(&request->request_pairs, NULL, attr_framed_ip_address);
-  attr_nas_ip_address_vp = fr_pair_find_by_da_nested(&request->request_pairs, NULL, attr_nas_ip_address);
+  attr_called_station_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_calling_station_id);
+  attr_framed_ip_address_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_framed_ip_address);
+  attr_nas_ip_address_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_nas_ip_address);
+  attr_imsi_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_vendor_specific_3gpp_imsi);
+  attr_rat_type_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_vendor_specific_3gpp_rat_type);
+  attr_sgsn_mcc_mnc_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_vendor_specific_3gpp_sgsn_mcc_mnc);
+  attr_ms_timezone_tz_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_vendor_specific_3gpp_ms_timezone_tz);
+  attr_sgsn_address_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_vendor_specific_3gpp_sgsn_address);
+  attr_access_network_charging_address_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_vendor_specific_3gpp_access_network_charging_address);
+  attr_charging_id_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_vendor_specific_3gpp_charging_id);
 
   res = tel_gateway_process_request(
     attr_called_station_vp ? attr_called_station_vp->vp_strvalue : 0,
     attr_called_station_vp ? attr_called_station_vp->vp_length : 0,
     attr_framed_ip_address_vp ? *(uint32_t const*)&attr_framed_ip_address_vp->vp_ipv4addr : 0,
-    attr_nas_ip_address_vp ? *(uint32_t const*)&attr_nas_ip_address_vp->vp_ipv4addr : 0
+    attr_nas_ip_address_vp ? *(uint32_t const*)&attr_nas_ip_address_vp->vp_ipv4addr : 0,
+    attr_imsi_vp ? attr_imsi_vp->vp_strvalue : 0,
+    attr_rat_type_vp ? attr_rat_type_vp->vp_int8 : 0,
+    attr_sgsn_mcc_mnc_vp ? attr_sgsn_mcc_mnc_vp->vp_strvalue : 0,
+    attr_ms_timezone_tz_vp ? attr_ms_timezone_tz_vp->vp_uint8 : 0,
+    attr_sgsn_address_vp ? *(uint32_t const*)&attr_sgsn_address_vp->vp_ipv4addr : 0,
+    attr_access_network_charging_address_vp ?
+      *(uint32_t const*)&attr_access_network_charging_address_vp->vp_ipv4addr : 0,
+    attr_charging_id_vp ?
+      *(uint32_t const*)&attr_charging_id_vp->vp_uint32 : 0
   );
 
   if (res)
