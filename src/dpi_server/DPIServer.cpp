@@ -69,7 +69,9 @@ int main(int argc, char **argv)
     user_storage,
     composite_user_session_packet_processor,
     event_logger,
-    config.ip_rules_root);
+    config.ip_rules_root,
+    dpi::DiameterSessionPtr()
+  );
 
   auto http_server = std::make_shared<dpi::HttpServer>(
     logger,

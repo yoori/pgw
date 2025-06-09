@@ -34,11 +34,13 @@ namespace dpi
     UserStoragePtr user_storage,
     UserSessionPacketProcessorPtr user_session_packet_processor,
     LoggerPtr event_logger,
-    std::string_view ip_rules_path)
+    std::string_view ip_rules_path,
+    dpi::DiameterSessionPtr diameter_session)
     : user_storage_(user_storage),
       event_logger_(event_logger),
       unknown_session_key_("unknown", std::string()),
-      user_session_packet_processor_(std::move(user_session_packet_processor))
+      user_session_packet_processor_(std::move(user_session_packet_processor)),
+      diameter_session_(std::move(diameter_session))
   {
     if (!ip_rules_path.empty())
     {
@@ -604,6 +606,39 @@ namespace dpi
       packet_size,
       packet);
 
+    if (diameter_session_ && user &&
+      !processing_state.block_packet && !processing_state.shaped
+      )
+    {
+      const DiameterTrafficTypeProvider::DiameterTrafficTypeArray& diameter_traffic_types =
+        diameter_traffic_type_provider_.get_diameter_traffic_type(processing_state.session_key);
+
+      if (!diameter_traffic_types.empty())
+      {
+        DiameterSession::GxUpdateRequest gx_update_request;
+        for (auto it = diameter_traffic_types.begin(); it != diameter_traffic_types.end(); ++it)
+        {
+          if (it->monitoring_key.has_value())
+          {
+            gx_update_request.usage_monitorings.emplace_back(
+              DiameterSession::GxUpdateRequest::UsageMonitoring(
+                *it->monitoring_key,
+                packet_size
+              )
+            );
+          }
+        }
+
+        if (!gx_update_request.usage_monitorings.empty())
+        {
+          DiameterSession::Request gx_request;
+          gx_request.msisdn = user->msisdn();
+          gx_request.imsi = user->imsi();
+          diameter_session_->send_gx_update(gx_request, gx_update_request);
+        }
+      }
+    }
+
     return processing_state;
   }
 
@@ -625,7 +660,7 @@ namespace dpi
       return user;
     }
 
-    user = std::make_shared<User>(std::string());
+    user = std::make_shared<User>(std::string(), std::string());
     user->set_ip(src_ip);
     return user;
   }

@@ -41,7 +41,7 @@ namespace dpi
 
         uint64_t bps = request_json["bps"].as_integer<uint64_t>();
 
-        UserPtr user = user_storage_->add_user(msisdn, 0);
+        UserPtr user = user_storage_->add_user(msisdn, std::string_view(), 0);
         user->set_shaping(shape_sessions, bps);
 
         return generate_json_response(request, "");

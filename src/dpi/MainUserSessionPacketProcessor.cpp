@@ -204,7 +204,7 @@ namespace dpi
 
     if (!user)
     {
-      user = std::make_shared<User>(std::string());
+      user = std::make_shared<User>(std::string(), std::string());
       user->set_ip(src_ip);
     }
 

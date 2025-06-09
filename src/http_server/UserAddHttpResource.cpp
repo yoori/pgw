@@ -25,7 +25,12 @@ namespace dpi
       {
         const std::string msisdn = request_json["msisdn"].as_string();
         const std::string ip = request_json["ip"].as_string();
-        user_storage_->add_user(msisdn, string_to_ipv4_address(ip));
+        std::string imsi;
+        if (request_json.contains("imsi"))
+        {
+          imsi = request_json["imsi"].as_string();
+        }
+        user_storage_->add_user(msisdn, imsi, string_to_ipv4_address(ip));
         return generate_json_response(request, "");
       }
       else

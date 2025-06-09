@@ -57,9 +57,11 @@ namespace dpi
     using TrafficStatePtr = std::shared_ptr<TrafficState>;
 
   public:
-    User(std::string msisdn, uint32_t ip = 0);
+    User(std::string msisdn, std::string imsi, uint32_t ip = 0);
 
     const std::string& msisdn() const;
+
+    const std::string& imsi() const;
 
     void set_ip(uint32_t ip);
 
@@ -133,6 +135,7 @@ namespace dpi
   private:
     mutable std::mutex lock_;
     const std::string msisdn_;
+    const std::string imsi_;
     uint32_t ip_;
     std::unordered_map<std::string, TrafficStatePtr> traffic_states_;
 

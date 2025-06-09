@@ -12,7 +12,7 @@ int main()
   const dpi::SessionKey gosuslugi_session_key("https", "gosuslugi");
 
   const Gears::Time start_time = Gears::Time::get_time_of_day();
-  dpi::UserPtr user = std::make_shared<dpi::User>(std::string("89263411124"));
+  dpi::UserPtr user = std::make_shared<dpi::User>(std::string("89263411124"), std::string("88888888"));
   user->process_packet(session_rule_config, telegram_session_key, start_time, 1000);
   user->process_packet(session_rule_config, telegram_session_key, start_time + Gears::Time(10), 1000);
 

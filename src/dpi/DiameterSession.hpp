@@ -41,8 +41,7 @@ namespace dpi
       uint32_t nas_ip_address = 0;
       uint32_t rat_type = 0;
       unsigned char timezone = 0; //< RADIUS: Vendor-Specific.3GPP.MS-TimeZone.TZ
-      uint32_t mcc = 0;
-      uint32_t mnc = 0;
+      std::string mcc_mnc;
       uint32_t sgsn_ip_address = 0; //< RADIUS: Vendor-Specific.3GPP.SGSN-Address
       uint32_t access_network_charging_ip_address = 0;
       //< RADIUS: Vendor-Specific.3GPP.Access-Network-Charging-Address
@@ -50,6 +49,50 @@ namespace dpi
 
       std::string to_string() const;
     };
+
+    struct GxUpdateRequest
+    {
+      struct UsageMonitoring
+      {
+        UsageMonitoring() {}
+
+        UsageMonitoring(
+          unsigned long monitoring_key_val,
+          uint64_t total_octets_val,
+          unsigned long usage_monitoring_level_val = 1 //< PCC_RULE_LEVEL
+          )
+          : monitoring_key(monitoring_key_val),
+            total_octets(total_octets_val),
+            usage_monitoring_level(usage_monitoring_level_val)
+        {}
+
+        unsigned long monitoring_key = 0;
+        uint64_t total_octets = 0;
+        unsigned long usage_monitoring_level = 1;
+      };
+
+      std::vector<UsageMonitoring> usage_monitorings;
+    };
+
+    struct GxTerminateRequest: public GxUpdateRequest
+    {
+      unsigned long event_trigger = 26; // TAI_CHANGE
+      unsigned long termination_cause = 1; // DIAMETER_LOGOUT
+    };
+
+    struct GxResponse
+    {
+      unsigned int result_code = 0;
+    };
+
+    struct GxInitResponse: public GxResponse
+    {};
+
+    struct GxUpdateResponse: public GxResponse
+    {};
+
+    struct GxTerminateResponse: public GxResponse
+    {};
 
     DiameterSession(
       dpi::LoggerPtr logger,
@@ -67,18 +110,30 @@ namespace dpi
 
     void open();
 
-    unsigned int send_cc_init(const Request& request);
+    GxInitResponse send_gx_init(const Request& request);
+
+    GxUpdateResponse send_gx_update(
+      const Request& request,
+      const GxUpdateRequest& update_request);
+
+    GxTerminateResponse send_gx_terminate(
+      const Request& request,
+      const GxTerminateRequest& terminate_request);
 
   private:
     ByteArray generate_exchange_packet_() const;
 
-    ByteArray generate_cc_init_(const Request& request) const;
+    ByteArray generate_gx_init_(const Request& request) const;
 
-    ByteArray generate_cc_update_(const Request& request) const;
+    ByteArray generate_gx_update_(
+      const Request& request,
+      const GxUpdateRequest& update_request) const;
 
-    ByteArray generate_cc_terminate_(const Request& request) const;
+    ByteArray generate_gx_terminate_(
+      const Request& request,
+      const GxTerminateRequest& terminate_request) const;
 
-    Diameter::Packet generate_base_cc_packet_(const Request& request)
+    Diameter::Packet generate_base_gx_packet_(const Request& request)
       const;
 
     Diameter::Packet read_packet_();
@@ -130,8 +185,7 @@ namespace dpi
     res += ", nas_ip_address = " + ipv4_address_to_string(nas_ip_address);
     res += ", rat_type = " + std::to_string(rat_type);
     res += ", timezone = " + std::to_string((unsigned int)timezone);
-    res += ", mcc = " + std::to_string(mcc);
-    res += ", mnc = " + std::to_string(mnc);
+    res += ", mcc_mnc = " + mcc_mnc;
     res += ", sgsn_ip_address = " + ipv4_address_to_string(sgsn_ip_address);
     res += ", access_network_charging_ip_address = " + ipv4_address_to_string(access_network_charging_ip_address);
     res += ", charging_id = " + std::to_string(charging_id);

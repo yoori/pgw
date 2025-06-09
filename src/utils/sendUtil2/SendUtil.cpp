@@ -71,17 +71,35 @@ int main(int argc, char* argv[])
     request.framed_ip_address = ipv4(10, 243, 64, 1);
     request.nas_ip_address = ipv4(10, 77, 21, 116);
     request.imsi = "250507712932915";
-    request.rat_type = 6;
-    request.mcc = 250;
-    request.mnc = 20;
+    request.rat_type = 1004;
+    request.mcc_mnc = "25020";
     request.timezone = 33;
     request.sgsn_ip_address = ipv4(185, 77, 17, 121);
     request.access_network_charging_ip_address = ipv4(185, 174, 131, 53);
     request.charging_id = 0x4188491;
 
-    unsigned int result_code = session->send_cc_init(request);
+    dpi::DiameterSession::GxInitResponse gx_init_response = session->send_gx_init(request);
+    std::cout << "Gx init request: result-code: " << gx_init_response.result_code << std::endl;
 
-    std::cout << "Result-Code: " << result_code << std::endl;
+    dpi::DiameterSession::GxUpdateRequest gx_update_request;
+    gx_update_request.usage_monitorings.emplace_back(
+      dpi::DiameterSession::GxUpdateRequest::UsageMonitoring(
+        64, //< Internet: MK64
+        1000 //< bytes
+      )
+    );
+    gx_update_request.usage_monitorings.emplace_back(
+      dpi::DiameterSession::GxUpdateRequest::UsageMonitoring(
+        161, //< Telegram: MK161
+        1000 //< bytes
+      )
+    );
+    dpi::DiameterSession::GxUpdateResponse gx_update_response = session->send_gx_update(request, gx_update_request);
+    std::cout << "Gx update request: result-code: " << gx_init_response.result_code << std::endl;
+
+    dpi::DiameterSession::GxTerminateRequest gx_terminate_request;
+    dpi::DiameterSession::GxTerminateResponse gx_terminate_response = session->send_gx_terminate(request, gx_terminate_request);
+    std::cout << "Gx terminate request: result-code: " << gx_terminate_response.result_code << std::endl;
   }
   catch(const Gears::Exception& ex)
   {

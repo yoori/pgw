@@ -15,6 +15,8 @@
 #include "FlowTraits.hpp"
 #include "NetInterfaceProcessor.hpp"
 #include "ShapingManager.hpp"
+#include "DiameterSession.hpp"
+#include "TrafficRules.hpp"
 
 namespace dpi
 {
@@ -25,7 +27,8 @@ namespace dpi
       UserStoragePtr user_storage,
       UserSessionPacketProcessorPtr user_session_packet_processor,
       LoggerPtr event_logger,
-      std::string_view ip_rules_path);
+      std::string_view ip_rules_path,
+      dpi::DiameterSessionPtr diameter_session);
 
     PacketProcessingState
     process_packet(
@@ -76,10 +79,12 @@ namespace dpi
   private:
     const Gears::Time TELEGRAM_CALL_MAX_PERIOD_ = Gears::Time(30);
     const Gears::Time SBER_OPEN_MAX_PERIOD_ = Gears::Time(60);
+    const DiameterTrafficTypeProvider diameter_traffic_type_provider_;
     const UserStoragePtr user_storage_;
     const LoggerPtr event_logger_;
     const SessionKey unknown_session_key_;
     const UserSessionPacketProcessorPtr user_session_packet_processor_;
+    const dpi::DiameterSessionPtr diameter_session_;
 
     //SessionRuleConfig session_rule_config_;
 

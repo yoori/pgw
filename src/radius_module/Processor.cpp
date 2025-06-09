@@ -111,7 +111,7 @@ void Processor::load_config(std::string_view config_path)
 }
 
 bool Processor::process_request(
-  std::string_view called_station_id,
+  std::string_view called_station_id, //< msisdn
   std::string_view imsi,
   uint32_t framed_ip_address,
   uint32_t nas_ip_address,
@@ -127,7 +127,7 @@ bool Processor::process_request(
 
   if (!called_station_id.empty() && framed_ip_address != 0)
   {
-    user_storage_->add_user(called_station_id, framed_ip_address);
+    user_storage_->add_user(called_station_id, imsi, framed_ip_address);
   }
 
   if (diameter_session_)
@@ -144,17 +144,7 @@ bool Processor::process_request(
       request.nas_ip_address = nas_ip_address;
       request.rat_type = rat_type;
       request.timezone = tz;
-      if (mcc_mnc.size() > 2)
-      {
-        request.mcc = std::stoi(
-          std::string(mcc_mnc.substr(0, mcc_mnc.size() - 2)));
-      } 
-
-      if (mcc_mnc.size() >= 2)
-      {
-        request.mnc = std::stoi(
-          std::string(mcc_mnc.substr(mcc_mnc.size() - 2)));
-      }
+      request.mcc_mnc = mcc_mnc;
 
       request.sgsn_ip_address = sgsn_address;
       request.access_network_charging_ip_address = access_network_charging_address;
@@ -164,11 +154,11 @@ bool Processor::process_request(
         request.to_string() << std::endl <<
         "========================" << std::endl;
 
-      unsigned int code = diameter_session_->send_cc_init(request);
+      dpi::DiameterSession::GxInitResponse response = diameter_session_->send_gx_init(request);
 
       {
         std::ostringstream ostr;
-        ostr << "diameter cc init response code: " << code;
+        ostr << "diameter cc init response code: " << response.result_code;
         logger_->log(ostr.str());
       }
     }

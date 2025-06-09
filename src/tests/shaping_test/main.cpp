@@ -51,7 +51,7 @@ int main()
   session_rule_config.default_rule.close_timeout = Gears::Time(30);
 
   const Gears::Time start_time = Gears::Time::get_time_of_day();
-  dpi::UserPtr user = std::make_shared<dpi::User>(std::string("89263411124"));
+  dpi::UserPtr user = std::make_shared<dpi::User>(std::string("89263411124"), std::string("888888888"));
 
   const dpi::SessionKey key1("test1", "");
   const dpi::SessionKey key2("test2", "");

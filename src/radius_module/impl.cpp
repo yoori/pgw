@@ -143,7 +143,8 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
     user_storage,
     composite_user_session_packet_processor,
     processor->event_logger(),
-    config.ip_rules_root);
+    config.ip_rules_root,
+    diameter_session);
 
   if (config.http_port > 0)
   {

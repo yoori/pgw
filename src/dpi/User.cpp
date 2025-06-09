@@ -7,8 +7,9 @@
 namespace dpi
 {
   // User impl.
-  User::User(std::string msisdn, uint32_t ip)
+  User::User(std::string msisdn, std::string imsi, uint32_t ip)
     : msisdn_(std::move(msisdn)),
+      imsi_(std::move(imsi)),
       ip_(ip)
   {}
 
@@ -28,6 +29,12 @@ namespace dpi
   User::msisdn() const
   {
     return msisdn_;
+  }
+
+  const std::string&
+  User::imsi() const
+  {
+    return imsi_;
   }
 
   std::string

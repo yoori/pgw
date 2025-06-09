@@ -20,6 +20,7 @@ add_library(dpi
   PacketProcessingState.cpp
   DiameterSession.cpp
   AVPUtils.cpp
+  TrafficRules.cpp
   )
 
 target_link_libraries(dpi

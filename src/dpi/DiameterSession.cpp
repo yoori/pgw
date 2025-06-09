@@ -66,10 +66,10 @@ namespace dpi
     logger_.swap(logger);
   }
 
-  unsigned int
-  DiameterSession::send_cc_init(const Request& request)
+  DiameterSession::GxInitResponse
+  DiameterSession::send_gx_init(const Request& request)
   {
-    const ByteArray send_packet = generate_cc_init_(request);
+    const ByteArray send_packet = generate_gx_init_(request);
 
     for (int retry_i = 0; retry_i < RETRY_COUNT_; ++retry_i)
     {
@@ -87,7 +87,9 @@ namespace dpi
           }
         }
 
-        return result_code.has_value() ? *result_code : 0;
+        GxInitResponse init_response;
+        init_response.result_code = result_code.has_value() ? *result_code : 0;
+        return init_response;
       }
       catch(const std::exception& ex)
       {
@@ -105,7 +107,99 @@ namespace dpi
       }
     }
 
-    return false;
+    return GxInitResponse(); // unreachable
+  }
+
+  DiameterSession::GxUpdateResponse
+  DiameterSession::send_gx_update(
+    const Request& request,
+    const GxUpdateRequest& update_request)
+  {
+    const ByteArray send_packet = generate_gx_update_(request, update_request);
+
+    for (int retry_i = 0; retry_i < RETRY_COUNT_; ++retry_i)
+    {
+      try
+      {
+        send_packet_(send_packet);
+        Diameter::Packet response = read_packet_();
+        std::optional<uint32_t> result_code;
+        for (int i = 0; i < response.numberOfAVPs(); ++i)
+        {
+          const Diameter::AVP& avp = response.avp(i);
+          if (avp.header().avpCode() == 268) //< Result-Code
+          {
+            result_code = avp.data().toUnsigned32();
+          }
+        }
+
+        GxUpdateResponse update_response;
+        update_response.result_code = result_code.has_value() ? *result_code : 0;
+        return update_response;
+      }
+      catch(const std::exception& ex)
+      {
+        if (logger_)
+        {
+          std::ostringstream ostr;
+          ostr << "[DEBUG] Diameter exception: " << ex.what() << " (socket = " << socket_fd_ << ")";
+          logger_->log(ostr.str());
+        }
+
+        if (retry_i == RETRY_COUNT_ - 1)
+        {
+          throw;
+        }
+      }
+    }
+
+    return GxUpdateResponse(); // unreachable
+  }
+
+  DiameterSession::GxTerminateResponse
+  DiameterSession::send_gx_terminate(
+    const Request& request,
+    const GxTerminateRequest& terminate_request)
+  {
+    const ByteArray send_packet = generate_gx_terminate_(request, terminate_request);
+
+    for (int retry_i = 0; retry_i < RETRY_COUNT_; ++retry_i)
+    {
+      try
+      {
+        send_packet_(send_packet);
+        Diameter::Packet response = read_packet_();
+        std::optional<uint32_t> result_code;
+        for (int i = 0; i < response.numberOfAVPs(); ++i)
+        {
+          const Diameter::AVP& avp = response.avp(i);
+          if (avp.header().avpCode() == 268) //< Result-Code
+          {
+            result_code = avp.data().toUnsigned32();
+          }
+        }
+
+        GxTerminateResponse terminate_response;
+        terminate_response.result_code = result_code.has_value() ? *result_code : 0;
+        return terminate_response;
+      }
+      catch(const std::exception& ex)
+      {
+        if (logger_)
+        {
+          std::ostringstream ostr;
+          ostr << "[DEBUG] Diameter exception: " << ex.what() << " (socket = " << socket_fd_ << ")";
+          logger_->log(ostr.str());
+        }
+
+        if (retry_i == RETRY_COUNT_ - 1)
+        {
+          throw;
+        }
+      }
+    }
+
+    return GxTerminateResponse(); // unreachable
   }
 
   Diameter::Packet
@@ -370,58 +464,9 @@ namespace dpi
   }
 
   ByteArray
-  DiameterSession::generate_cc_init_(const Request& request)
+  DiameterSession::generate_gx_init_(const Request& request)
     const
   {
-    return generate_base_cc_packet_(request)
-      .addAVP(create_int32_avp(416, 1)) // CC-Request-Type
-      .updateLength()
-      .deploy();
-  }
-
-  ByteArray
-  DiameterSession::generate_cc_update_(const Request& request)
-    const
-  {
-    return generate_base_cc_packet_(request)
-      .addAVP(create_int32_avp(416, 2)) // CC-Request-Type
-      .updateLength()
-      .deploy();
-  }
-
-  ByteArray
-  DiameterSession::generate_cc_terminate_(const Request& request)
-    const
-  {
-    return generate_base_cc_packet_(request)
-      .addAVP(create_int32_avp(416, 3)) // CC-Request-Type
-      .updateLength()
-      .deploy();
-  }
-
-  ByteArray DiameterSession::uint32_to_buf_(uint32_t val)
-  {
-    const uint8_t BUF[] = {
-      static_cast<uint8_t>((val >> 24) & 0xFF),
-      static_cast<uint8_t>((val >> 16) & 0xFF),
-      static_cast<uint8_t>((val >> 8) & 0xFF),
-      static_cast<uint8_t>(val & 0xFF)
-    };
-
-    return ByteArray(BUF, sizeof(BUF));
-  }
-
-  Diameter::Packet DiameterSession::generate_base_cc_packet_(const Request& request)
-    const
-  {
-    const uint8_t MCC_MNC[] = {
-      static_cast<uint8_t>((request.mcc >> 16) & 0xFF),
-      static_cast<uint8_t>((request.mcc >> 8) & 0xFF),
-      static_cast<uint8_t>(request.mcc & 0xFF),
-      static_cast<uint8_t>((request.mnc >> 8) & 0xFF),
-      static_cast<uint8_t>(request.mnc & 0xFF)
-    };
-
     const uint8_t USER_LOCATION[] = {
       0x82, // Geographic Location Type: TAI and ECGI (130)
       0x52, 0xf0, 0x02, 0x6c, 0xf6,
@@ -463,20 +508,21 @@ namespace dpi
       packet.addAVP(create_string_avp(293, *destination_host_));
     }
 
-    return packet
-      .addAVP(create_string_avp(263, session_id_)) // Session-Id
-      .addAVP(create_uint32_avp(258, application_id_)) // Auth-Application-Id
-      .addAVP(create_string_avp(264, origin_host_)) // Origin-Host
-      .addAVP(create_string_avp(296, origin_realm_)) // Origin-Realm
-      .addAVP(create_string_avp(283, origin_realm_)) // Destination-Realm
-      .addAVP(create_uint32_avp(415, ++request_i_)) // CC-Request-Number
-      .addAVP(create_uint32_avp(278, 3801248757)) // Origin-State-Id
+    packet
+      .addAVP(create_string_avp(263, session_id_, std::nullopt, true)) // Session-Id
+      .addAVP(create_uint32_avp(258, application_id_, std::nullopt, true)) // Auth-Application-Id
+      .addAVP(create_string_avp(264, origin_host_, std::nullopt, true)) // Origin-Host
+      .addAVP(create_string_avp(296, origin_realm_, std::nullopt, true)) // Origin-Realm
+      .addAVP(create_string_avp(283, origin_realm_, std::nullopt, true)) // Destination-Realm
+      .addAVP(create_uint32_avp(415, ++request_i_, std::nullopt, true)) // CC-Request-Number
+      .addAVP(create_uint32_avp(278, 3801248757, std::nullopt, true)) // Origin-State-Id
       .addAVP(create_avp( //< QoS-Information
         1016,
         Diameter::AVP::Data()
           .addAVP(create_uint32_avp(1041, 50'000'000, 10415)) //< APN-Aggregate-Max-Bitrate-UL(1041)
           .addAVP(create_uint32_avp(1040, 150'000'000, 10415)), //< APN-Aggregate-Max-Bitrate-DL(1040)
-        10415
+        10415,
+        true
         ))
       .addAVP(create_avp( //< Default-EPS-Bearer-QoS
         1049,
@@ -491,61 +537,190 @@ namespace dpi
             ,
             10415
             )),
-        10415))
-      .addAVP(create_string_avp(30, "internet.sberbank-tele.com")) // Called-Station-Id
-      .addAVP(create_ipv4_avp(501, request.access_network_charging_ip_address, 10415))
+        10415,
+        false))
+      .addAVP(create_string_avp(30, "internet.sberbank-tele.com", std::nullopt, true)) // Called-Station-Id
+      .addAVP(create_ipv4_avp(
+        501,
+        request.access_network_charging_ip_address,
+        10415,
+        true))
         //< Access-Network-Charging-Address
-      .addAVP(create_ipv4_4bytes_avp(8, request.framed_ip_address)) // Framed-IP-Address
+      .addAVP(create_ipv4_4bytes_avp(8, request.framed_ip_address, std::nullopt, true)) // Framed-IP-Address
       .addAVP(create_avp( //< User-Equipment-Info(458)
         458,
         Diameter::AVP::Data()
           .addAVP(create_uint32_avp(459, 0)) //< User-Equipment-Info-Type(459)
-          .addAVP(create_string_avp(460, "3572487790592201")) //< User-Equipment-Info-Value(460)
+          .addAVP(create_string_avp(460, "3572487790592201")), //< User-Equipment-Info-Value(460)
+        std::nullopt,
+        false
         ))
-      .addAVP(create_int32_avp(1009, 1, 10415)) // Online
-      .addAVP(create_int32_avp(1008, 1, 10415)) // Offline
+      .addAVP(create_int32_avp(1009, 1, 10415, true)) // Online
+      .addAVP(create_int32_avp(1008, 1, 10415, true)) // Offline
       .addAVP(create_avp( //< Access-Network-Charging-Identifier-Gx(1022)
         1022,
         Diameter::AVP::Data()
-          .addAVP(create_octets_avp(503, uint32_to_buf_(request.charging_id), 10415))
+        .addAVP(create_octets_avp(503, uint32_to_buf_(request.charging_id), 10415, true))
         //< Access-Network-Charging-Identifier-Value(503)
         ,
-        10415
+        10415,
+        true
         ))
-      .addAVP(create_ipv4_4bytes_avp(6, request.sgsn_ip_address, 10415)) // 3GPP-SGSN-Address(6)
-      .addAVP(create_ipv4_avp(1050, request.sgsn_ip_address, 10415)) // AN-GW-Address(1050)=3GPP-SGSN-Address
-      .addAVP(create_uint32_avp(1032, request.rat_type, 10415)) // RAT-Type
-      .addAVP(create_uint32_avp(1024, 1, 10415)) // Network-Request-Support
-      .addAVP(create_octets_avp(18, ByteArray(MCC_MNC, sizeof(MCC_MNC)), 10415)) // 3GPP-SGSN-MCC-MNC(18)
-      .addAVP(create_octets_avp(22, ByteArray(USER_LOCATION, sizeof(USER_LOCATION)), 10415)) // 3GPP-User-Location-Info
+      .addAVP(create_ipv4_4bytes_avp(6, request.sgsn_ip_address, 10415, false)) // 3GPP-SGSN-Address(6)
+      .addAVP(create_ipv4_avp(1050, request.sgsn_ip_address, 10415, false)) // AN-GW-Address(1050)=3GPP-SGSN-Address
+      .addAVP(create_uint32_avp(1032, request.rat_type, 10415, false)) // RAT-Type
+      .addAVP(create_uint32_avp(1024, 1, 10415, true)) // Network-Request-Support
+      .addAVP(create_string_avp(18, request.mcc_mnc, 10415, false)) // 3GPP-SGSN-MCC-MNC(18)
+      .addAVP(create_octets_avp(22, ByteArray(USER_LOCATION, sizeof(USER_LOCATION)), 10415, false)) // 3GPP-User-Location-Info
       // < REVIEW content
       .addAVP(create_uint16_avp(
         23,
         static_cast<uint16_t>(request.timezone) << 8 | 0, //< Adjustment=0
-        10415
+        10415,
+        false
       )) // 3GPP-MS-TimeZone
       // Subscription-Id with IMSI
       .addAVP(create_avp( // Subscription-Id
         443,
         Diameter::AVP::Data()
           .addAVP(create_int32_avp(450, 0)) // Subscription-Id-Type = END_USER_E164
-          .addAVP(create_string_avp(444, request.msisdn)) // Subscription-Id-Data
+          .addAVP(create_string_avp(444, request.msisdn)), // Subscription-Id-Data
+        std::nullopt,
+        true
         ))
       .addAVP(create_avp( // Subscription-Id
         443,
         Diameter::AVP::Data()
           .addAVP(create_int32_avp(450, 1)) // Subscription-Id-Type = END_USER_IMSI
-          .addAVP(create_string_avp(444, request.imsi)) // Subscription-Id-Data
+          .addAVP(create_string_avp(444, request.imsi)), // Subscription-Id-Data
+        std::nullopt,
+        true
         ))
       .addAVP(create_avp( //< Supported-Features
         628,
         Diameter::AVP::Data()
           .addAVP(create_uint32_avp(266, 10415)) //< Vendor-Id
           .addAVP(create_uint32_avp(629, 1, 10415)) //< Feature-List-Id
-          .addAVP(create_uint32_avp(630, 3, 10415)), //< Feature-List        
-        10415))
-      .addAVP(create_uint32_avp(1027, 5, 10415)) // IP-CAN-Type
+          .addAVP(create_uint32_avp(630, 3, 10415)), //< Feature-List 
+        10415,
+        false))
+      .addAVP(create_uint32_avp(1027, 5, 10415, true)) // IP-CAN-Type
       //.addAVP(create_int32_avp()) // Access-Network-Charging-Address
+      ;
+
+    return packet
+      .addAVP(create_int32_avp(416, 1, std::nullopt, true)) // CC-Request-Type
+      .updateLength()
+      .deploy();
+  }
+
+  ByteArray
+  DiameterSession::generate_gx_update_(
+    const Request& request,
+    const GxUpdateRequest& update_request)
+    const
+  {
+    auto packet = generate_base_gx_packet_(request);
+
+    packet.addAVP(create_int32_avp(416, 2)) // CC-Request-Type
+      ;
+
+    for (const auto& usage_monitoring : update_request.usage_monitorings)
+    {
+      packet.addAVP(create_avp(
+        1067,
+        Diameter::AVP::Data()
+          .addAVP(create_avp( // Used-Service-Unit(446)
+            446,
+            Diameter::AVP::Data()
+              .addAVP(create_uint64_avp(421, usage_monitoring.total_octets, std::nullopt, true)), // CC-Total-Octets(421)
+            std::nullopt,
+            true))
+          .addAVP(create_uint32_avp(1066, usage_monitoring.monitoring_key, 10415, false)) // Monitoring-Key(1066)
+          .addAVP(create_uint32_avp(1068, usage_monitoring.usage_monitoring_level, 10415, false)), // Usage-Monitoring-Level(1068)
+        10415,
+        false
+      ));
+    }
+
+    return packet
+      .updateLength()
+      .deploy();
+  }
+
+  ByteArray
+  DiameterSession::generate_gx_terminate_(
+    const Request& request,
+    const GxTerminateRequest& terminate_request)
+    const
+  {
+    return generate_base_gx_packet_(request)
+      .addAVP(create_uint32_avp(1006, terminate_request.event_trigger, 10415, true)) // Event-Trigger(1006)
+      .addAVP(create_uint32_avp(295, terminate_request.termination_cause, std::nullopt, true)) // Termination-Cause(295)
+      .addAVP(create_int32_avp(416, 3)) // CC-Request-Type
+      .updateLength()
+      .deploy();
+  }
+
+  ByteArray DiameterSession::uint32_to_buf_(uint32_t val)
+  {
+    const uint8_t BUF[] = {
+      static_cast<uint8_t>((val >> 24) & 0xFF),
+      static_cast<uint8_t>((val >> 16) & 0xFF),
+      static_cast<uint8_t>((val >> 8) & 0xFF),
+      static_cast<uint8_t>(val & 0xFF)
+    };
+
+    return ByteArray(BUF, sizeof(BUF));
+  }
+
+  Diameter::Packet DiameterSession::generate_base_gx_packet_(const Request& request)
+    const
+  {
+    auto packet = Diameter::Packet()
+      .setHeader(
+        Diameter::Packet::Header()
+          .setCommandFlags(
+             Diameter::Packet::Header::Flags()
+             .setFlag(Diameter::Packet::Header::Flags::Bits::Request, true)
+             .setFlag(Diameter::Packet::Header::Flags::Bits::Proxiable, true)
+          )
+          .setCommandCode(272)
+          .setApplicationId(application_id_)
+          .setHBHIdentifier(0x7ddf9367)
+          .setETEIdentifier(0xc15ecb12)
+      );
+
+    if (destination_host_.has_value())
+    {
+      packet.addAVP(create_string_avp(293, *destination_host_));
+    }
+
+    return packet
+      .addAVP(create_string_avp(263, session_id_, std::nullopt, true)) // Session-Id
+      .addAVP(create_uint32_avp(258, application_id_, std::nullopt, true)) // Auth-Application-Id
+      .addAVP(create_string_avp(264, origin_host_, std::nullopt, true)) // Origin-Host
+      .addAVP(create_string_avp(296, origin_realm_, std::nullopt, true)) // Origin-Realm
+      .addAVP(create_string_avp(283, origin_realm_, std::nullopt, true)) // Destination-Realm
+      .addAVP(create_uint32_avp(415, ++request_i_, std::nullopt, true)) // CC-Request-Number
+      .addAVP(create_uint32_avp(278, 3801248757, std::nullopt, true)) // Origin-State-Id
+      .addAVP(create_string_avp(30, "internet.sberbank-tele.com", std::nullopt, true)) // Called-Station-Id
+      .addAVP(create_avp( // Subscription-Id
+        443,
+        Diameter::AVP::Data()
+          .addAVP(create_int32_avp(450, 0)) // Subscription-Id-Type = END_USER_E164
+          .addAVP(create_string_avp(444, request.msisdn)), // Subscription-Id-Data
+        std::nullopt,
+        true
+        ))
+      .addAVP(create_avp( // Subscription-Id
+        443,
+        Diameter::AVP::Data()
+          .addAVP(create_int32_avp(450, 1)) // Subscription-Id-Type = END_USER_IMSI
+          .addAVP(create_string_avp(444, request.imsi)), // Subscription-Id-Data
+        std::nullopt,
+        true
+        ))
       ;
   }
 

@@ -22,7 +22,7 @@ namespace dpi
 
     void set_event_logger(LoggerPtr event_logger);
 
-    UserPtr add_user(std::string_view msisdn, uint32_t ip);
+    UserPtr add_user(std::string_view msisdn, std::string_view imsi, uint32_t ip);
 
     void reset_user_ip(std::string_view msisdn);
 

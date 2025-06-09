@@ -20,9 +20,10 @@ namespace dpi
   }
 
   UserPtr
-  UserStorage::add_user(std::string_view msisdn, uint32_t ip)
+  UserStorage::add_user(std::string_view msisdn, std::string_view imsi, uint32_t ip)
   {
     std::string msisdn_val(msisdn);
+    std::string imsi_val(imsi);
     UserPtr added_user;
 
     {
@@ -52,7 +53,7 @@ namespace dpi
       }
       else
       {
-        added_user = std::make_shared<User>(msisdn_val, ip);
+        added_user = std::make_shared<User>(msisdn_val, imsi_val, ip);
 
         if (ip != 0)
         {
