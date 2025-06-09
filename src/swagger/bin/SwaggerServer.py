@@ -7,6 +7,7 @@ import threading
 import asyncio
 import json
 import fastapi
+import starlette
 
 from contextlib import asynccontextmanager
 from starlette.responses import JSONResponse
@@ -45,6 +46,7 @@ app = fastapi.FastAPI(
 
 # public
 app.include_router(dpi_swagger.get_user.router)
+app.include_router(dpi_swagger.set_user_shaping.router)
 
 
 def custom_openapi():
@@ -76,7 +78,7 @@ security = fastapi.security.HTTPBasic()
 @app.get('/rest/docs/openapi.json', include_in_schema = False)
 async def openapi(credentials: fastapi.security.HTTPBasicCredentials = fastapi.Depends(security)):
   if credentials.username != "admin" or credentials.password != "admin":
-    raise HTTPException(
+    raise fastapi.HTTPException(
       status_code = starlette.status.HTTP_401_UNAUTHORIZED,
       detail = "Incorrect email or password",
       headers = {"WWW-Authenticate": "Basic"},
@@ -87,7 +89,7 @@ async def openapi(credentials: fastapi.security.HTTPBasicCredentials = fastapi.D
 @app.get("/rest/docs", include_in_schema = False)
 async def get_documentation(credentials: fastapi.security.HTTPBasicCredentials = fastapi.Depends(security)):
   if credentials.username != "admin" or credentials.password != "admin":
-    raise HTTPException(
+    raise fastapi.HTTPException(
       status_code = starlette.status.HTTP_401_UNAUTHORIZED,
       detail = "Incorrect email or password",
       headers = {"WWW-Authenticate": "Basic"},
