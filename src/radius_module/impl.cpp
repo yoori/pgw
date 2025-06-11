@@ -41,6 +41,7 @@ bool tel_gateway_process_request(
   uint32_t framed_ip_address,
   uint32_t nas_ip_address,
   const char* imsi_buf,
+  const char* imei_buf,
   uint8_t rat_type,
   const char* mcc_mnc,
   uint8_t tz,
@@ -59,6 +60,7 @@ bool tel_gateway_process_request(
   processor->process_request(
     called_station_id,
     imsi_buf ? std::string_view(imsi_buf) : std::string_view(),
+    imei_buf ? std::string_view(imei_buf) : std::string_view(),
     framed_ip_address,
     nas_ip_address,
     rat_type,

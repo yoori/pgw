@@ -13,6 +13,7 @@ bool tel_gateway_process_request(
   uint32_t framed_address,
   uint32_t nas_address,
   const char* imsi_buf,
+  const char* imei_buf,
   uint8_t rat_type,
   const char* mcc_mnc,
   uint8_t tz,

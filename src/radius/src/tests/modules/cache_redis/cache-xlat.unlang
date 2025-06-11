@@ -1,1 +1,37 @@
-../cache_rbtree/cache-xlat.unlang
+#
+#  PRE: cache-logic
+#
+Filter-Id := 'testkey'
+control.Callback-Id := 'cache me'
+
+cache
+if (!ok) {
+        test_fail
+}
+
+# Check the cache TTL function works
+if (%cache.ttl.get() < 4) {
+        test_fail
+}
+
+request.Login-LAT-Service := %cache('request.Callback-Id')
+
+if (Login-LAT-Service != control.Callback-Id) {
+        test_fail
+}
+
+Login-LAT-Node := %cache(request.Login-LAT-Port)
+
+if (Login-LAT-Node) {
+        test_fail
+}
+
+# Regression test for deadlock on notfound
+Filter-Id := 'testkey0'
+
+Login-LAT-Node := %cache(request.Login-LAT-Port)
+
+# Would previously deadlock
+Login-LAT-Port := %cache(request.Login-LAT-Port)
+
+test_pass

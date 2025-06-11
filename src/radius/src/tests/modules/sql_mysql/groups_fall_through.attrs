@@ -1,1 +1,13 @@
-../sql/groups_fall_through.attrs
+#
+#  Input packet
+#
+Packet-Type = Access-Request
+User-Name = "groups_fall_through"
+User-Password = "secret"
+NAS-IP-Address = "1.2.3.4"
+
+#
+#  Expected answer
+#
+Packet-Type == Access-Accept
+Reply-Message == "Hello Fallthrough User"

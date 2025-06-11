@@ -11,6 +11,7 @@
 #include <Diameter/Packet.hpp>
 
 #include <dpi/AVPUtils.hpp>
+#include <dpi/UserSessionTraits.hpp>
 #include "Processor.hpp"
 
 
@@ -113,6 +114,7 @@ void Processor::load_config(std::string_view config_path)
 bool Processor::process_request(
   std::string_view called_station_id, //< msisdn
   std::string_view imsi,
+  std::string_view imei,
   uint32_t framed_ip_address,
   uint32_t nas_ip_address,
   uint8_t rat_type,

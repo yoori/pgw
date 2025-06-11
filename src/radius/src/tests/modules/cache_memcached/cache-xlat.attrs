@@ -1,1 +1,11 @@
-../cache_rbtree/cache-xlat.attrs
+#
+#  Input packet
+#
+Packet-Type = Access-Request
+User-Name = "bob"
+User-Password = "olobobob"
+
+#
+#  Expected answer
+#
+Packet-Type == Access-Accept

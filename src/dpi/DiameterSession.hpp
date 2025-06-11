@@ -37,7 +37,7 @@ namespace dpi
     {
       std::string msisdn;
       std::string imsi;
-      //unsigned long service_id = 0;
+      std::string imei;
       uint32_t framed_ip_address = 0;
       uint32_t nas_ip_address = 0;
       uint32_t rat_type = 0;

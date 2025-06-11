@@ -1,1 +1,21 @@
-../sql/acct_2_stop.unlang
+#
+#  PRE: acct_1_update
+#
+sql.accounting.stop
+if !(ok) {
+	test_fail
+}
+
+if(%sql("SELECT count(*) FROM radacct WHERE AcctSessionId = '00000002'") != "1") {
+	test_fail
+}
+
+if(%sql("SELECT acctsessiontime FROM radacct WHERE AcctSessionId = '00000002'") != "120") {
+	test_fail
+}
+
+if(%sql("SELECT AcctTerminateCause FROM radacct WHERE AcctSessionId = '00000002'") != 'User-Request') {
+	test_fail
+}
+
+test_pass

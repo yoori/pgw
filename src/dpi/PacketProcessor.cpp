@@ -606,6 +606,8 @@ namespace dpi
       packet_size,
       packet);
 
+    //std::cout << "Process packet " << processing_state.session_key.to_string() << ": " << packet_size << std::endl;
+
     if (diameter_session_ && user &&
       !processing_state.block_packet && !processing_state.shaped
       )
@@ -629,6 +631,7 @@ namespace dpi
           }
         }
 
+        /*
         if (!gx_update_request.usage_monitorings.empty())
         {
           DiameterSession::Request gx_request;
@@ -636,6 +639,7 @@ namespace dpi
           gx_request.imsi = user->imsi();
           diameter_session_->send_gx_update(gx_request, gx_update_request);
         }
+        */
       }
     }
 

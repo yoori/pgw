@@ -21,6 +21,7 @@ public:
   bool process_request(
     std::string_view called_station_id,
     std::string_view imsi,
+    std::string_view imei,
     uint32_t framed_ip_address,
     uint32_t nas_ip_address,
     uint8_t rat_type,

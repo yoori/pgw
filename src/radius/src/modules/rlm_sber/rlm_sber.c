@@ -26,6 +26,7 @@ static fr_dict_attr_t const *attr_calling_station_id;
 static fr_dict_attr_t const *attr_framed_ip_address;
 static fr_dict_attr_t const *attr_nas_ip_address;
 static fr_dict_attr_t const *attr_vendor_specific_3gpp_imsi;
+static fr_dict_attr_t const *attr_vendor_specific_3gpp_imei;
 static fr_dict_attr_t const *attr_vendor_specific_3gpp_rat_type;
 static fr_dict_attr_t const *attr_vendor_specific_3gpp_sgsn_mcc_mnc;
 static fr_dict_attr_t const *attr_vendor_specific_3gpp_ms_timezone_tz;
@@ -49,6 +50,12 @@ fr_dict_attr_autoload_t rlm_dict_attr[] = {
   {
     .out = &attr_vendor_specific_3gpp_imsi,
     .name = "Vendor-Specific.3GPP.IMSI",
+    .type = FR_TYPE_STRING,
+    .dict = &dict_radius
+  },
+  {
+    .out = &attr_vendor_specific_3gpp_imei,
+    .name = "Vendor-Specific.3GPP.IMEISV",
     .type = FR_TYPE_STRING,
     .dict = &dict_radius
   },
@@ -145,6 +152,7 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
   fr_pair_t *attr_framed_ip_address_vp;
   fr_pair_t *attr_nas_ip_address_vp;
   fr_pair_t *attr_imsi_vp;
+  fr_pair_t *attr_imei_vp;
   fr_pair_t *attr_rat_type_vp;
   fr_pair_t *attr_sgsn_mcc_mnc_vp;
   fr_pair_t *attr_ms_timezone_tz_vp;
@@ -163,6 +171,8 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
     &request->request_pairs, NULL, attr_nas_ip_address);
   attr_imsi_vp = fr_pair_find_by_da_nested(
     &request->request_pairs, NULL, attr_vendor_specific_3gpp_imsi);
+  attr_imei_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_vendor_specific_3gpp_imei);
   attr_rat_type_vp = fr_pair_find_by_da_nested(
     &request->request_pairs, NULL, attr_vendor_specific_3gpp_rat_type);
   attr_sgsn_mcc_mnc_vp = fr_pair_find_by_da_nested(
@@ -184,6 +194,7 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
     attr_framed_ip_address_vp ? *(uint32_t const*)&attr_framed_ip_address_vp->vp_ipv4addr : 0,
     attr_nas_ip_address_vp ? *(uint32_t const*)&attr_nas_ip_address_vp->vp_ipv4addr : 0,
     attr_imsi_vp ? attr_imsi_vp->vp_strvalue : 0,
+    attr_imei_vp ? attr_imei_vp->vp_strvalue : 0,
     attr_rat_type_vp ? attr_rat_type_vp->vp_int8 : 0,
     attr_sgsn_mcc_mnc_vp ? attr_sgsn_mcc_mnc_vp->vp_strvalue : 0,
     attr_ms_timezone_tz_vp ? attr_ms_timezone_tz_vp->vp_uint8 : 0,

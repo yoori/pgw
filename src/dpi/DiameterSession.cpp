@@ -769,18 +769,20 @@ namespace dpi
       );
     }
 
-    /* No IMEI AVP: use 5327847709952210 */
-    packet.addAVP(
-      create_avp(
-        458, // User-Equipment-Info(458)
-        Diameter::AVP::Data()
-          .addAVP(create_uint32_avp(459, 0, std::nullopt, false)) // User-Equipment-Info-Type(459) = IMEISV
-          .addAVP(create_string_avp(460, "5327847709952210", std::nullopt, false)) // User-Equipment-Info-Type(459)
-        ,
-        std::nullopt,
-        false
-      )
-    );
+    if (!request.imei.empty())
+    {
+      packet.addAVP(
+        create_avp(
+          458, // User-Equipment-Info(458)
+          Diameter::AVP::Data()
+            .addAVP(create_uint32_avp(459, 0, std::nullopt, false)) // User-Equipment-Info-Type(459) = IMEISV
+            .addAVP(create_string_avp(460, request.imei, std::nullopt, false)) // User-Equipment-Info-Type(459)
+          ,
+          std::nullopt,
+          false
+        )
+      );
+    }
 
     const uint8_t USER_LOCATION[] = {
       0x82, // Geographic Location Type: TAI and ECGI (130)
