@@ -1,2 +1,2 @@
-add_subdirectory(sendUtil)
-add_subdirectory(sendUtil2)
+add_subdirectory(sendGxUtil)
+add_subdirectory(sendGyUtil)

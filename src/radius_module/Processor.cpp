@@ -120,7 +120,8 @@ bool Processor::process_request(
   uint8_t tz,
   uint32_t sgsn_address,
   uint32_t access_network_charging_address,
-  uint32_t charging_id
+  uint32_t charging_id,
+  const char* gprs_negotiated_qos_profile
 )
 {
   logger_->log("process radius request");
@@ -139,7 +140,6 @@ bool Processor::process_request(
       dpi::DiameterSession::Request request;
       request.msisdn = called_station_id;
       request.imsi = imsi;
-      //request.service_id = 1;
       request.framed_ip_address = framed_ip_address;
       request.nas_ip_address = nas_ip_address;
       request.rat_type = rat_type;
@@ -149,6 +149,8 @@ bool Processor::process_request(
       request.sgsn_ip_address = sgsn_address;
       request.access_network_charging_ip_address = access_network_charging_address;
       request.charging_id = charging_id;
+      request.gprs_negotiated_qos_profile = gprs_negotiated_qos_profile ?
+        gprs_negotiated_qos_profile : "";
 
       std::cout << "========= REQUEST" << std::endl <<
         request.to_string() << std::endl <<

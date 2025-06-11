@@ -1,8 +1,8 @@
-add_executable(sendUtil2
+add_executable(sendGxUtil
   SendUtil.cpp
   )
 
-target_link_libraries(sendUtil2
+target_link_libraries(sendGxUtil
   PUBLIC dpi Gears
   PRIVATE Threads::Threads
   )

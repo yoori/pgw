@@ -31,7 +31,7 @@ namespace dpi
         Gears::SubString token;
         if (splitter.get_token(token) && !token.empty())
         {
-          res.ips_.emplace_back(string_to_ipv4_address(token.str()));
+          res.ips_.emplace_back(string_to_reversed_ipv4_address(token.str()));
         }
       }
     }

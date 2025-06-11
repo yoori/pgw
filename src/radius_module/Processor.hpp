@@ -28,7 +28,8 @@ public:
     uint8_t tz,
     uint32_t sgsn_address,
     uint32_t access_network_charging_address,
-    uint32_t charging_id);
+    uint32_t charging_id,
+    const char* gprs_negotiated_qos_profile);
 
   dpi::LoggerPtr logger() const;
 

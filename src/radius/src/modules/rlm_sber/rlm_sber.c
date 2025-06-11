@@ -32,6 +32,7 @@ static fr_dict_attr_t const *attr_vendor_specific_3gpp_ms_timezone_tz;
 static fr_dict_attr_t const *attr_vendor_specific_3gpp_sgsn_address;
 static fr_dict_attr_t const *attr_vendor_specific_3gpp_access_network_charging_address;
 static fr_dict_attr_t const *attr_vendor_specific_3gpp_charging_id;
+static fr_dict_attr_t const *attr_vendor_specific_3gpp_gprs_negotiated_qos_profile;
 
 extern fr_dict_autoload_t rlm_sber_dict[];
 fr_dict_autoload_t rlm_sber_dict[] = {
@@ -91,6 +92,12 @@ fr_dict_attr_autoload_t rlm_dict_attr[] = {
     .type = FR_TYPE_UINT32,
     .dict = &dict_radius
   },
+  {
+    .out = &attr_vendor_specific_3gpp_gprs_negotiated_qos_profile,
+    .name = "Vendor-Specific.3GPP.GPRS-Negotiated-QoS-profile",
+    .type = FR_TYPE_STRING,
+    .dict = &dict_radius
+  },
 
   { NULL }
 };
@@ -144,6 +151,7 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
   fr_pair_t *attr_sgsn_address_vp;
   fr_pair_t *attr_access_network_charging_address_vp;
   fr_pair_t *attr_charging_id_vp;
+  fr_pair_t *attr_gprs_negotiated_qos_profile_vp;
   bool res;
   (void)mctx;
 
@@ -167,6 +175,8 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
     &request->request_pairs, NULL, attr_vendor_specific_3gpp_access_network_charging_address);
   attr_charging_id_vp = fr_pair_find_by_da_nested(
     &request->request_pairs, NULL, attr_vendor_specific_3gpp_charging_id);
+  attr_gprs_negotiated_qos_profile_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_vendor_specific_3gpp_gprs_negotiated_qos_profile);
 
   res = tel_gateway_process_request(
     attr_called_station_vp ? attr_called_station_vp->vp_strvalue : 0,
@@ -181,7 +191,9 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
     attr_access_network_charging_address_vp ?
       *(uint32_t const*)&attr_access_network_charging_address_vp->vp_ipv4addr : 0,
     attr_charging_id_vp ?
-      *(uint32_t const*)&attr_charging_id_vp->vp_uint32 : 0
+      *(uint32_t const*)&attr_charging_id_vp->vp_uint32 : 0,
+    attr_gprs_negotiated_qos_profile_vp ?
+      attr_gprs_negotiated_qos_profile_vp->vp_strvalue : 0
   );
 
   if (res)

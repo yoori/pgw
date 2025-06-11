@@ -2,6 +2,7 @@
 
 #include <string>
 #include <optional>
+#include <mutex>
 
 #include <gears/Exception.hpp>
 
@@ -46,8 +47,14 @@ namespace dpi
       uint32_t access_network_charging_ip_address = 0;
       //< RADIUS: Vendor-Specific.3GPP.Access-Network-Charging-Address
       uint32_t charging_id = 0; //< RADIUS: Vendor-Specific.3GPP.Charging-ID
+      std::string gprs_negotiated_qos_profile; //< RADIUS
 
       std::string to_string() const;
+    };
+
+    struct GyRequest: public Request
+    {
+      std::vector<unsigned long> rating_groups;
     };
 
     struct GxUpdateRequest
@@ -72,6 +79,8 @@ namespace dpi
       };
 
       std::vector<UsageMonitoring> usage_monitorings;
+
+      std::string to_string() const;
     };
 
     struct GxTerminateRequest: public GxUpdateRequest
@@ -94,6 +103,11 @@ namespace dpi
     struct GxTerminateResponse: public GxResponse
     {};
 
+    struct GyResponse
+    {
+      unsigned int result_code = 0;
+    };
+
     DiameterSession(
       dpi::LoggerPtr logger,
       std::vector<Endpoint> local_endpoints,
@@ -101,7 +115,11 @@ namespace dpi
       std::string origin_host,
       std::string origin_realm,
       std::optional<std::string> destination_host,
-      bool keep_open_connection = false
+      std::optional<std::string> destination_realm,
+      unsigned long auth_application_id,
+      std::string product_name,
+      bool keep_open_connection = false,
+      const std::vector<std::string>& source_addresses = std::vector<std::string>()
       );
 
     virtual ~DiameterSession();
@@ -120,6 +138,8 @@ namespace dpi
       const Request& request,
       const GxTerminateRequest& terminate_request);
 
+    GyResponse send_gy_init(const GyRequest& request);
+
   private:
     ByteArray generate_exchange_packet_() const;
 
@@ -136,6 +156,12 @@ namespace dpi
     Diameter::Packet generate_base_gx_packet_(const Request& request)
       const;
 
+    ByteArray generate_gy_init_(const GyRequest& request) const;
+
+    ByteArray generate_base_gy_packet_(const GyRequest& request) const;
+
+    ByteArray generate_watchdog_packet_() const;
+
     Diameter::Packet read_packet_();
 
     void send_packet_(const ByteArray& send_packet);
@@ -151,22 +177,31 @@ namespace dpi
 
     static ByteArray uint32_to_buf_(uint32_t val);
 
+    std::pair<std::optional<uint32_t>, Diameter::Packet>
+    send_and_read_response_(const ByteArray& send_packet);
+
   private:
     dpi::LoggerPtr logger_;
     const int RETRY_COUNT_ = 2;
     const bool keep_open_connection_;
+    const std::string product_name_;
+    std::vector<uint32_t> source_addresses_;
+    const uint32_t origin_state_id_;
     std::vector<Endpoint> local_endpoints_;
     std::vector<Endpoint> connect_endpoints_;
 
     std::string origin_host_;
     std::string origin_realm_;
     std::optional<std::string> destination_host_;
+    std::optional<std::string> destination_realm_;
     std::string session_id_;
     unsigned int application_id_;
     //unsigned int service_id_;
     mutable unsigned long request_i_;
 
     int socket_fd_;
+
+    std::mutex send_lock_;
   };
 
   using DiameterSessionPtr = std::shared_ptr<DiameterSession>;
@@ -189,6 +224,21 @@ namespace dpi
     res += ", sgsn_ip_address = " + ipv4_address_to_string(sgsn_ip_address);
     res += ", access_network_charging_ip_address = " + ipv4_address_to_string(access_network_charging_ip_address);
     res += ", charging_id = " + std::to_string(charging_id);
+    res += "}";
+
+    return res;
+  }
+
+  inline std::string
+  DiameterSession::GxUpdateRequest::to_string() const
+  {
+    std::string res;
+    res += "{";
+    for (const auto& usage_monitoring: usage_monitorings)
+    {
+      res += "(mk = " + std::to_string(usage_monitoring.monitoring_key) +
+        ", total-octets = " + std::to_string(usage_monitoring.total_octets) + ")";
+    }
     res += "}";
 
     return res;

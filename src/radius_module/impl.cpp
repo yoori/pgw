@@ -46,7 +46,8 @@ bool tel_gateway_process_request(
   uint8_t tz,
   uint32_t sgsn_address,
   uint32_t access_network_charging_address,
-  uint32_t charging_id
+  uint32_t charging_id,
+  const char* gprs_negotiated_qos_profile
 )
 {
   std::cout << ">>> imsi_buf: " << (imsi_buf ? imsi_buf : "NULL") << std::endl;
@@ -65,7 +66,8 @@ bool tel_gateway_process_request(
     tz,
     sgsn_address,
     access_network_charging_address,
-    charging_id
+    charging_id,
+    gprs_negotiated_qos_profile
   );
 
   return true;
@@ -94,7 +96,10 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
       config.diameter_url->connect_endpoints,
       config.diameter_url->origin_host,
       config.diameter_url->origin_realm,
-      config.diameter_url->destination_host
+      config.diameter_url->destination_host,
+      std::nullopt,
+      16777238, //< Gx
+      "3GPP Gx"
     );
   }
 
