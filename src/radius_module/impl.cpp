@@ -88,35 +88,62 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
   session_rule_config.clear_closed_sessions_timeout = Gears::Time::ONE_DAY;
   session_rule_config.default_rule.close_timeout = Gears::Time(30);
 
-  dpi::DiameterSessionPtr diameter_session;
+  dpi::DiameterSessionPtr gx_diameter_session;
 
-  if (config.diameter_url.has_value())
+  if (config.gx_diameter_url.has_value())
   {
-    diameter_session = std::make_shared<dpi::DiameterSession>(
+    gx_diameter_session = std::make_shared<dpi::DiameterSession>(
       nullptr,
-      config.diameter_url->local_endpoints,
-      config.diameter_url->connect_endpoints,
-      config.diameter_url->origin_host,
-      config.diameter_url->origin_realm,
-      config.diameter_url->destination_host,
-      std::nullopt,
+      config.gx_diameter_url->local_endpoints,
+      config.gx_diameter_url->connect_endpoints,
+      config.gx_diameter_url->origin_host,
+      config.gx_diameter_url->origin_realm,
+      config.gx_diameter_url->destination_host,
+      config.gx_diameter_url->destination_realm,
       16777238, //< Gx
-      "3GPP Gx"
+      "3GPP Gx",
+      true
     );
   }
 
-  auto user_storage = std::make_shared<dpi::UserStorage>(nullptr, session_rule_config);
-  processor = std::make_shared<Processor>(user_storage, diameter_session);
+  dpi::DiameterSessionPtr gy_diameter_session;
+
+  if (config.gy_diameter_url.has_value())
+  {
+    gy_diameter_session = std::make_shared<dpi::DiameterSession>(
+      nullptr,
+      config.gy_diameter_url->local_endpoints,
+      config.gy_diameter_url->connect_endpoints,
+      config.gy_diameter_url->origin_host,
+      config.gy_diameter_url->origin_realm,
+      config.gy_diameter_url->destination_host,
+      config.gy_diameter_url->destination_realm,
+      4, //< DCCA = 4
+      "Diameter Credit Control Application",
+      true
+    );
+  }
+
+  auto user_storage = std::make_shared<dpi::UserStorage>(
+    nullptr, session_rule_config);
+  auto user_session_storage = std::make_shared<dpi::UserSessionStorage>(
+    nullptr);
+  processor = std::make_shared<Processor>(
+    user_storage,
+    user_session_storage,
+    gx_diameter_session,
+    gy_diameter_session
+  );
   std::string config_path_str(config_path, config_path_len);
   processor->load_config(config_path_str);
 
-  if (diameter_session)
+  if (gx_diameter_session)
   {
     std::ostringstream ostr;
-    ostr << "  local_endpoints: " << config.diameter_url->local_endpoints.size() << std::endl <<
-      "  connect_endpoints: " << config.diameter_url->connect_endpoints.size() << std::endl;
+    ostr << "  local_endpoints: " << config.gx_diameter_url->local_endpoints.size() << std::endl <<
+      "  connect_endpoints: " << config.gx_diameter_url->connect_endpoints.size() << std::endl;
     processor->logger()->log(ostr.str());
-    diameter_session->set_logger(processor->logger());
+    gx_diameter_session->set_logger(processor->logger());
   }
 
   user_storage->set_event_logger(processor->event_logger());
@@ -130,6 +157,7 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
 
   auto main_user_session_packet_processor = std::make_shared<dpi::MainUserSessionPacketProcessor>(
     user_storage,
+    user_session_storage,
     event_processor);
   main_user_session_packet_processor->set_session_rule_config(session_rule_config);
 
@@ -148,16 +176,19 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
 
   auto packet_processor = std::make_shared<dpi::PacketProcessor>(
     user_storage,
+    user_session_storage,
     composite_user_session_packet_processor,
     processor->event_logger(),
     config.ip_rules_root,
-    diameter_session);
+    gx_diameter_session,
+    gy_diameter_session);
 
   if (config.http_port > 0)
   {
     auto http_server = std::make_shared<dpi::HttpServer>(
       processor->logger(),
       user_storage,
+      user_session_storage,
       event_processor,
       config.http_port,
       ""

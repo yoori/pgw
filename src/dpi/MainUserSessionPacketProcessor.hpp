@@ -2,6 +2,7 @@
 
 #include "UserSessionPacketProcessor.hpp"
 #include "UserStorage.hpp"
+#include "UserSessionStorage.hpp"
 #include "EventProcessor.hpp"
 #include "ShapingManager.hpp"
 
@@ -14,6 +15,7 @@ namespace dpi
   public:
     MainUserSessionPacketProcessor(
       UserStoragePtr user_storage,
+      UserSessionStoragePtr user_session_storage,
       EventProcessorPtr event_processor);
 
     void
@@ -47,6 +49,7 @@ namespace dpi
 
   private:
     const UserStoragePtr user_storage_;
+    const UserSessionStoragePtr user_session_storage_;
     const EventProcessorPtr event_processor_;
     const ShapingManagerPtr shaping_manager_;
 

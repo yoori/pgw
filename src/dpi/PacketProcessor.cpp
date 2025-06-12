@@ -32,15 +32,20 @@ namespace dpi
 
   PacketProcessor::PacketProcessor(
     UserStoragePtr user_storage,
+    UserSessionStoragePtr user_session_storage,
     UserSessionPacketProcessorPtr user_session_packet_processor,
     LoggerPtr event_logger,
     std::string_view ip_rules_path,
-    dpi::DiameterSessionPtr diameter_session)
+    dpi::DiameterSessionPtr gx_diameter_session,
+    dpi::DiameterSessionPtr gy_diameter_session
+    )
     : user_storage_(user_storage),
+      user_session_storage_(user_session_storage),
       event_logger_(event_logger),
       unknown_session_key_("unknown", std::string()),
       user_session_packet_processor_(std::move(user_session_packet_processor)),
-      diameter_session_(std::move(diameter_session))
+      gx_diameter_session_(std::move(gx_diameter_session)),
+      gy_diameter_session_(std::move(gy_diameter_session))
   {
     if (!ip_rules_path.empty())
     {
@@ -608,7 +613,7 @@ namespace dpi
 
     //std::cout << "Process packet " << processing_state.session_key.to_string() << ": " << packet_size << std::endl;
 
-    if (diameter_session_ && user &&
+    if (gx_diameter_session_ && user &&
       !processing_state.block_packet && !processing_state.shaped
       )
     {
@@ -637,7 +642,7 @@ namespace dpi
           DiameterSession::Request gx_request;
           gx_request.msisdn = user->msisdn();
           gx_request.imsi = user->imsi();
-          diameter_session_->send_gx_update(gx_request, gx_update_request);
+          gx_diameter_session_->send_gx_update(gx_request, gx_update_request);
         }
         */
       }
@@ -651,6 +656,23 @@ namespace dpi
     uint32_t& dst_ip,
     const Gears::Time& now) const
   {
+    UserSessionPtr user_session = user_session_storage_->get_user_session_by_ip(src_ip);
+
+    if (user_session)
+    {
+      return user_session->user();
+    }
+
+    user_session = user_session_storage_->get_user_session_by_ip(dst_ip);
+
+    if (user_session)
+    {
+      return user_session->user();
+    }
+
+    return UserPtr();
+
+    /*
     UserPtr user = user_storage_->get_user_by_ip(src_ip, now);
     if (user)
     {
@@ -667,5 +689,6 @@ namespace dpi
     user = std::make_shared<User>(std::string(), std::string());
     user->set_ip(src_ip);
     return user;
+    */
   }
 }

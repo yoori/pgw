@@ -21,6 +21,7 @@ namespace dpi
     std::string origin_host;
     std::string origin_realm;
     std::string destination_host;
+    std::string destination_realm;
   };
 
   struct Config
@@ -31,7 +32,8 @@ namespace dpi
     std::string dump_stat_root;
     std::string ip_rules_root;
     unsigned int http_port = 0;
-    std::optional<DiameterUrl> diameter_url;
+    std::optional<DiameterUrl> gx_diameter_url;
+    std::optional<DiameterUrl> gy_diameter_url;
 
     static Config read(const std::string_view& file);
   };

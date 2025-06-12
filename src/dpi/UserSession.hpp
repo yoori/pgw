@@ -20,6 +20,8 @@ namespace dpi
 
     const UserSessionTraits& traits() const;
 
+    const UserPtr& user() const;
+
   private:
     UserSessionTraits traits_;
     UserPtr user_;
@@ -30,8 +32,21 @@ namespace dpi
 
 namespace dpi
 {
-  inline std::string
-  UserSessionTraits::to_string() const
+  inline
+  UserSession::UserSession(const UserSessionTraits& traits, UserPtr user)
+    : traits_(traits),
+      user_(std::move(user))
+  {}
+
+  inline const UserPtr&
+  UserSession::user() const
   {
+    return user_;
+  }
+
+  inline const UserSessionTraits&
+  UserSession::traits() const
+  {
+    return traits_;
   }
 }

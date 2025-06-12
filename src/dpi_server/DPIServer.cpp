@@ -44,12 +44,15 @@ int main(int argc, char **argv)
   auto logger = std::make_shared<dpi::StreamLogger>(std::cout);
   auto event_logger = std::make_shared<dpi::StreamLogger>(std::cout);
   auto user_storage = std::make_shared<dpi::UserStorage>(event_logger, session_rule_config);
+  auto user_session_storage = std::make_shared<dpi::UserSessionStorage>(logger);
 
   auto event_processor = std::make_shared<dpi::EventProcessor>(event_logger, config.dump_stat_root);
   composite_active_object->add_child_object(event_processor);
 
   auto main_user_session_packet_processor = std::make_shared<dpi::MainUserSessionPacketProcessor>(
-    user_storage, event_processor);
+    user_storage,
+    user_session_storage,
+    event_processor);
   main_user_session_packet_processor->set_session_rule_config(session_rule_config);
 
   auto composite_user_session_packet_processor = std::make_shared<dpi::CompositeUserSessionPacketProcessor>();
@@ -67,15 +70,18 @@ int main(int argc, char **argv)
 
   auto packet_processor = std::make_shared<dpi::PacketProcessor>(
     user_storage,
+    user_session_storage,
     composite_user_session_packet_processor,
     event_logger,
     config.ip_rules_root,
+    dpi::DiameterSessionPtr(),
     dpi::DiameterSessionPtr()
   );
 
   auto http_server = std::make_shared<dpi::HttpServer>(
     logger,
     user_storage,
+    user_session_storage,
     event_processor,
     config.http_port,
     ""

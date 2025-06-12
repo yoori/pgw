@@ -21,6 +21,7 @@ add_library(dpi
   DiameterSession.cpp
   AVPUtils.cpp
   TrafficRules.cpp
+  UserSessionStorage.cpp
   )
 
 target_link_libraries(dpi

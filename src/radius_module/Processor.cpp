@@ -20,9 +20,14 @@ const std::string LOG_PREFIX = "[tel-gateway] ";
 
 Processor::Processor(
   dpi::UserStoragePtr user_storage,
-  dpi::DiameterSessionPtr diameter_session)
+  dpi::UserSessionStoragePtr user_session_storage,
+  dpi::DiameterSessionPtr gx_diameter_session,
+  dpi::DiameterSessionPtr gy_diameter_session
+  )
   : user_storage_(std::move(user_storage)),
-    diameter_session_(std::move(diameter_session)),
+    user_session_storage_(std::move(user_session_storage)),
+    gx_diameter_session_(std::move(gx_diameter_session)),
+    gy_diameter_session_(std::move(gy_diameter_session)),
     logger_(std::make_shared<dpi::StreamLogger>(std::cout)),
     event_logger_(std::make_shared<dpi::StreamLogger>(std::cout))
 {}
@@ -120,20 +125,53 @@ bool Processor::process_request(
   uint8_t rat_type,
   std::string_view mcc_mnc,
   uint8_t tz,
-  uint32_t sgsn_address,
-  uint32_t access_network_charging_address,
+  uint32_t sgsn_ip_address,
+  uint32_t access_network_charging_ip_address,
   uint32_t charging_id,
   const char* gprs_negotiated_qos_profile
 )
 {
   logger_->log("process radius request");
 
+  dpi::UserPtr user;
+  dpi::UserSessionPtr user_session;
+
   if (!called_station_id.empty() && framed_ip_address != 0)
   {
-    user_storage_->add_user(called_station_id, imsi, framed_ip_address);
+    user = user_storage_->add_user(called_station_id);
   }
 
-  if (diameter_session_)
+  if (!user)
+  {
+    user = std::make_shared<dpi::User>(std::string());
+  }
+
+  if (framed_ip_address != 0)
+  {
+    user_session = user_session_storage_->get_user_session_by_ip(framed_ip_address);
+
+    if (!user_session)
+    {
+      dpi::UserSessionTraits user_session_traits;
+      user_session_traits.framed_ip_address = framed_ip_address;
+      user_session_traits.msisdn = called_station_id;
+      user_session_traits.nas_ip_address = nas_ip_address;
+      user_session_traits.rat_type = rat_type;
+      user_session_traits.timezone = timezone;
+      user_session_traits.mcc_mnc = mcc_mnc;
+      user_session_traits.sgsn_ip_address = sgsn_ip_address;
+      user_session_traits.access_network_charging_ip_address = access_network_charging_ip_address;
+      user_session_traits.charging_id = charging_id;
+      user_session_traits.gprs_negotiated_qos_profile = gprs_negotiated_qos_profile;
+
+      user_session = user_session_storage_->add_user_session(
+        user_session_traits,
+        user
+      );
+    }
+  }
+
+  if (gx_diameter_session_)
   {
     try
     {
@@ -148,8 +186,8 @@ bool Processor::process_request(
       request.timezone = tz;
       request.mcc_mnc = mcc_mnc;
 
-      request.sgsn_ip_address = sgsn_address;
-      request.access_network_charging_ip_address = access_network_charging_address;
+      request.sgsn_ip_address = sgsn_ip_address;
+      request.access_network_charging_ip_address = access_network_charging_ip_address;
       request.charging_id = charging_id;
       request.gprs_negotiated_qos_profile = gprs_negotiated_qos_profile ?
         gprs_negotiated_qos_profile : "";
@@ -158,7 +196,7 @@ bool Processor::process_request(
         request.to_string() << std::endl <<
         "========================" << std::endl;
 
-      dpi::DiameterSession::GxInitResponse response = diameter_session_->send_gx_init(request);
+      dpi::DiameterSession::GxInitResponse response = gx_diameter_session_->send_gx_init(request);
 
       {
         std::ostringstream ostr;

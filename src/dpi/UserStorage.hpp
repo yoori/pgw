@@ -10,6 +10,7 @@
 
 #include "Logger.hpp"
 #include "User.hpp"
+#include "UserSessionTraits.hpp"
 
 namespace dpi
 {
@@ -22,11 +23,7 @@ namespace dpi
 
     void set_event_logger(LoggerPtr event_logger);
 
-    UserPtr add_user(std::string_view msisdn, std::string_view imsi, uint32_t ip);
-
-    void reset_user_ip(std::string_view msisdn);
-
-    UserPtr get_user_by_ip(uint32_t ip, const Gears::Time& now) const;
+    UserPtr add_user(std::string_view msisdn);
 
     UserPtr get_user_by_msisdn(
       std::string_view msisdn,
@@ -45,7 +42,6 @@ namespace dpi
     SessionRuleConfig session_rule_config_;
 
     mutable std::shared_mutex lock_;
-    std::unordered_map<uint32_t, UserPtr> users_by_ip_;
     std::unordered_map<std::string, UserPtr> users_by_msisdn_;
   };
 

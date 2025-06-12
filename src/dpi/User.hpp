@@ -57,15 +57,15 @@ namespace dpi
     using TrafficStatePtr = std::shared_ptr<TrafficState>;
 
   public:
-    User(std::string msisdn, std::string imsi, uint32_t ip = 0);
+    User(std::string msisdn);
 
     const std::string& msisdn() const;
 
-    const std::string& imsi() const;
+    //const std::string& imsi() const;
 
-    void set_ip(uint32_t ip);
+    //void set_ip(uint32_t ip);
 
-    uint32_t ip() const;
+    //uint32_t ip() const;
 
     PacketProcessingState process_packet(
       const SessionRuleConfig& session_rule_config,

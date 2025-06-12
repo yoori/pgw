@@ -3,6 +3,7 @@ add_library(http_server
   Utils.cpp
   UserGetHttpResource.cpp
   UserAddHttpResource.cpp
+  UserSessionAddHttpResource.cpp
   UserBlockHttpResource.cpp
   SetEventActionHttpResource.cpp
   UserSetShapingHttpResource.cpp

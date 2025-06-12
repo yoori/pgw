@@ -3,6 +3,7 @@
 #include <gears/Exception.hpp>
 
 #include <dpi/UserStorage.hpp>
+#include <dpi/UserSessionStorage.hpp>
 #include <dpi/Logger.hpp>
 
 #include <dpi/DiameterSession.hpp>
@@ -14,7 +15,9 @@ public:
 
   Processor(
     dpi::UserStoragePtr user_storage,
-    dpi::DiameterSessionPtr diameter_session);
+    dpi::UserSessionStoragePtr user_session_storage,
+    dpi::DiameterSessionPtr gx_diameter_session,
+    dpi::DiameterSessionPtr gy_diameter_session);
 
   void load_config(std::string_view config_path);
 
@@ -40,9 +43,11 @@ private:
   dpi::LoggerPtr logger_;
   dpi::LoggerPtr event_logger_;
   dpi::UserStoragePtr user_storage_;
+  dpi::UserSessionStoragePtr user_session_storage_;
   std::string config_path_;
   std::string diameter_url_;
-  dpi::DiameterSessionPtr diameter_session_;
+  dpi::DiameterSessionPtr gx_diameter_session_;
+  dpi::DiameterSessionPtr gy_diameter_session_;
 };
 
 using ProcessorPtr = std::shared_ptr<Processor>;

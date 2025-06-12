@@ -9,6 +9,7 @@
 
 #include <dpi/Logger.hpp>
 #include <dpi/UserStorage.hpp>
+#include <dpi/UserSessionStorage.hpp>
 #include <dpi/EventProcessor.hpp>
 
 namespace dpi
@@ -19,6 +20,7 @@ namespace dpi
     HttpServer(
       LoggerPtr logger,
       UserStoragePtr user_storage,
+      UserSessionStoragePtr user_session_storage,
       EventProcessorPtr event_processor,
       unsigned int port,
       std::string url_prefix

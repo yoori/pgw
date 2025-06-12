@@ -7,23 +7,9 @@
 namespace dpi
 {
   // User impl.
-  User::User(std::string msisdn, std::string imsi, uint32_t ip)
-    : msisdn_(std::move(msisdn)),
-      imsi_(std::move(imsi)),
-      ip_(ip)
+  User::User(std::string msisdn)
+    : msisdn_(std::move(msisdn))
   {}
-
-  void
-  User::set_ip(uint32_t ip)
-  {
-    std::unique_lock lock{lock_};
-    ip_ = ip;
-  }
-
-  uint32_t User::ip() const
-  {
-    return ip_;
-  }
 
   const std::string&
   User::msisdn() const
@@ -31,24 +17,10 @@ namespace dpi
     return msisdn_;
   }
 
-  const std::string&
-  User::imsi() const
-  {
-    return imsi_;
-  }
-
   std::string
   User::to_string() const
   {
-    uint32_t ip;
-
-    {
-      std::unique_lock lock{lock_};
-      ip = ip_;
-    }
-
-    return std::string("{msisdn = ") + msisdn_ +
-      ", ip = " + ipv4_address_to_string(ip) + "}";
+    return std::string("{msisdn = ") + msisdn_ + "}";
   }
 
   std::string
@@ -62,11 +34,6 @@ namespace dpi
       if (!msisdn_.empty())
       {
         result_json["msisdn"] = msisdn_;
-      }
-
-      if (ip_ != 0)
-      {
-        result_json["ip"] = ipv4_address_to_string(ip_);
       }
 
       std::vector<jsoncons::json> traffic_state_arr;

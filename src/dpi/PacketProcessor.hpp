@@ -10,6 +10,7 @@
 
 #include "Logger.hpp"
 #include "UserStorage.hpp"
+#include "UserSessionStorage.hpp"
 #include "ReaderUtil.hpp"
 #include "UserSessionPacketProcessor.hpp"
 #include "FlowTraits.hpp"
@@ -25,10 +26,13 @@ namespace dpi
   public:
     PacketProcessor(
       UserStoragePtr user_storage,
+      UserSessionStoragePtr user_session_storage,
       UserSessionPacketProcessorPtr user_session_packet_processor,
       LoggerPtr event_logger,
       std::string_view ip_rules_path,
-      dpi::DiameterSessionPtr diameter_session);
+      dpi::DiameterSessionPtr gx_diameter_session,
+      dpi::DiameterSessionPtr gy_diameter_session
+      );
 
     PacketProcessingState
     process_packet(
@@ -36,7 +40,8 @@ namespace dpi
       unsigned long packet_size,
       const void* packet,
       UserSessionPacketProcessor::Direction direction,
-      NetInterfacePtr send_interface);
+      NetInterfacePtr send_interface
+      );
 
     const UserSessionPacketProcessorPtr&
     user_session_packet_processor()
@@ -81,10 +86,12 @@ namespace dpi
     const Gears::Time SBER_OPEN_MAX_PERIOD_ = Gears::Time(60);
     const DiameterTrafficTypeProvider diameter_traffic_type_provider_;
     const UserStoragePtr user_storage_;
+    const UserSessionStoragePtr user_session_storage_;
     const LoggerPtr event_logger_;
     const SessionKey unknown_session_key_;
     const UserSessionPacketProcessorPtr user_session_packet_processor_;
-    const dpi::DiameterSessionPtr diameter_session_;
+    const dpi::DiameterSessionPtr gx_diameter_session_;
+    const dpi::DiameterSessionPtr gy_diameter_session_;
 
     //SessionRuleConfig session_rule_config_;
 

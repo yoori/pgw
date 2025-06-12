@@ -7,8 +7,10 @@ namespace dpi
 {
   MainUserSessionPacketProcessor::MainUserSessionPacketProcessor(
     UserStoragePtr user_storage,
+    UserSessionStoragePtr user_session_storage,
     EventProcessorPtr event_processor)
     : user_storage_(std::move(user_storage)),
+      user_session_storage_(std::move(user_session_storage)),
       event_processor_(std::move(event_processor))
   {
     recheck_state_session_keys_.emplace(SessionKey("rdp", std::string()));
@@ -191,26 +193,32 @@ namespace dpi
     uint32_t dst_ip
     )
   {
-    UserPtr user = user_storage_->get_user_by_ip(src_ip, now);
+    auto user_session = user_session_storage_->get_user_session_by_ip(src_ip);
 
-    if (!user)
+    if (!user_session)
     {
-      user = user_storage_->get_user_by_ip(dst_ip, now);
-      if (user)
+      user_session = user_session_storage_->get_user_session_by_ip(src_ip);
+      if (user_session)
       {
         std::swap(src_ip, dst_ip);
       }
     }
 
-    if (!user)
+    if (!user_session)
     {
-      user = std::make_shared<User>(std::string(), std::string());
-      user->set_ip(src_ip);
+      auto user = std::make_shared<User>(std::string());
+
+      UserSessionTraits user_session_traits;
+      user_session_traits.framed_ip_address = src_ip;
+      user_session = user_session_storage_->add_user_session(user_session_traits, user);
     }
 
     std::ostringstream ostr;
     ostr << ", destination ip = " << ipv4_address_to_string(dst_ip);
 
-    return event_processor_->process_event(user, event, ostr.str());
+    return event_processor_->process_event(
+      user_session->user(),
+      event,
+      ostr.str());
   }
 }

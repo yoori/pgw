@@ -8,114 +8,64 @@
 namespace dpi
 {
   // UserStorage impl.
-  UserSessionStorage::UserSessionStorage(LoggerPtr event_logger, const SessionRuleConfig& session_rule_config)
-    : event_logger_(std::move(event_logger))
+  UserSessionStorage::UserSessionStorage(LoggerPtr logger)
+    : logger_(std::move(logger))
   {}
 
-  void
-  UserSessionStorage::set_event_logger(LoggerPtr event_logger)
-  {
-    event_logger_.swap(event_logger);
-  }
-
   UserSessionPtr
-  UserSessionStorage::add_user_session(uint32_t ip)
+  UserSessionStorage::add_user_session(
+    const UserSessionTraits& user_session_traits,
+    const UserPtr& user)
   {
-    std::string msisdn_val(msisdn);
-    std::string imsi_val(imsi);
-    UserPtr added_user;
+    UserSessionPtr added_session;
 
     {
       std::unique_lock lock{lock_};
 
-      auto it = users_by_msisdn_.find(msisdn_val);
-      if (it != users_by_msisdn_.end())
+      auto it = user_sessions_by_ip_.find(user_session_traits.framed_ip_address);
+      if (it != user_sessions_by_ip_.end())
       {
-        added_user = it->second;
-        uint32_t prev_ip = added_user->ip();
-
-        if (prev_ip != ip && ip != 0)
-          // don't change ip if it is defined
-        {
-          if (prev_ip != 0)
-          {
-            users_by_ip_.erase(prev_ip);
-          }
-
-          if (ip != 0)
-          {
-            users_by_ip_.emplace(ip, added_user);
-          }
-
-          added_user->set_ip(ip);
-        }
+        added_session = it->second;
       }
       else
       {
-        added_user = std::make_shared<User>(msisdn_val, imsi_val, ip);
-
-        if (ip != 0)
-        {
-          users_by_ip_.emplace(ip, added_user);
-        }
-
-        users_by_msisdn_.emplace(msisdn_val, added_user);
+        added_session = std::make_shared<UserSession>(UserSessionTraits(), user);
+        user_sessions_by_ip_.emplace(
+          user_session_traits.framed_ip_address,
+          added_session);
       }
     }
 
-    log_event_(
-      std::string("add user msisdn = ") +
-      std::string(msisdn) + ", ip = " + ipv4_address_to_string(added_user->ip()));
-
-    return added_user;
+    return added_session;
   }
 
   UserSessionPtr
-  UserStorage::remove_user_session(uint32_t ip) const
+  UserSessionStorage::remove_user_session(uint32_t ip)
+  {
+    std::unique_lock lock{lock_};
+
+    auto it = user_sessions_by_ip_.find(ip);
+    if (it != user_sessions_by_ip_.end())
+    {
+      auto res = it->second;
+      user_sessions_by_ip_.erase(it);
+      return res;
+    }
+
+    return UserSessionPtr();
+  }
+
+  UserSessionPtr
+  UserSessionStorage::get_user_session_by_ip(uint32_t ip) const
   {
     std::shared_lock lock{lock_};
 
-    auto it = users_by_ip_.find(ip);
-    if (it == users_by_ip_.end())
+    auto it = user_sessions_by_ip_.find(ip);
+    if (it == user_sessions_by_ip_.end())
     {
-      return UserPtr();
+      return UserSessionPtr();
     }
 
-    UserPtr result_user = it->second;
-    lock.unlock();
-
-    result_user->clear_expired_sessions(session_rule_config_, now);
-    return result_user;
-  }
-
-  UserPtr
-  UserStorage::get_user_session_by_ip(uint32_t ip, const Gears::Time& now) const
-  {
-    const std::string msisdn_val(msisdn);
-
-    std::shared_lock lock{lock_};
-
-    auto it = users_by_msisdn_.find(msisdn_val);
-    if (it == users_by_msisdn_.end())
-    {
-      return UserPtr();
-    }
-
-    UserPtr result_user = it->second;
-    lock.unlock();
-
-    result_user->clear_expired_sessions(session_rule_config_, now);
-    return result_user;
-  }
-
-  void UserStorage::log_event_(const std::string& msg)
-  {
-    if (event_logger_)
-    {
-      std::ostringstream ostr;
-      ostr << "[" << Gears::Time::get_time_of_day().gm_ft() << "] [sber-telecom] USER-EVENT: " <<
-        msg << std::endl;
-      event_logger_->log(ostr.str());
-    }
+    return it->second;
   }
 }

@@ -1,5 +1,11 @@
 {
-    "diameter_url": {
+    "gx_diameter_url": {
+	"host": "10.77.18.82",
+	"port": 3862,
+	"origin-host": "traflabpgw01.msk.epc.mnc050.mcc250.3gppnetwork.org",
+	"origin-realm": "epc.mnc050.mcc250.3gppnetwork.org"
+    },
+    "gy_diameter_url": {
 	"host": "10.77.18.82",
 	"port": 3862,
 	"origin-host": "traflabpgw01.msk.epc.mnc050.mcc250.3gppnetwork.org",

@@ -33,7 +33,7 @@ namespace dpi
         const Gears::Time block_timestamp = Gears::Time::get_time_of_day() + Gears::Time(
           request_json.contains("block_for") ?
           request_json["block_for"].as_integer<uint64_t>() : 60);
-        UserPtr user = user_storage_->add_user(msisdn, std::string_view(), 0);
+        UserPtr user = user_storage_->add_user(msisdn);
         user->session_block(block_session_key, block_timestamp);
 
         return generate_json_response(request, "");

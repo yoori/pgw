@@ -5,6 +5,56 @@
 
 namespace dpi
 {
+  DiameterUrl read_diameter_url(const rapidjson::GenericValue<rapidjson::UTF8<>>& diameter_url_obj)
+  {
+    DiameterUrl result_diameter_url;
+
+    if (diameter_url_obj.HasMember("local_endpoints"))
+    {
+      for (const auto& local_endpoint_json : diameter_url_obj["local_endpoints"].GetArray())
+      {
+        result_diameter_url.local_endpoints.emplace_back(DiameterSession::Endpoint(
+          local_endpoint_json["host"].GetString(),
+          local_endpoint_json.HasMember("port") ? local_endpoint_json["port"].GetInt() : 0
+          ));
+      }
+    }
+
+    std::vector<DiameterSession::Endpoint> connect_endpoints;
+    if (diameter_url_obj.HasMember("connect_endpoints"))
+    {
+      for (const auto& endpoint_json : diameter_url_obj["connect_endpoints"].GetArray())
+      {
+        result_diameter_url.connect_endpoints.emplace_back(DiameterSession::Endpoint(
+          endpoint_json["host"].GetString(),
+          endpoint_json["port"].GetInt()
+          ));
+      }
+    }
+
+    if (diameter_url_obj.HasMember("origin-host"))
+    {
+      result_diameter_url.origin_host = diameter_url_obj["origin-host"].GetString();
+    }
+
+    if (diameter_url_obj.HasMember("origin-realm"))
+    {
+      result_diameter_url.origin_realm = diameter_url_obj["origin-realm"].GetString();
+    }
+
+    if (diameter_url_obj.HasMember("destination-host"))
+    {
+      result_diameter_url.destination_host = diameter_url_obj["destination-host"].GetString();
+    }
+
+    if (diameter_url_obj.HasMember("destination-realm"))
+    {
+      result_diameter_url.destination_realm = diameter_url_obj["destination-realm"].GetString();
+    }
+
+    return result_diameter_url;
+  }
+
   Config Config::read(const std::string_view& file)
   {
     Config result;
@@ -49,51 +99,16 @@ namespace dpi
       result.http_port = document["http_port"].GetInt();
     }
 
-    if (document.HasMember("diameter_url"))
+    if (document.HasMember("gx_diameter_url"))
     {
-      DiameterUrl result_diameter_url;
+      DiameterUrl result_diameter_url = read_diameter_url(document["gx_diameter_url"]);
+      result.gx_diameter_url = result_diameter_url;
+    }
 
-      const auto& diameter_url_obj = document["diameter_url"];
-
-      if (diameter_url_obj.HasMember("local_endpoints"))
-      {
-	for (const auto& local_endpoint_json : diameter_url_obj["local_endpoints"].GetArray())
-	{
-	  result_diameter_url.local_endpoints.emplace_back(DiameterSession::Endpoint(
-	    local_endpoint_json["host"].GetString(),
-	    local_endpoint_json.HasMember("port") ? local_endpoint_json["port"].GetInt() : 0
-	    ));
-	}
-      }
-
-      std::vector<DiameterSession::Endpoint> connect_endpoints;
-      if (diameter_url_obj.HasMember("connect_endpoints"))
-      {
-	for (const auto& endpoint_json : diameter_url_obj["connect_endpoints"].GetArray())
-	{
-	  result_diameter_url.connect_endpoints.emplace_back(DiameterSession::Endpoint(
-	    endpoint_json["host"].GetString(),
-	    endpoint_json["port"].GetInt()
-	    ));
-	}
-      }
-
-      if (diameter_url_obj.HasMember("origin-host"))
-      {
-        result_diameter_url.origin_host = diameter_url_obj["origin-host"].GetString();
-      }
-
-      if (diameter_url_obj.HasMember("origin-realm"))
-      {
-        result_diameter_url.origin_realm = diameter_url_obj["origin-realm"].GetString();
-      }
-
-      if (diameter_url_obj.HasMember("destination-host"))
-      {
-        result_diameter_url.destination_host = diameter_url_obj["destination-host"].GetString();
-      }
-
-      result.diameter_url = result_diameter_url;
+    if (document.HasMember("gy_diameter_url"))
+    {
+      DiameterUrl result_diameter_url = read_diameter_url(document["gy_diameter_url"]);
+      result.gy_diameter_url = result_diameter_url;
     }
 
     return result;
