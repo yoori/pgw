@@ -83,6 +83,14 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
 
   auto config = dpi::Config::read(config_path);
 
+  dpi::PccConfigProviderPtr pcc_config_provider;
+
+  if (!config.pcc_config_file.empty())
+  {
+    pcc_config_provider = std::make_shared<dpi::PccConfigProvider>(config.pcc_config_file);
+    all_active_objects->add_child_object(pcc_config_provider);
+  }
+
   // init radius listener
   dpi::SessionRuleConfig session_rule_config;
   session_rule_config.clear_closed_sessions_timeout = Gears::Time::ONE_DAY;
@@ -158,7 +166,8 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
   auto main_user_session_packet_processor = std::make_shared<dpi::MainUserSessionPacketProcessor>(
     user_storage,
     user_session_storage,
-    event_processor);
+    event_processor,
+    pcc_config_provider);
   main_user_session_packet_processor->set_session_rule_config(session_rule_config);
 
   auto composite_user_session_packet_processor = std::make_shared<dpi::CompositeUserSessionPacketProcessor>();

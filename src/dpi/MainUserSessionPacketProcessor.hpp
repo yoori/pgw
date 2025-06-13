@@ -5,6 +5,7 @@
 #include "UserSessionStorage.hpp"
 #include "EventProcessor.hpp"
 #include "ShapingManager.hpp"
+#include "PccConfigProvider.hpp"
 
 namespace dpi
 {
@@ -16,7 +17,8 @@ namespace dpi
     MainUserSessionPacketProcessor(
       UserStoragePtr user_storage,
       UserSessionStoragePtr user_session_storage,
-      EventProcessorPtr event_processor);
+      EventProcessorPtr event_processor,
+      PccConfigProviderPtr pcc_config_provider);
 
     void
     set_session_rule_config(const SessionRuleConfig& session_rule_config);
@@ -51,6 +53,7 @@ namespace dpi
     const UserStoragePtr user_storage_;
     const UserSessionStoragePtr user_session_storage_;
     const EventProcessorPtr event_processor_;
+    const PccConfigProviderPtr pcc_config_provider_;
     const ShapingManagerPtr shaping_manager_;
 
     Gears::GnuHashSet<SessionKey> recheck_state_session_keys_;

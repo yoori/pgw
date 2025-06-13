@@ -22,6 +22,9 @@ add_library(dpi
   AVPUtils.cpp
   TrafficRules.cpp
   UserSessionStorage.cpp
+  PccConfig.cpp
+  PccConfigProvider.cpp
+  UserSession.cpp
   )
 
 target_link_libraries(dpi

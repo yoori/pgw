@@ -1,0 +1,5 @@
+{
+  "rules": [
+    {"session_key": {"traffic_type": "whatsapp", "category_type": "test"}, "rating_groups": [1, 2], "monitoring_keys": [3, 4]}
+  ]
+}

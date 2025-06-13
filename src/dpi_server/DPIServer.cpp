@@ -52,7 +52,8 @@ int main(int argc, char **argv)
   auto main_user_session_packet_processor = std::make_shared<dpi::MainUserSessionPacketProcessor>(
     user_storage,
     user_session_storage,
-    event_processor);
+    event_processor,
+    dpi::PccConfigProviderPtr());
   main_user_session_packet_processor->set_session_rule_config(session_rule_config);
 
   auto composite_user_session_packet_processor = std::make_shared<dpi::CompositeUserSessionPacketProcessor>();

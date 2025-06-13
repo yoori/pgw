@@ -111,6 +111,11 @@ namespace dpi
       result.gy_diameter_url = result_diameter_url;
     }
 
+    if (document.HasMember("pcc_config_file"))
+    {
+      result.pcc_config_file = document["pcc_config_file"].GetString();
+    }
+
     return result;
   }
 }

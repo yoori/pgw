@@ -8,10 +8,12 @@ namespace dpi
   MainUserSessionPacketProcessor::MainUserSessionPacketProcessor(
     UserStoragePtr user_storage,
     UserSessionStoragePtr user_session_storage,
-    EventProcessorPtr event_processor)
+    EventProcessorPtr event_processor,
+    PccConfigProviderPtr pcc_config_provider)
     : user_storage_(std::move(user_storage)),
       user_session_storage_(std::move(user_session_storage)),
-      event_processor_(std::move(event_processor))
+      event_processor_(std::move(event_processor)),
+      pcc_config_provider_(std::move(pcc_config_provider))
   {
     recheck_state_session_keys_.emplace(SessionKey("rdp", std::string()));
     recheck_state_session_keys_.emplace(SessionKey("anydesk", std::string()));
