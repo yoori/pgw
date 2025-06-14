@@ -1,3 +1,5 @@
+//#include <freeradius-devel/server/base.h>
+
 #include <iostream>
 #include <sstream>
 #include <string>
@@ -26,6 +28,23 @@ extern "C" {
 
 Gears::CompositeActiveObject_var all_active_objects = nullptr;
 ProcessorPtr processor;
+
+enum VPType
+{
+  FR_TYPE_STRING,
+  FR_TYPE_IPV4_ADDR,
+  FR_TYPE_UINT32,
+  FR_TYPE_UINT8,
+  FR_UNKNOWN
+};
+
+struct VPNode
+{
+  void* value;
+  VPType type;
+  VPNode* next;
+  VPNode* child_nodes;
+};
 
 void log_message(std::string_view msg)
 {

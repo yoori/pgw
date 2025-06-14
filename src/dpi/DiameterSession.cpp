@@ -556,14 +556,6 @@ namespace dpi
         true))
         //< Access-Network-Charging-Address
       .addAVP(create_ipv4_4bytes_avp(8, request.framed_ip_address, std::nullopt, true)) // Framed-IP-Address
-      .addAVP(create_avp( //< User-Equipment-Info(458)
-        458,
-        Diameter::AVP::Data()
-          .addAVP(create_uint32_avp(459, 0)) //< User-Equipment-Info-Type(459)
-          .addAVP(create_string_avp(460, "3572487790592201")), //< User-Equipment-Info-Value(460)
-        std::nullopt,
-        false
-        ))
       .addAVP(create_int32_avp(1009, 1, 10415, true)) // Online
       .addAVP(create_int32_avp(1008, 1, 10415, true)) // Offline
       .addAVP(create_avp( //< Access-Network-Charging-Identifier-Gx(1022)
@@ -617,6 +609,20 @@ namespace dpi
       //.addAVP(create_int32_avp()) // Access-Network-Charging-Address
       ;
 
+    if (!request.imei.empty())
+    {
+      packet.addAVP(
+        create_avp(
+          458, // User-Equipment-Info(458)
+          Diameter::AVP::Data()
+            .addAVP(create_uint32_avp(459, 0, std::nullopt, false)) // User-Equipment-Info-Type(459) = IMEISV
+            .addAVP(create_string_avp(460, request.imei, std::nullopt, false)) // User-Equipment-Info-Type(459)
+          ,
+          std::nullopt,
+          false
+        )
+      );
+    }
     return packet
       .addAVP(create_int32_avp(416, 1, std::nullopt, true)) // CC-Request-Type
       .updateLength()

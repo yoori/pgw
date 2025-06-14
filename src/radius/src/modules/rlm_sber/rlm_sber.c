@@ -146,6 +146,39 @@ static unlang_action_t mod_authorize(rlm_rcode_t *p_result, module_ctx_t const *
   RETURN_MODULE_OK;
 }
 
+/*
+VPNode* request_pairs_to_nodes(fr_pair_list_t* request_pairs)
+{
+  VPNode* start_node = NULL;
+  VPNode* cur_node = NULL;
+
+  fr_pair_list_foreach(&request->request_pairs, vp)
+  {
+    // vp->da : fr_dict_attr_t
+    // vp->data : fr_value_box_t
+    // vp->data.type : fr_type_t
+    // vp->children : fr_pair_list_t
+    // fr_pair_t* vp
+
+    if (cur_node == NULL)
+    {
+      start_node = (VPNode*)malloc(sizeof(VPNode));
+      cur_node = start_node;
+    }
+    
+    switch (vp->vp_type)
+    {
+    case FR_TYPE_STRUCTURAL:
+      cur_node->child_nodes = request_pairs_to_nodes(vp->vp_group);
+    case FR_TYPE_QUOTED:
+    default:
+      cur_node->
+      break;
+    }
+  }
+}
+*/
+
 static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, request_t *request)
 {
   //fr_pair_list_t *list;
@@ -167,14 +200,23 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
   (void)mctx;
 
   /*
+  VPNode* start_node;
+  VPNode* cur_node;
+
   fr_pair_list_foreach(&request->request_pairs, vp)
   {
+    // vp->da : fr_dict_attr_t
+    // vp->data : fr_value_box_t
+    // vp->data.type : fr_type_t
+    // vp->children : fr_pair_list_t
+
     // fr_pair_t* vp
     switch (vp->vp_type) {
     case FR_TYPE_STRUCTURAL:
       fetch_vp_pairs();
     case FR_TYPE_QUOTED:
     default:
+      convert_
       break;
     }
   }
