@@ -8,6 +8,7 @@ void tel_gateway_load(void);
 void tel_gateway_unload(void);
 
 bool tel_gateway_process_request(
+  unsigned int acct_status_type,
   const char* called_station_id_buf,
   int called_station_id_len,
   uint32_t framed_address,

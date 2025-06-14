@@ -22,6 +22,7 @@ extern module_rlm_t rlm_sber;
 static fr_dict_t const *dict_freeradius;
 static fr_dict_t const *dict_radius;
 
+static fr_dict_attr_t const *attr_acct_status_type;
 static fr_dict_attr_t const *attr_calling_station_id;
 static fr_dict_attr_t const *attr_framed_ip_address;
 static fr_dict_attr_t const *attr_nas_ip_address;
@@ -47,6 +48,7 @@ fr_dict_attr_autoload_t rlm_dict_attr[] = {
   { .out = &attr_calling_station_id, .name = "Calling-Station-Id", .type = FR_TYPE_STRING, .dict = &dict_radius },
   { .out = &attr_framed_ip_address, .name = "Framed-IP-Address", .type = FR_TYPE_IPV4_ADDR, .dict = &dict_radius },
   { .out = &attr_nas_ip_address, .name = "NAS-IP-Address", .type = FR_TYPE_IPV4_ADDR, .dict = &dict_radius },
+  { .out = &attr_acct_status_type, .name = "Acct-Status-Type", .type = FR_TYPE_UINT32, .dict = &dict_radius },
   {
     .out = &attr_vendor_specific_3gpp_imsi,
     .name = "Vendor-Specific.3GPP.IMSI",
@@ -148,6 +150,7 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
 {
   //fr_pair_list_t *list;
 
+  fr_pair_t *attr_acct_status_type_vp;
   fr_pair_t *attr_called_station_vp;
   fr_pair_t *attr_framed_ip_address_vp;
   fr_pair_t *attr_nas_ip_address_vp;
@@ -163,6 +166,22 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
   bool res;
   (void)mctx;
 
+  /*
+  fr_pair_list_foreach(&request->request_pairs, vp)
+  {
+    // fr_pair_t* vp
+    switch (vp->vp_type) {
+    case FR_TYPE_STRUCTURAL:
+      fetch_vp_pairs();
+    case FR_TYPE_QUOTED:
+    default:
+      break;
+    }
+  }
+  */
+
+  attr_acct_status_type_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_acct_status_type);
   attr_called_station_vp = fr_pair_find_by_da_nested(
     &request->request_pairs, NULL, attr_calling_station_id);
   attr_framed_ip_address_vp = fr_pair_find_by_da_nested(
@@ -189,6 +208,7 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
     &request->request_pairs, NULL, attr_vendor_specific_3gpp_gprs_negotiated_qos_profile);
 
   res = tel_gateway_process_request(
+    attr_acct_status_type_vp ? attr_acct_status_type_vp->vp_uint32 : 0,
     attr_called_station_vp ? attr_called_station_vp->vp_strvalue : 0,
     attr_called_station_vp ? attr_called_station_vp->vp_length : 0,
     attr_framed_ip_address_vp ? *(uint32_t const*)&attr_framed_ip_address_vp->vp_ipv4addr : 0,

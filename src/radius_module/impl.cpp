@@ -36,6 +36,7 @@ void log_message(std::string_view msg)
 }
 
 bool tel_gateway_process_request(
+  unsigned int acct_status_type,
   const char* called_station_id_buf,
   int called_station_id_len,
   uint32_t framed_ip_address,
@@ -58,6 +59,7 @@ bool tel_gateway_process_request(
     std::string_view();
 
   processor->process_request(
+    static_cast<Processor::AcctStatusType>(acct_status_type),
     called_station_id,
     imsi_buf ? std::string_view(imsi_buf) : std::string_view(),
     imei_buf ? std::string_view(imei_buf) : std::string_view(),

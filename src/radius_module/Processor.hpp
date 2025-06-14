@@ -13,6 +13,14 @@ class Processor
 public:
   DECLARE_EXCEPTION(Invalid, Gears::DescriptiveException);
 
+  enum class AcctStatusType: int
+  {
+    START = 1,
+    STOP = 2,
+    UPDATE = 3
+  };
+
+public:
   Processor(
     dpi::UserStoragePtr user_storage,
     dpi::UserSessionStoragePtr user_session_storage,
@@ -22,6 +30,7 @@ public:
   void load_config(std::string_view config_path);
 
   bool process_request(
+    AcctStatusType acct_status_type,
     std::string_view called_station_id,
     std::string_view imsi,
     std::string_view imei,
@@ -38,6 +47,11 @@ public:
   dpi::LoggerPtr logger() const;
 
   dpi::LoggerPtr event_logger() const;
+
+private:
+  void init_gx_gy_session_(const dpi::UserSessionTraits& user_session_traits);
+
+  void terminate_gx_gy_session_(const dpi::UserSession& user_session);
 
 private:
   dpi::LoggerPtr logger_;

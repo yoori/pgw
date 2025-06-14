@@ -17,6 +17,27 @@
 
 const std::string LOG_PREFIX = "[tel-gateway] ";
 
+namespace
+{
+  dpi::DiameterSession::Request
+  user_session_traits_to_gx_request(const dpi::UserSessionTraits& user_session_traits)
+  {
+    dpi::DiameterSession::Request request;
+    request.msisdn = user_session_traits.msisdn;
+    request.imsi = user_session_traits.imsi;
+    request.framed_ip_address = user_session_traits.framed_ip_address;
+    request.nas_ip_address = user_session_traits.nas_ip_address;
+    request.rat_type = user_session_traits.rat_type;
+    request.timezone = user_session_traits.timezone;
+    request.mcc_mnc = user_session_traits.mcc_mnc;
+
+    request.sgsn_ip_address = user_session_traits.sgsn_ip_address;
+    request.access_network_charging_ip_address = user_session_traits.access_network_charging_ip_address;
+    request.charging_id = user_session_traits.charging_id;
+    request.gprs_negotiated_qos_profile = user_session_traits.gprs_negotiated_qos_profile;
+    return request;
+  }
+}
 
 Processor::Processor(
   dpi::UserStoragePtr user_storage,
@@ -116,7 +137,74 @@ void Processor::load_config(std::string_view config_path)
   }
 }
 
+void
+Processor::init_gx_gy_session_(const dpi::UserSessionTraits& user_session_traits)
+{
+  if (gx_diameter_session_)
+  {
+    try
+    {
+      logger_->log("send diameter cc init");
+
+      dpi::DiameterSession::Request request = user_session_traits_to_gx_request(
+        user_session_traits);
+
+      std::cout << "========= REQUEST" << std::endl <<
+        request.to_string() << std::endl <<
+        "========================" << std::endl;
+
+      dpi::DiameterSession::GxInitResponse response = gx_diameter_session_->send_gx_init(request);
+
+      {
+        std::ostringstream ostr;
+        ostr << "diameter cc init response code: " << response.result_code;
+        logger_->log(ostr.str());
+      }
+    }
+    catch(const std::exception& ex)
+    {
+      logger_->log(std::string("send diameter cc init error: ") + ex.what());
+    }
+  }
+}
+
+void
+Processor::terminate_gx_gy_session_(const dpi::UserSession& user_session)
+{
+  if (gx_diameter_session_)
+  {
+    try
+    {
+      logger_->log("send diameter cc init");
+
+      dpi::DiameterSession::Request request = user_session_traits_to_gx_request(
+        user_session.traits());
+
+      std::cout << "========= REQUEST" << std::endl <<
+        request.to_string() << std::endl <<
+        "========================" << std::endl;
+
+      dpi::DiameterSession::GxTerminateRequest gx_terminate_request;
+      // TODO: fill stats
+      dpi::DiameterSession::GxTerminateResponse response = gx_diameter_session_->send_gx_terminate(
+        request,
+        gx_terminate_request);
+
+      {
+        std::ostringstream ostr;
+        ostr << "diameter cc init response code: " << response.result_code;
+        logger_->log(ostr.str());
+      }
+    }
+    catch(const std::exception& ex)
+    {
+      logger_->log(std::string("send diameter cc init error: ") + ex.what());
+    }
+  }
+}
+
 bool Processor::process_request(
+  AcctStatusType acct_status_type,
   std::string_view called_station_id, //< msisdn
   std::string_view imsi,
   std::string_view imei,
@@ -148,65 +236,42 @@ bool Processor::process_request(
 
   if (framed_ip_address != 0)
   {
-    user_session = user_session_storage_->get_user_session_by_ip(framed_ip_address);
+    dpi::UserSessionTraits user_session_traits;
+    user_session_traits.framed_ip_address = framed_ip_address;
+    user_session_traits.msisdn = called_station_id;
+    user_session_traits.imsi = imsi;
+    user_session_traits.nas_ip_address = nas_ip_address;
+    user_session_traits.rat_type = rat_type;
+    user_session_traits.timezone = timezone;
+    user_session_traits.mcc_mnc = mcc_mnc;
+    user_session_traits.sgsn_ip_address = sgsn_ip_address;
+    user_session_traits.access_network_charging_ip_address = access_network_charging_ip_address;
+    user_session_traits.charging_id = charging_id;
+    user_session_traits.gprs_negotiated_qos_profile = gprs_negotiated_qos_profile ?
+      gprs_negotiated_qos_profile : "";
 
-    if (!user_session)
+    if (acct_status_type == AcctStatusType::START)
     {
-      dpi::UserSessionTraits user_session_traits;
-      user_session_traits.framed_ip_address = framed_ip_address;
-      user_session_traits.msisdn = called_station_id;
-      user_session_traits.nas_ip_address = nas_ip_address;
-      user_session_traits.rat_type = rat_type;
-      user_session_traits.timezone = timezone;
-      user_session_traits.mcc_mnc = mcc_mnc;
-      user_session_traits.sgsn_ip_address = sgsn_ip_address;
-      user_session_traits.access_network_charging_ip_address = access_network_charging_ip_address;
-      user_session_traits.charging_id = charging_id;
-      user_session_traits.gprs_negotiated_qos_profile = gprs_negotiated_qos_profile;
+      user_session = user_session_storage_->get_user_session_by_ip(framed_ip_address);
 
-      user_session = user_session_storage_->add_user_session(
-        user_session_traits,
-        user
-      );
-    }
-  }
-
-  if (gx_diameter_session_)
-  {
-    try
-    {
-      logger_->log("send diameter cc init");
-
-      dpi::DiameterSession::Request request;
-      request.msisdn = called_station_id;
-      request.imsi = imsi;
-      request.framed_ip_address = framed_ip_address;
-      request.nas_ip_address = nas_ip_address;
-      request.rat_type = rat_type;
-      request.timezone = tz;
-      request.mcc_mnc = mcc_mnc;
-
-      request.sgsn_ip_address = sgsn_ip_address;
-      request.access_network_charging_ip_address = access_network_charging_ip_address;
-      request.charging_id = charging_id;
-      request.gprs_negotiated_qos_profile = gprs_negotiated_qos_profile ?
-        gprs_negotiated_qos_profile : "";
-
-      std::cout << "========= REQUEST" << std::endl <<
-        request.to_string() << std::endl <<
-        "========================" << std::endl;
-
-      dpi::DiameterSession::GxInitResponse response = gx_diameter_session_->send_gx_init(request);
-
+      if (!user_session)
       {
-        std::ostringstream ostr;
-        ostr << "diameter cc init response code: " << response.result_code;
-        logger_->log(ostr.str());
+        user_session = user_session_storage_->add_user_session(
+          user_session_traits,
+          user
+        );
       }
+
+      init_gx_gy_session_(user_session_traits);
     }
-    catch(const std::exception& ex)
+    else if(acct_status_type == AcctStatusType::STOP)
     {
-      logger_->log(std::string("send diameter cc init error: ") + ex.what());
+      user_session = user_session_storage_->remove_user_session(framed_ip_address);
+
+      if (user_session)
+      {
+        terminate_gx_gy_session_(*user_session);
+      }
     }
   }
 
