@@ -117,21 +117,25 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
   session_rule_config.clear_closed_sessions_timeout = Gears::Time::ONE_DAY;
   session_rule_config.default_rule.close_timeout = Gears::Time(30);
 
+  auto connection = std::make_shared<dpi::Connection>(
+    nullptr,
+    config.gx_diameter_url->local_endpoints,
+    config.gx_diameter_url->connect_endpoints
+  );
+
   dpi::DiameterSessionPtr gx_diameter_session;
 
   if (config.gx_diameter_url.has_value())
   {
     gx_diameter_session = std::make_shared<dpi::DiameterSession>(
       nullptr,
-      config.gx_diameter_url->local_endpoints,
-      config.gx_diameter_url->connect_endpoints,
+      connection,
       config.gx_diameter_url->origin_host,
       config.gx_diameter_url->origin_realm,
       config.gx_diameter_url->destination_host,
       config.gx_diameter_url->destination_realm,
       16777238, //< Gx
-      "3GPP Gx",
-      true
+      "3GPP Gx"
     );
   }
 
@@ -141,15 +145,13 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
   {
     gy_diameter_session = std::make_shared<dpi::DiameterSession>(
       nullptr,
-      config.gy_diameter_url->local_endpoints,
-      config.gy_diameter_url->connect_endpoints,
+      connection,
       config.gy_diameter_url->origin_host,
       config.gy_diameter_url->origin_realm,
       config.gy_diameter_url->destination_host,
       config.gy_diameter_url->destination_realm,
       4, //< DCCA = 4
-      "Diameter Credit Control Application",
-      true
+      "Diameter Credit Control Application"
     );
   }
 

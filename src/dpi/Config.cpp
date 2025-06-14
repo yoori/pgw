@@ -13,19 +13,19 @@ namespace dpi
     {
       for (const auto& local_endpoint_json : diameter_url_obj["local_endpoints"].GetArray())
       {
-        result_diameter_url.local_endpoints.emplace_back(DiameterSession::Endpoint(
+        result_diameter_url.local_endpoints.emplace_back(Connection::Endpoint(
           local_endpoint_json["host"].GetString(),
           local_endpoint_json.HasMember("port") ? local_endpoint_json["port"].GetInt() : 0
           ));
       }
     }
 
-    std::vector<DiameterSession::Endpoint> connect_endpoints;
+    std::vector<Connection::Endpoint> connect_endpoints;
     if (diameter_url_obj.HasMember("connect_endpoints"))
     {
       for (const auto& endpoint_json : diameter_url_obj["connect_endpoints"].GetArray())
       {
-        result_diameter_url.connect_endpoints.emplace_back(DiameterSession::Endpoint(
+        result_diameter_url.connect_endpoints.emplace_back(Connection::Endpoint(
           endpoint_json["host"].GetString(),
           endpoint_json["port"].GetInt()
           ));

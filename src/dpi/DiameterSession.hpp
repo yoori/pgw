@@ -13,13 +13,46 @@
 
 namespace dpi
 {
-  class DiameterSession
+  // BaseConnection
+  class BaseConnection
+  {
+  public:
+    class Lock
+    {
+    public:
+      Lock(BaseConnection* connection)
+        : locker_(std::make_unique<std::unique_lock<std::mutex>>(connection->lock_)),
+          connection_(connection)
+      {}
+
+      BaseConnection* operator->()
+      {
+        return connection_;
+      }
+
+    private:
+      std::unique_ptr<std::unique_lock<std::mutex>> locker_;
+      BaseConnection* connection_;
+    };
+
+  public:
+    Lock lock();
+
+    virtual void send_packet(const ByteArray& send_packet) = 0;
+
+    virtual std::vector<unsigned char> read_bytes(unsigned long size) = 0;
+
+  protected:
+    std::mutex lock_;
+  };
+
+  // Connection
+  class Connection: public BaseConnection
   {
   public:
     DECLARE_EXCEPTION(Exception, Gears::DescriptiveException);
     DECLARE_EXCEPTION(NetworkError, Exception);
     DECLARE_EXCEPTION(ConnectionClosedOnRead, NetworkError);
-    DECLARE_EXCEPTION(DiameterError, Exception);
 
     struct Endpoint
     {
@@ -32,6 +65,76 @@ namespace dpi
       std::string host;
       int port = 0;
     };
+
+  public:
+    Connection(
+      LoggerPtr logger,
+      std::vector<Endpoint> local_endpoints,
+      std::vector<Endpoint> connect_endpoints,
+      std::function<void(Connection&)> init_fun = [](Connection&) {}
+    );
+
+    void send_packet(const ByteArray& send_packet) override;
+
+    std::vector<unsigned char> read_bytes(unsigned long size) override;
+
+    /*
+    void stream_send_packet(
+      unsigned int stream_index, const ByteArray& send_packet) override;
+
+    std::vector<unsigned char> stream_read_bytes(
+      unsigned int stream_index, unsigned long size) override;
+    */
+
+  private:
+    struct ConnectionHolder
+    {
+      int socket_fd;
+    };
+
+  private:
+    static void send_packet_(int socket_fd, const ByteArray& send_packet);
+
+    static std::vector<unsigned char>
+    read_bytes_(int socket_fd, unsigned long size);
+
+    ConnectionHolder socket_init_();
+
+    static void socket_close_(int socket_fd);
+
+    static void fill_addr_(struct sockaddr_in& res, const Endpoint& endpoint);
+
+  private:
+    const bool keep_open_connection_;
+
+    LoggerPtr logger_;
+    std::vector<Endpoint> local_endpoints_;
+    std::vector<Endpoint> connect_endpoints_;
+    std::function<void(Connection&)> init_fun_;
+
+    std::optional<ConnectionHolder> connection_holder_;
+  };
+
+  using BaseConnectionPtr = std::shared_ptr<BaseConnection>;
+
+  /*
+  class ConnectionStream: public BaseConnection
+  {
+  public:
+    ConnectionStream(ConnectionPtr connection);
+
+    void send_packet(const ByteArray& send_packet) override;
+
+    std::vector<unsigned char> read_bytes(unsigned long size) override;
+  };
+  */
+
+  // DiameterSession
+  class DiameterSession
+  {
+  public:
+    DECLARE_EXCEPTION(Exception, Gears::DescriptiveException);
+    DECLARE_EXCEPTION(DiameterError, Exception);
 
     struct Request
     {
@@ -110,15 +213,13 @@ namespace dpi
 
     DiameterSession(
       dpi::LoggerPtr logger,
-      std::vector<Endpoint> local_endpoints,
-      std::vector<Endpoint> connect_endpoints,
+      BaseConnectionPtr connection,
       std::string origin_host,
       std::string origin_realm,
       std::optional<std::string> destination_host,
       std::optional<std::string> destination_realm,
       unsigned long auth_application_id,
       std::string product_name,
-      bool keep_open_connection = false,
       const std::vector<std::string>& source_addresses = std::vector<std::string>()
       );
 
@@ -126,7 +227,8 @@ namespace dpi
 
     void set_logger(dpi::LoggerPtr logger);
 
-    void open();
+    // connect if isn't connected
+    //void connect();
 
     GxInitResponse send_gx_init(const Request& request);
 
@@ -141,9 +243,13 @@ namespace dpi
     GyResponse send_gy_init(const GyRequest& request);
 
   private:
+    using PacketGenerator = std::function<ByteArray()>;
+
+  private:
     ByteArray generate_exchange_packet_() const;
 
-    ByteArray generate_gx_init_(const Request& request) const;
+    ByteArray generate_gx_init_(
+      const Request& request) const;
 
     ByteArray generate_gx_update_(
       const Request& request,
@@ -153,42 +259,37 @@ namespace dpi
       const Request& request,
       const GxTerminateRequest& terminate_request) const;
 
-    Diameter::Packet generate_base_gx_packet_(const Request& request)
+    Diameter::Packet generate_base_gx_packet_(
+      const Request& request)
       const;
 
-    ByteArray generate_gy_init_(const GyRequest& request) const;
+    ByteArray generate_gy_init_(
+      const GyRequest& request) const;
 
-    ByteArray generate_base_gy_packet_(const GyRequest& request) const;
+    ByteArray generate_base_gy_packet_(
+      const GyRequest& request) const;
 
     ByteArray generate_watchdog_packet_() const;
 
-    Diameter::Packet read_packet_();
+    std::pair<std::optional<uint32_t>, Diameter::Packet>
+    send_and_read_response_i_(
+      PacketGenerator packet_generator);
 
-    void send_packet_(const ByteArray& send_packet);
+    static Diameter::Packet read_packet_(BaseConnection::Lock& connection);
 
-    void socket_close_();
+    bool is_connected_(int socket_fd);
 
-    void socket_init_();
-
-    std::vector<unsigned char>
-    read_bytes_(unsigned long size);
-
-    static void fill_addr_(struct sockaddr_in& res, const Endpoint& endpoint);
+    void make_exchange_i_(BaseConnection::Lock& connection_lock);
 
     static ByteArray uint32_to_buf_(uint32_t val);
 
-    std::pair<std::optional<uint32_t>, Diameter::Packet>
-    send_and_read_response_(const ByteArray& send_packet);
-
   private:
     dpi::LoggerPtr logger_;
-    const int RETRY_COUNT_ = 2;
-    const bool keep_open_connection_;
+    BaseConnectionPtr connection_;
+    const int RETRY_COUNT_ = 1;
     const std::string product_name_;
     std::vector<uint32_t> source_addresses_;
     const uint32_t origin_state_id_;
-    std::vector<Endpoint> local_endpoints_;
-    std::vector<Endpoint> connect_endpoints_;
 
     std::string origin_host_;
     std::string origin_realm_;
@@ -198,10 +299,7 @@ namespace dpi
     unsigned int application_id_;
     //unsigned int service_id_;
     mutable unsigned long request_i_;
-
-    int socket_fd_;
-
-    std::mutex send_lock_;
+    bool exchange_done_ = false;
   };
 
   using DiameterSessionPtr = std::shared_ptr<DiameterSession>;

@@ -44,31 +44,35 @@ int main(int argc, char* argv[])
 
   try
   {
-    std::vector<dpi::DiameterSession::Endpoint> local_endpoints;
+    std::vector<dpi::Connection::Endpoint> local_endpoints;
     for (auto it = opt_local_servers->begin(); it != opt_local_servers->end(); ++it)
     {
-      local_endpoints.emplace_back(dpi::DiameterSession::Endpoint(*it, *opt_local_port));
+      local_endpoints.emplace_back(dpi::Connection::Endpoint(*it, *opt_local_port));
     }
 
-    std::vector<dpi::DiameterSession::Endpoint> connect_endpoints;
+    std::vector<dpi::Connection::Endpoint> connect_endpoints;
     for (auto it = opt_connect_servers->begin(); it != opt_connect_servers->end(); ++it)
     {
-      connect_endpoints.emplace_back(dpi::DiameterSession::Endpoint(*it, *opt_connect_port));
+      connect_endpoints.emplace_back(dpi::Connection::Endpoint(*it, *opt_connect_port));
     }
 
     auto logger = std::make_shared<dpi::StreamLogger>(std::cout);
 
-    std::shared_ptr<dpi::DiameterSession> session = std::make_shared<dpi::DiameterSession>(
+    auto connection = std::make_shared<dpi::Connection>(
       logger,
       local_endpoints,
-      connect_endpoints,
+      connect_endpoints
+    );
+
+    std::shared_ptr<dpi::DiameterSession> session = std::make_shared<dpi::DiameterSession>(
+      logger,
+      connection,
       *opt_origin_host,
       *opt_origin_realm,
       !opt_destination_host->empty() ? std::optional<std::string>(*opt_destination_host) : std::nullopt,
       !opt_destination_realm->empty() ? std::optional<std::string>(*opt_destination_realm) : std::nullopt,
       4, //< DCCA = 4
-      "Diameter Credit Control Application",
-      true
+      "Diameter Credit Control Application"
       );
 
     dpi::DiameterSession::GyRequest request;

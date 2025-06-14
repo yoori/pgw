@@ -49,31 +49,35 @@ int main(int argc, char* argv[])
 
   try
   {
-    std::vector<dpi::DiameterSession::Endpoint> local_endpoints;
+    std::vector<dpi::Connection::Endpoint> local_endpoints;
     for (auto it = opt_local_servers->begin(); it != opt_local_servers->end(); ++it)
     {
-      local_endpoints.emplace_back(dpi::DiameterSession::Endpoint(*it, *opt_local_port));
+      local_endpoints.emplace_back(dpi::Connection::Endpoint(*it, *opt_local_port));
     }
 
-    std::vector<dpi::DiameterSession::Endpoint> connect_endpoints;
+    std::vector<dpi::Connection::Endpoint> connect_endpoints;
     for (auto it = opt_connect_servers->begin(); it != opt_connect_servers->end(); ++it)
     {
-      connect_endpoints.emplace_back(dpi::DiameterSession::Endpoint(*it, *opt_connect_port));
+      connect_endpoints.emplace_back(dpi::Connection::Endpoint(*it, *opt_connect_port));
     }
 
     auto logger = std::make_shared<dpi::StreamLogger>(std::cout);
 
-    std::shared_ptr<dpi::DiameterSession> session = std::make_shared<dpi::DiameterSession>(
+    auto connection = std::make_shared<dpi::Connection>(
       logger,
       local_endpoints,
-      connect_endpoints,
+      connect_endpoints
+    );
+
+    std::shared_ptr<dpi::DiameterSession> session = std::make_shared<dpi::DiameterSession>(
+      logger,
+      connection,
       *opt_origin_host,
       *opt_origin_realm,
       !opt_destination_host->empty() ? std::optional<std::string>(*opt_destination_host) : std::nullopt,
       !opt_destination_realm->empty() ? std::optional<std::string>(*opt_destination_realm) : std::nullopt,
       16777238, //< Gx
       "3GPP Gx",
-      true,
       *opt_source_addresses
       );
 
@@ -112,6 +116,27 @@ int main(int argc, char* argv[])
     dpi::DiameterSession::GxTerminateRequest gx_terminate_request;
     dpi::DiameterSession::GxTerminateResponse gx_terminate_response = session->send_gx_terminate(request, gx_terminate_request);
     std::cout << "Gx terminate request: result-code: " << gx_terminate_response.result_code << std::endl;
+
+    /*
+    {
+      dpi::DiameterSession::GyRequest request;
+      request.msisdn = "79662660021";
+      request.imsi = "250507712932915";
+      request.framed_ip_address = ipv4(10, 243, 64, 1);
+      request.nas_ip_address = ipv4(10, 77, 21, 116);
+      request.rat_type = 1004;
+      request.mcc_mnc = "25020";
+      request.timezone = 33;
+      request.sgsn_ip_address = ipv4(185, 77, 17, 121);
+      request.access_network_charging_ip_address = ipv4(185, 174, 131, 53);
+      request.charging_id = 0x4188491;
+      request.gprs_negotiated_qos_profile = "08-48080000c350000249f0"; // 08-48080000c350000249f0
+      request.rating_groups.emplace_back(32); // Internet(MVNO_SBT_UNLIM): RG32 MK64
+
+      dpi::DiameterSession::GyResponse gy_init_response = session->send_gy_init(request);
+      std::cout << "Gy init request: result-code: " << gy_init_response.result_code << std::endl;
+    }
+    */
   }
   catch(const Gears::Exception& ex)
   {
