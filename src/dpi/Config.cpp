@@ -1,3 +1,4 @@
+#include <iostream>
 #include <fstream>
 #include <rapidjson/document.h>
 
@@ -13,19 +14,19 @@ namespace dpi
     {
       for (const auto& local_endpoint_json : diameter_url_obj["local_endpoints"].GetArray())
       {
-        result_diameter_url.local_endpoints.emplace_back(Connection::Endpoint(
+        result_diameter_url.local_endpoints.emplace_back(SCTPConnection::Endpoint(
           local_endpoint_json["host"].GetString(),
           local_endpoint_json.HasMember("port") ? local_endpoint_json["port"].GetInt() : 0
           ));
       }
     }
 
-    std::vector<Connection::Endpoint> connect_endpoints;
+    std::vector<SCTPConnection::Endpoint> connect_endpoints;
     if (diameter_url_obj.HasMember("connect_endpoints"))
     {
       for (const auto& endpoint_json : diameter_url_obj["connect_endpoints"].GetArray())
       {
-        result_diameter_url.connect_endpoints.emplace_back(Connection::Endpoint(
+        result_diameter_url.connect_endpoints.emplace_back(SCTPConnection::Endpoint(
           endpoint_json["host"].GetString(),
           endpoint_json["port"].GetInt()
           ));
@@ -116,6 +117,7 @@ namespace dpi
       result.pcc_config_file = document["pcc_config_file"].GetString();
     }
 
+    std::cout << "Pcc config path: " << result.pcc_config_file << std::endl;
     return result;
   }
 }

@@ -11,6 +11,6 @@
 	url = https://github.com/yoori/nDPI.git
 	branch = dev
 [submodule "dependencies/async-radius/async-radius"]
-	path = dependencies/async-radius/async-radius
-	url = https://github.com/yoori/async-radius.git
-	branch = main
+        path = dependencies/async-radius/async-radius
+        url = https://github.com/yoori/async-radius.git
+        branch = main

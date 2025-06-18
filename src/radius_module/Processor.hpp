@@ -7,6 +7,7 @@
 #include <dpi/Logger.hpp>
 
 #include <dpi/DiameterSession.hpp>
+#include <dpi/PccConfigProvider.hpp>
 
 class Processor
 {
@@ -25,13 +26,15 @@ public:
     dpi::UserStoragePtr user_storage,
     dpi::UserSessionStoragePtr user_session_storage,
     dpi::DiameterSessionPtr gx_diameter_session,
-    dpi::DiameterSessionPtr gy_diameter_session);
+    dpi::DiameterSessionPtr gy_diameter_session,
+    dpi::PccConfigProviderPtr pcc_config_provider);
 
   void load_config(std::string_view config_path);
 
   bool process_request(
     AcctStatusType acct_status_type,
     std::string_view called_station_id,
+    std::string_view calling_station_id,
     std::string_view imsi,
     std::string_view imei,
     uint32_t framed_ip_address,
@@ -42,16 +45,32 @@ public:
     uint32_t sgsn_address,
     uint32_t access_network_charging_address,
     uint32_t charging_id,
-    const char* gprs_negotiated_qos_profile);
+    const char* gprs_negotiated_qos_profile,
+    const std::vector<unsigned char>& user_location_info,
+    std::string_view nsapi,
+    std::string_view selection_mode,
+    std::string_view charging_characteristics
+  );
 
   dpi::LoggerPtr logger() const;
 
   dpi::LoggerPtr event_logger() const;
 
 private:
-  void init_gx_gy_session_(const dpi::UserSessionTraits& user_session_traits);
+  bool
+  init_gx_gy_session_(
+    const dpi::UserSessionPtr& user_session,
+    const dpi::UserSessionTraits& user_session_traits,
+    bool init);
 
-  void terminate_gx_gy_session_(const dpi::UserSession& user_session);
+  void
+  terminate_gx_gy_session_(const dpi::UserSession& user_session);
+
+  void
+  fill_gx_gy_stats_(
+    dpi::DiameterSession::GxUpdateRequest& gx_request,
+    dpi::DiameterSession::GyRequest& gy_request,
+    const dpi::UserSession& user_session);
 
 private:
   dpi::LoggerPtr logger_;
@@ -62,6 +81,7 @@ private:
   std::string diameter_url_;
   dpi::DiameterSessionPtr gx_diameter_session_;
   dpi::DiameterSessionPtr gy_diameter_session_;
+  dpi::PccConfigProviderPtr pcc_config_provider_;
 };
 
 using ProcessorPtr = std::shared_ptr<Processor>;

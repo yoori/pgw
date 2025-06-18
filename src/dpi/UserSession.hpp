@@ -49,6 +49,8 @@ namespace dpi
         const std::optional<unsigned long>& gy_limit);
 
       SessionKey session_key;
+
+      std::string to_string() const;
     };
 
     using SetLimitArray = std::vector<SetLimit>;
@@ -110,6 +112,13 @@ namespace dpi
     using UsedLimitHolderMap = Gears::HashTable<SessionKey, UsedLimitHolder>;
 
   private:
+    UseLimitResult
+    use_limit_i_(
+      const SessionKey& session_key,
+      const Gears::Time& now,
+      unsigned long used_bytes);
+
+  private:
     UserSessionTraits traits_;
     UserPtr user_;
 
@@ -123,6 +132,18 @@ namespace dpi
 
 namespace dpi
 {
+  inline std::string
+  UserSession::SetLimit::to_string() const
+  {
+    return "{"
+      "session_key = " + session_key.to_string() +
+      ", gy_recheck_time = " + (
+        gy_recheck_time.has_value() ? gy_recheck_time->gm_ft() : std::string("null")) +
+      ", gy_limit = " + (
+        gy_limit.has_value() ? std::to_string(*gy_limit) : std::string("null")) +
+      "}";
+  }
+
   inline
   UserSession::UserSession(const UserSessionTraits& traits, UserPtr user)
     : traits_(traits),

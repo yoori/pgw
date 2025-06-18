@@ -16,8 +16,8 @@ namespace dpi
       unsigned int port = 0;
     };
 
-    std::vector<Connection::Endpoint> local_endpoints;
-    std::vector<Connection::Endpoint> connect_endpoints;
+    std::vector<SCTPConnection::Endpoint> local_endpoints;
+    std::vector<SCTPConnection::Endpoint> connect_endpoints;
     std::string origin_host;
     std::string origin_realm;
     std::string destination_host;

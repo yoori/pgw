@@ -17,38 +17,18 @@
 
 const std::string LOG_PREFIX = "[tel-gateway] ";
 
-namespace
-{
-  dpi::DiameterSession::Request
-  user_session_traits_to_gx_request(const dpi::UserSessionTraits& user_session_traits)
-  {
-    dpi::DiameterSession::Request request;
-    request.msisdn = user_session_traits.msisdn;
-    request.imsi = user_session_traits.imsi;
-    request.framed_ip_address = user_session_traits.framed_ip_address;
-    request.nas_ip_address = user_session_traits.nas_ip_address;
-    request.rat_type = user_session_traits.rat_type;
-    request.timezone = user_session_traits.timezone;
-    request.mcc_mnc = user_session_traits.mcc_mnc;
-
-    request.sgsn_ip_address = user_session_traits.sgsn_ip_address;
-    request.access_network_charging_ip_address = user_session_traits.access_network_charging_ip_address;
-    request.charging_id = user_session_traits.charging_id;
-    request.gprs_negotiated_qos_profile = user_session_traits.gprs_negotiated_qos_profile;
-    return request;
-  }
-}
-
 Processor::Processor(
   dpi::UserStoragePtr user_storage,
   dpi::UserSessionStoragePtr user_session_storage,
   dpi::DiameterSessionPtr gx_diameter_session,
-  dpi::DiameterSessionPtr gy_diameter_session
+  dpi::DiameterSessionPtr gy_diameter_session,
+  dpi::PccConfigProviderPtr pcc_config_provider
   )
   : user_storage_(std::move(user_storage)),
     user_session_storage_(std::move(user_session_storage)),
     gx_diameter_session_(std::move(gx_diameter_session)),
     gy_diameter_session_(std::move(gy_diameter_session)),
+    pcc_config_provider_(std::move(pcc_config_provider)),
     logger_(std::make_shared<dpi::StreamLogger>(std::cout)),
     event_logger_(std::make_shared<dpi::StreamLogger>(std::cout))
 {}
@@ -137,17 +117,23 @@ void Processor::load_config(std::string_view config_path)
   }
 }
 
-void
-Processor::init_gx_gy_session_(const dpi::UserSessionTraits& user_session_traits)
+bool
+Processor::init_gx_gy_session_(
+  const dpi::UserSessionPtr& user_session,
+  const dpi::UserSessionTraits& user_session_traits,
+  bool /*init*/)
 {
+  std::cout << "init_gx_gy_session_" << std::endl;
+
   if (gx_diameter_session_)
   {
     try
     {
+      std::cout << "init_gx_gy_session_: step #2" << std::endl;
       logger_->log("send diameter cc init");
 
-      dpi::DiameterSession::Request request = user_session_traits_to_gx_request(
-        user_session_traits);
+      dpi::DiameterSession::Request request;
+      request.user_session_traits = user_session_traits;
 
       std::cout << "========= REQUEST" << std::endl <<
         request.to_string() << std::endl <<
@@ -159,11 +145,151 @@ Processor::init_gx_gy_session_(const dpi::UserSessionTraits& user_session_traits
         std::ostringstream ostr;
         ostr << "diameter cc init response code: " << response.result_code;
         logger_->log(ostr.str());
+
+        std::cout << ostr.str() << std::endl;
+      }
+
+      if (response.result_code != 2001)
+      {
+        return false;
+      }
+
+      dpi::ConstPccConfigPtr pcc_config;
+
+      if (pcc_config_provider_)
+      {
+        pcc_config = pcc_config_provider_->get_config();
+      }
+
+      // request gy
+      std::unordered_set<unsigned long> rating_groups;
+
+      std::cout << "XXX: FROM GX REQUEST: response.charging_rule_names.size() = " <<
+        response.charging_rule_names.size() <<
+        ", pcc_config = " << pcc_config.get() << std::endl;
+
+      if (pcc_config)
+      {
+        for (const auto& charging_rule_name : response.charging_rule_names)
+        {
+          auto session_rule_it = pcc_config->session_rule_by_charging_name.find(charging_rule_name);
+          if (session_rule_it != pcc_config->session_rule_by_charging_name.end())
+          {
+            rating_groups.insert(
+              session_rule_it->second.rating_groups.begin(),
+              session_rule_it->second.rating_groups.end());
+          }
+        }
+      }
+
+      dpi::DiameterSession::GyRequest gy_request;
+      gy_request.user_session_traits = user_session_traits;
+
+      for (const auto& rg_id : rating_groups)
+      {
+        gy_request.usage_rating_groups.emplace_back(
+          dpi::DiameterSession::GyRequest::UsageRatingGroup(rg_id, 0));
+      }
+
+      if(gy_diameter_session_)
+      {
+        std::cout << "XXX: TO SEND GY REQUEST: rating_groups.size() = " <<
+          gy_request.usage_rating_groups.size() << std::endl;
+        dpi::DiameterSession::GyResponse gy_init_response = gy_diameter_session_->send_gy_init(gy_request);
+
+        if (gy_init_response.result_code != 2001)
+        {
+          return false;
+        }
+
+        bool any_success = false;
+        for (const auto& rg : gy_init_response.rating_group_limits)
+        {
+          any_success = any_success || (rg.result_code == 2001);
+        }
+
+        if (!any_success)
+        {
+          return false;
+        }
+
+        dpi::UserSession::SetLimitArray set_limits;
+
+        for (const dpi::DiameterSession::GyResponse::RatingGroupLimit& rating_group_limit :
+          gy_init_response.rating_group_limits)
+        {
+          dpi::UserSession::SetLimit add_limit;
+          auto session_rule_it = pcc_config->session_rule_by_rating_group.find(rating_group_limit.rating_group_id);
+          if (session_rule_it != pcc_config->session_rule_by_rating_group.end())
+          {
+            add_limit.session_key = session_rule_it->second.session_key;
+            if (rating_group_limit.result_code == 2001 && rating_group_limit.cc_total_octets.has_value())
+            {
+              add_limit.gy_limit = *rating_group_limit.cc_total_octets > 0 ? 1000000000ull : 0;
+            }
+            else
+            {
+              add_limit.gy_limit = 0;
+            }
+            add_limit.gy_recheck_time = Gears::Time::get_time_of_day() + rating_group_limit.validity_time;
+          }
+
+          set_limits.emplace_back(add_limit);
+        }
+
+        user_session->set_limits(set_limits);
       }
     }
     catch(const std::exception& ex)
     {
       logger_->log(std::string("send diameter cc init error: ") + ex.what());
+      std::cout << (std::string("send diameter cc init error: ") + ex.what()) << std::endl;
+    }
+  }
+
+  return true;
+}
+
+void
+Processor::fill_gx_gy_stats_(
+  dpi::DiameterSession::GxUpdateRequest& gx_request,
+  dpi::DiameterSession::GyRequest& gy_request,
+  const dpi::UserSession& user_session)
+{
+  if (!pcc_config_provider_)
+  {
+    return;
+  }
+
+  auto pcc_config = pcc_config_provider_->get_config();
+
+  if (!pcc_config)
+  {
+    return;
+  }
+  
+  auto used_limits = user_session.get_used_limits();
+  for (const auto& used_limit : used_limits)
+  {
+    auto session_rule_it = pcc_config->session_keys.find(used_limit.session_key);
+    if (session_rule_it != pcc_config->session_keys.end())
+    {
+      const dpi::PccConfig::SessionKeyRule& session_key_rule = session_rule_it->second;
+
+      for (const auto& rg_id : session_key_rule.rating_groups)
+      {
+        gy_request.usage_rating_groups.emplace_back(
+          dpi::DiameterSession::GyRequest::UsageRatingGroup(rg_id, used_limit.used_bytes));
+      }
+      
+      for (const auto& mk_id : session_key_rule.monitoring_keys)
+      {
+        gx_request.usage_monitorings.emplace_back(
+          dpi::DiameterSession::GxUpdateRequest::UsageMonitoring(
+            mk_id,
+            used_limit.used_bytes
+          ));
+      }
     }
   }
 }
@@ -171,21 +297,27 @@ Processor::init_gx_gy_session_(const dpi::UserSessionTraits& user_session_traits
 void
 Processor::terminate_gx_gy_session_(const dpi::UserSession& user_session)
 {
+  dpi::DiameterSession::GxTerminateRequest gx_terminate_request;
+  dpi::DiameterSession::GyRequest gy_terminate_request;
+
+  std::cout << "YYY terminate_gx_gy_session_: msisdn = " << user_session.traits().msisdn <<
+    ", imsi = " << user_session.traits().imsi << std::endl;
+  gy_terminate_request.user_session_traits = user_session.traits();
+  fill_gx_gy_stats_(gx_terminate_request, gy_terminate_request, user_session);
+
   if (gx_diameter_session_)
   {
     try
     {
-      logger_->log("send diameter cc init");
+      logger_->log("send diameter gx terminate");
 
-      dpi::DiameterSession::Request request = user_session_traits_to_gx_request(
-        user_session.traits());
+      dpi::DiameterSession::Request request;
+      request.user_session_traits = user_session.traits();
 
       std::cout << "========= REQUEST" << std::endl <<
         request.to_string() << std::endl <<
         "========================" << std::endl;
 
-      dpi::DiameterSession::GxTerminateRequest gx_terminate_request;
-      // TODO: fill stats
       dpi::DiameterSession::GxTerminateResponse response = gx_diameter_session_->send_gx_terminate(
         request,
         gx_terminate_request);
@@ -201,10 +333,34 @@ Processor::terminate_gx_gy_session_(const dpi::UserSession& user_session)
       logger_->log(std::string("send diameter cc init error: ") + ex.what());
     }
   }
+
+  if (gy_diameter_session_)
+  {
+    try
+    {
+      logger_->log("send diameter gy terminate");
+
+      gy_terminate_request.user_session_traits = user_session.traits();
+
+      dpi::DiameterSession::GyResponse response = gy_diameter_session_->send_gy_terminate(
+        gy_terminate_request);
+
+      {
+        std::ostringstream ostr;
+        ostr << "diameter gy terminate response code: " << response.result_code;
+        logger_->log(ostr.str());
+      }
+    }
+    catch(const std::exception& ex)
+    {
+      logger_->log(std::string("send diameter gy terminate error: ") + ex.what());
+    }
+  }
 }
 
 bool Processor::process_request(
   AcctStatusType acct_status_type,
+  std::string_view calling_station_id, //< msisdn
   std::string_view called_station_id, //< msisdn
   std::string_view imsi,
   std::string_view imei,
@@ -216,7 +372,11 @@ bool Processor::process_request(
   uint32_t sgsn_ip_address,
   uint32_t access_network_charging_ip_address,
   uint32_t charging_id,
-  const char* gprs_negotiated_qos_profile
+  const char* gprs_negotiated_qos_profile,
+  const std::vector<unsigned char>& user_location_info,
+  std::string_view nsapi,
+  std::string_view selection_mode,
+  std::string_view charging_characteristics
 )
 {
   logger_->log("process radius request");
@@ -224,9 +384,9 @@ bool Processor::process_request(
   dpi::UserPtr user;
   dpi::UserSessionPtr user_session;
 
-  if (!called_station_id.empty() && framed_ip_address != 0)
+  if (!calling_station_id.empty() && framed_ip_address != 0)
   {
-    user = user_storage_->add_user(called_station_id);
+    user = user_storage_->add_user(calling_station_id);
   }
 
   if (!user)
@@ -234,12 +394,16 @@ bool Processor::process_request(
     user = std::make_shared<dpi::User>(std::string());
   }
 
+  bool result = false;
+
   if (framed_ip_address != 0)
   {
     dpi::UserSessionTraits user_session_traits;
     user_session_traits.framed_ip_address = framed_ip_address;
-    user_session_traits.msisdn = called_station_id;
+    user_session_traits.msisdn = calling_station_id;
+    user_session_traits.imei = imei;
     user_session_traits.imsi = imsi;
+    user_session_traits.called_station_id = called_station_id;
     user_session_traits.nas_ip_address = nas_ip_address;
     user_session_traits.rat_type = rat_type;
     user_session_traits.timezone = timezone;
@@ -249,20 +413,40 @@ bool Processor::process_request(
     user_session_traits.charging_id = charging_id;
     user_session_traits.gprs_negotiated_qos_profile = gprs_negotiated_qos_profile ?
       gprs_negotiated_qos_profile : "";
+    user_session_traits.user_location_info = user_location_info;
+    user_session_traits.nsapi = nsapi;
+    user_session_traits.selection_mode = selection_mode;
 
-    if (acct_status_type == AcctStatusType::START)
+    if (acct_status_type == AcctStatusType::START ||
+      acct_status_type == AcctStatusType::UPDATE)
     {
       user_session = user_session_storage_->get_user_session_by_ip(framed_ip_address);
 
       if (!user_session)
       {
+        std::cout << "YYY Processor::process_request(1): msisdn = " << user_session_traits.msisdn <<
+          ", imsi = " << user_session_traits.imsi << std::endl;
+
         user_session = user_session_storage_->add_user_session(
           user_session_traits,
           user
         );
+
+        std::cout << "YYY Processor::process_request(2): msisdn = " << user_session->traits().msisdn <<
+          ", imsi = " << user_session->traits().imsi << std::endl;
+
+        bool gx_gy_result = init_gx_gy_session_(
+          user_session,
+          user_session_traits,
+          !user_session);
+
+        if (!gx_gy_result)
+        {
+          user_session_storage_->remove_user_session(user_session_traits.framed_ip_address);
+        }
       }
 
-      init_gx_gy_session_(user_session_traits);
+      result = true;
     }
     else if(acct_status_type == AcctStatusType::STOP)
     {
@@ -272,8 +456,16 @@ bool Processor::process_request(
       {
         terminate_gx_gy_session_(*user_session);
       }
+
+      result = true;
     }
   }
 
-  return false;
+  std::cout << "Radius: return " << result <<
+    ", acct_status_type = " << (int)acct_status_type <<
+    ", msisdn = " << calling_station_id <<
+    ", called-station-id = " << called_station_id <<
+    std::endl;
+
+  return result;
 }

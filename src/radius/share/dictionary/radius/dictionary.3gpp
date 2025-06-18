@@ -82,42 +82,7 @@ VALUE	RAT-Type			3GPP2-HRPD		103
 VALUE	RAT-Type			3GPP2-1xRTT		104
 VALUE	RAT-Type			3GPP2-UMB		105
 
-ATTRIBUTE	User-Location-Info			22	struct
-MEMBER		Type					uint8	key
-
-#
-#  Encoded with nibbles broken up into bizarreness and confusion.
-#
-#  wire:    12 34 56
-#  Meaning: 214 653
-#
-MEMBER		PLMN-ID					octets[3]
-
-STRUCT	CGI				Type			0
-MEMBER		LAC					uint16
-MEMBER		CAI					uint16
-
-STRUCT	SAI				Type			1
-MEMBER		LAC					uint16
-MEMBER		SAC					uint16
-
-STRUCT	RAI				Type			2
-MEMBER		RAI					uint16
-MEMBER		RAC					uint16
-
-STRUCT	LAI				Type			32
-MEMBER		LAI					uint16
-
-STRUCT	TAI				Type			128
-MEMBER		TAC					uint16
-
-STRUCT	ECGI				Type			129
-MEMBER		ECI					octets[4]
-
-STRUCT	TAI-ECGI			Type			130
-MEMBER		TAC					uint16
-MEMBER		PLMN-ID					octets[3]
-MEMBER		ECI					octets[4]
+ATTRIBUTE	User-Location-Info			22	octets
 
 ATTRIBUTE	MS-TimeZone				23	struct
 

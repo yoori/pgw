@@ -36,18 +36,29 @@ namespace dpi
 
   private:
     // return true if need to send packet
-    bool check_user_state_(
+    bool
+    check_user_state_(
       User& user,
       const SessionKey& trigger_session_key,
       uint32_t src_ip,
       uint32_t dst_ip,
       const Gears::Time& now);
 
-    bool process_event_(
+    bool
+    process_event_(
       const std::string& event,
       const Gears::Time& now,
       uint32_t src_ip,
       uint32_t dst_ip);
+
+    UserSessionPtr
+    get_user_session_(uint32_t& src_ip, uint32_t& dst_ip);
+
+    void
+    log_packet_block_(
+      const SessionKey& session_key,
+      const FlowTraits& flow_traits,
+      const char* block_reason);
 
   private:
     const UserStoragePtr user_storage_;

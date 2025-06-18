@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <shared_mutex>
 
 #include <gears/CompositeActiveObject.hpp>
@@ -19,9 +20,12 @@ namespace dpi
 
   protected:
     class DumpConfigTask;
+    class ReadConfigTask;
 
   protected:
     Gears::Time dump_config_() const;
+
+    Gears::Time read_config_();
 
   private:
     const std::string config_file_path_;

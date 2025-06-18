@@ -17,6 +17,8 @@
 #include <dpi/NetInterfaceBridgeNDPIProcessor.hpp>
 #include <dpi/MainUserSessionPacketProcessor.hpp>
 #include <dpi/StatUserSessionPacketProcessor.hpp>
+#include <dpi/SessionRuleOverrideUserSessionPacketProcessor.hpp>
+#include <dpi/ConnectionKeeper.hpp>
 
 #include <http_server/HttpServer.hpp>
 
@@ -56,6 +58,8 @@ void log_message(std::string_view msg)
 
 bool tel_gateway_process_request(
   unsigned int acct_status_type,
+  const char* calling_station_id_buf,
+  int calling_station_id_len,
   const char* called_station_id_buf,
   int called_station_id_len,
   uint32_t framed_ip_address,
@@ -68,18 +72,40 @@ bool tel_gateway_process_request(
   uint32_t sgsn_address,
   uint32_t access_network_charging_address,
   uint32_t charging_id,
-  const char* gprs_negotiated_qos_profile
+  const char* gprs_negotiated_qos_profile,
+  const void* user_location_info,
+  int user_location_info_len,
+  const char* nsapi_buf,
+  int nsapi_len,
+  const char* selection_mode_buf,
+  int selection_mode_len,
+  const char* charging_characteristics_buf,
+  int charging_characteristics_len
 )
 {
   std::cout << ">>> imsi_buf: " << (imsi_buf ? imsi_buf : "NULL") << std::endl;
   std::cout << ">>> tz: " << (unsigned int)tz << std::endl;
+  std::string_view calling_station_id = calling_station_id_buf ?
+    std::string_view(calling_station_id_buf, calling_station_id_len) :
+    std::string_view();
   std::string_view called_station_id = called_station_id_buf ?
     std::string_view(called_station_id_buf, called_station_id_len) :
+    std::string_view();
+  std::vector<unsigned char> user_location_info_buf(
+    static_cast<const unsigned char*>(user_location_info),
+    static_cast<const unsigned char*>(user_location_info) + user_location_info_len);
+  std::string_view nsapi = nsapi_buf ?
+    std::string_view(nsapi_buf, nsapi_len) : std::string_view();
+  std::string_view selection_mode = selection_mode_buf ?
+    std::string_view(selection_mode_buf, selection_mode_len) : std::string_view();
+  std::string_view charging_characteristics = charging_characteristics_buf ?
+    std::string_view(charging_characteristics_buf, charging_characteristics_len) :
     std::string_view();
 
   processor->process_request(
     static_cast<Processor::AcctStatusType>(acct_status_type),
-    called_station_id,
+    calling_station_id, //< msisdn
+    called_station_id, //< APN
     imsi_buf ? std::string_view(imsi_buf) : std::string_view(),
     imei_buf ? std::string_view(imei_buf) : std::string_view(),
     framed_ip_address,
@@ -90,7 +116,11 @@ bool tel_gateway_process_request(
     sgsn_address,
     access_network_charging_address,
     charging_id,
-    gprs_negotiated_qos_profile
+    gprs_negotiated_qos_profile,
+    user_location_info_buf,
+    nsapi,
+    selection_mode,
+    charging_characteristics
   );
 
   return true;
@@ -117,35 +147,68 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
   session_rule_config.clear_closed_sessions_timeout = Gears::Time::ONE_DAY;
   session_rule_config.default_rule.close_timeout = Gears::Time(30);
 
-  auto connection = std::make_shared<dpi::Connection>(
-    nullptr,
-    config.gx_diameter_url->local_endpoints,
-    config.gx_diameter_url->connect_endpoints
-  );
-
   dpi::DiameterSessionPtr gx_diameter_session;
 
   if (config.gx_diameter_url.has_value())
   {
-    gx_diameter_session = std::make_shared<dpi::DiameterSession>(
+    auto sctp_connection = std::make_shared<dpi::SCTPConnection>(
       nullptr,
-      connection,
+      config.gx_diameter_url->local_endpoints,
+      config.gx_diameter_url->connect_endpoints
+    );
+
+    sctp_connection->connect();
+
+    std::vector<std::string> local_ips;
+    for (const auto& local_endpoint : config.gx_diameter_url->local_endpoints)
+    {
+      local_ips.emplace_back(local_endpoint.host);
+    }
+
+    dpi::DiameterSession::make_exchange(
+      *sctp_connection,
       config.gx_diameter_url->origin_host,
       config.gx_diameter_url->origin_realm,
-      config.gx_diameter_url->destination_host,
+      !config.gx_diameter_url->destination_host.empty() ?
+        std::optional<std::string>(config.gx_diameter_url->destination_host) :
+        std::optional<std::string>(),
+      config.gx_diameter_url->destination_realm,
+      "Traflab PGW",
+      std::vector<uint32_t>({16777238, 4}),
+      local_ips
+    );
+
+    auto gx_connection = sctp_connection; // std::make_shared<dpi::SCTPStreamConnection>(sctp_connection, 1);
+
+    //auto connection_keeper = std::make_shared<dpi::ConnectionKeeper>(sctp_connection);
+    //all_active_objects->add_child_object(connection_keeper);
+
+    gx_diameter_session = std::make_shared<dpi::DiameterSession>(
+      nullptr,
+      gx_connection,
+      config.gx_diameter_url->origin_host,
+      config.gx_diameter_url->origin_realm,
+      !config.gx_diameter_url->destination_host.empty() ?
+        std::optional<std::string>(config.gx_diameter_url->destination_host) :
+        std::optional<std::string>(),
       config.gx_diameter_url->destination_realm,
       16777238, //< Gx
       "3GPP Gx"
     );
+
+    all_active_objects->add_child_object(gx_diameter_session);
   }
 
-  dpi::DiameterSessionPtr gy_diameter_session;
+  dpi::DiameterSessionPtr gy_diameter_session = gx_diameter_session;
 
+  /*
   if (config.gy_diameter_url.has_value())
   {
+    auto gy_connection = std::make_shared<dpi::SCTPStreamConnection>(sctp_connection, 2);
+
     gy_diameter_session = std::make_shared<dpi::DiameterSession>(
       nullptr,
-      connection,
+      gy_connection,
       config.gy_diameter_url->origin_host,
       config.gy_diameter_url->origin_realm,
       config.gy_diameter_url->destination_host,
@@ -153,7 +216,10 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
       4, //< DCCA = 4
       "Diameter Credit Control Application"
     );
+
+    all_active_objects->add_child_object(gy_diameter_session);
   }
+  */
 
   auto user_storage = std::make_shared<dpi::UserStorage>(
     nullptr, session_rule_config);
@@ -163,7 +229,8 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
     user_storage,
     user_session_storage,
     gx_diameter_session,
-    gy_diameter_session
+    gy_diameter_session,
+    pcc_config_provider
   );
   std::string config_path_str(config_path, config_path_len);
   processor->load_config(config_path_str);
@@ -197,6 +264,15 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
   composite_user_session_packet_processor->add_child_object(
     main_user_session_packet_processor);
 
+  if (pcc_config_provider)
+  {
+    auto session_rule_override_user_session_packet_processor =
+      std::make_shared<dpi::SessionRuleOverrideUserSessionPacketProcessor>(
+        pcc_config_provider);
+    composite_user_session_packet_processor->add_child_object(
+      session_rule_override_user_session_packet_processor);
+  }
+
   if (!config.dump_stat_root.empty())
   {
     auto stat_user_session_packet_processor = std::make_shared<dpi::StatUserSessionPacketProcessor>(
@@ -213,7 +289,8 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
     processor->event_logger(),
     config.ip_rules_root,
     gx_diameter_session,
-    gy_diameter_session);
+    gy_diameter_session,
+    pcc_config_provider);
 
   if (config.http_port > 0)
   {

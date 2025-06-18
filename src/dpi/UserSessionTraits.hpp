@@ -14,7 +14,9 @@ namespace dpi
     uint32_t framed_ip_address = 0;
 
     std::string msisdn;
+    std::string imei;
     std::string imsi;
+    std::string called_station_id;
     uint32_t nas_ip_address = 0;
     uint32_t rat_type = 0;
     unsigned char timezone = 0; //< RADIUS: Vendor-Specific.3GPP.MS-TimeZone.TZ
@@ -24,6 +26,10 @@ namespace dpi
     //< RADIUS: Vendor-Specific.3GPP.Access-Network-Charging-Address
     uint32_t charging_id = 0; //< RADIUS: Vendor-Specific.3GPP.Charging-ID
     std::string gprs_negotiated_qos_profile; //< RADIUS
+    std::vector<unsigned char> user_location_info;
+    std::string nsapi;
+    std::string selection_mode;
+    std::string charging_characteristics;
 
     std::string to_string() const;
   };

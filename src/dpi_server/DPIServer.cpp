@@ -76,7 +76,8 @@ int main(int argc, char **argv)
     event_logger,
     config.ip_rules_root,
     dpi::DiameterSessionPtr(),
-    dpi::DiameterSessionPtr()
+    dpi::DiameterSessionPtr(),
+    dpi::PccConfigProviderPtr()
   );
 
   auto http_server = std::make_shared<dpi::HttpServer>(

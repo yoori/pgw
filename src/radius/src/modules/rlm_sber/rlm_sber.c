@@ -24,6 +24,7 @@ static fr_dict_t const *dict_radius;
 
 static fr_dict_attr_t const *attr_acct_status_type;
 static fr_dict_attr_t const *attr_calling_station_id;
+static fr_dict_attr_t const *attr_called_station_id;
 static fr_dict_attr_t const *attr_framed_ip_address;
 static fr_dict_attr_t const *attr_nas_ip_address;
 static fr_dict_attr_t const *attr_vendor_specific_3gpp_imsi;
@@ -35,6 +36,10 @@ static fr_dict_attr_t const *attr_vendor_specific_3gpp_sgsn_address;
 static fr_dict_attr_t const *attr_vendor_specific_3gpp_access_network_charging_address;
 static fr_dict_attr_t const *attr_vendor_specific_3gpp_charging_id;
 static fr_dict_attr_t const *attr_vendor_specific_3gpp_gprs_negotiated_qos_profile;
+static fr_dict_attr_t const *attr_vendor_specific_3gpp_user_location_info;
+static fr_dict_attr_t const *attr_vendor_specific_3gpp_nsapi;
+static fr_dict_attr_t const *attr_vendor_specific_3gpp_selection_mode;
+static fr_dict_attr_t const *attr_vendor_specific_3gpp_charging_characteristics;
 
 extern fr_dict_autoload_t rlm_sber_dict[];
 fr_dict_autoload_t rlm_sber_dict[] = {
@@ -46,6 +51,7 @@ fr_dict_autoload_t rlm_sber_dict[] = {
 extern fr_dict_attr_autoload_t rlm_dict_attr[];
 fr_dict_attr_autoload_t rlm_dict_attr[] = {
   { .out = &attr_calling_station_id, .name = "Calling-Station-Id", .type = FR_TYPE_STRING, .dict = &dict_radius },
+  { .out = &attr_called_station_id, .name = "Called-Station-Id", .type = FR_TYPE_STRING, .dict = &dict_radius },
   { .out = &attr_framed_ip_address, .name = "Framed-IP-Address", .type = FR_TYPE_IPV4_ADDR, .dict = &dict_radius },
   { .out = &attr_nas_ip_address, .name = "NAS-IP-Address", .type = FR_TYPE_IPV4_ADDR, .dict = &dict_radius },
   { .out = &attr_acct_status_type, .name = "Acct-Status-Type", .type = FR_TYPE_UINT32, .dict = &dict_radius },
@@ -104,6 +110,30 @@ fr_dict_attr_autoload_t rlm_dict_attr[] = {
   {
     .out = &attr_vendor_specific_3gpp_gprs_negotiated_qos_profile,
     .name = "Vendor-Specific.3GPP.GPRS-Negotiated-QoS-profile",
+    .type = FR_TYPE_STRING,
+    .dict = &dict_radius
+  },
+  {
+    .out = &attr_vendor_specific_3gpp_user_location_info,
+    .name = "Vendor-Specific.3GPP.User-Location-Info",
+    .type = FR_TYPE_OCTETS,
+    .dict = &dict_radius
+  },
+  {
+    .out = &attr_vendor_specific_3gpp_nsapi,
+    .name = "Vendor-Specific.3GPP.NSAPI",
+    .type = FR_TYPE_STRING,
+    .dict = &dict_radius
+  },
+  {
+    .out = &attr_vendor_specific_3gpp_selection_mode,
+    .name = "Vendor-Specific.3GPP.Selection-Mode",
+    .type = FR_TYPE_STRING,
+    .dict = &dict_radius
+  },
+  {
+    .out = &attr_vendor_specific_3gpp_charging_characteristics,
+    .name = "Vendor-Specific.3GPP.Charging-Characteristics",
     .type = FR_TYPE_STRING,
     .dict = &dict_radius
   },
@@ -184,6 +214,7 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
   //fr_pair_list_t *list;
 
   fr_pair_t *attr_acct_status_type_vp;
+  fr_pair_t *attr_calling_station_vp;
   fr_pair_t *attr_called_station_vp;
   fr_pair_t *attr_framed_ip_address_vp;
   fr_pair_t *attr_nas_ip_address_vp;
@@ -196,6 +227,10 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
   fr_pair_t *attr_access_network_charging_address_vp;
   fr_pair_t *attr_charging_id_vp;
   fr_pair_t *attr_gprs_negotiated_qos_profile_vp;
+  fr_pair_t *attr_vendor_specific_3gpp_user_location_info_vp;
+  fr_pair_t *attr_vendor_specific_3gpp_nsapi_vp;
+  fr_pair_t *attr_vendor_specific_3gpp_selection_mode_vp;
+  fr_pair_t *attr_vendor_specific_3gpp_charging_characteristics_vp;
   bool res;
   (void)mctx;
 
@@ -224,8 +259,10 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
 
   attr_acct_status_type_vp = fr_pair_find_by_da_nested(
     &request->request_pairs, NULL, attr_acct_status_type);
-  attr_called_station_vp = fr_pair_find_by_da_nested(
+  attr_calling_station_vp = fr_pair_find_by_da_nested(
     &request->request_pairs, NULL, attr_calling_station_id);
+  attr_called_station_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_called_station_id);
   attr_framed_ip_address_vp = fr_pair_find_by_da_nested(
     &request->request_pairs, NULL, attr_framed_ip_address);
   attr_nas_ip_address_vp = fr_pair_find_by_da_nested(
@@ -248,9 +285,19 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
     &request->request_pairs, NULL, attr_vendor_specific_3gpp_charging_id);
   attr_gprs_negotiated_qos_profile_vp = fr_pair_find_by_da_nested(
     &request->request_pairs, NULL, attr_vendor_specific_3gpp_gprs_negotiated_qos_profile);
+  attr_vendor_specific_3gpp_user_location_info_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_vendor_specific_3gpp_user_location_info);
+  attr_vendor_specific_3gpp_nsapi_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_vendor_specific_3gpp_nsapi);
+  attr_vendor_specific_3gpp_selection_mode_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_vendor_specific_3gpp_selection_mode);
+  attr_vendor_specific_3gpp_charging_characteristics_vp = fr_pair_find_by_da_nested(
+    &request->request_pairs, NULL, attr_vendor_specific_3gpp_charging_characteristics);
 
   res = tel_gateway_process_request(
     attr_acct_status_type_vp ? attr_acct_status_type_vp->vp_uint32 : 0,
+    attr_calling_station_vp ? attr_calling_station_vp->vp_strvalue : 0,
+    attr_calling_station_vp ? attr_calling_station_vp->vp_length : 0,
     attr_called_station_vp ? attr_called_station_vp->vp_strvalue : 0,
     attr_called_station_vp ? attr_called_station_vp->vp_length : 0,
     attr_framed_ip_address_vp ? *(uint32_t const*)&attr_framed_ip_address_vp->vp_ipv4addr : 0,
@@ -266,7 +313,23 @@ static unlang_action_t mod_any(rlm_rcode_t *p_result, module_ctx_t const *mctx, 
     attr_charging_id_vp ?
       *(uint32_t const*)&attr_charging_id_vp->vp_uint32 : 0,
     attr_gprs_negotiated_qos_profile_vp ?
-      attr_gprs_negotiated_qos_profile_vp->vp_strvalue : 0
+      attr_gprs_negotiated_qos_profile_vp->vp_strvalue : 0,
+    attr_vendor_specific_3gpp_user_location_info_vp ?
+      attr_vendor_specific_3gpp_user_location_info_vp->vp_octets : 0,
+    attr_vendor_specific_3gpp_user_location_info_vp ?
+      attr_vendor_specific_3gpp_user_location_info_vp->vp_length : 0,
+    attr_vendor_specific_3gpp_nsapi_vp ?
+      attr_vendor_specific_3gpp_nsapi_vp->vp_strvalue : 0,
+    attr_vendor_specific_3gpp_nsapi_vp ?
+      attr_vendor_specific_3gpp_nsapi_vp->vp_length : 0,
+    attr_vendor_specific_3gpp_selection_mode_vp ?
+      attr_vendor_specific_3gpp_selection_mode_vp->vp_strvalue : 0,
+    attr_vendor_specific_3gpp_selection_mode_vp ?
+      attr_vendor_specific_3gpp_selection_mode_vp->vp_length : 0,
+    attr_vendor_specific_3gpp_charging_characteristics_vp ?
+      attr_vendor_specific_3gpp_charging_characteristics_vp->vp_strvalue : 0,
+    attr_vendor_specific_3gpp_charging_characteristics_vp ?
+      attr_vendor_specific_3gpp_charging_characteristics_vp->vp_length : 0
   );
 
   if (res)

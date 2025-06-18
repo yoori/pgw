@@ -13,6 +13,7 @@ add_library(dpi
   NetInterfaceBridgeNDPIProcessor.cpp
   UserSessionPacketProcessor.cpp
   MainUserSessionPacketProcessor.cpp
+  SessionRuleOverrideUserSessionPacketProcessor.cpp
   StatUserSessionPacketProcessor.cpp
   IpList.cpp
   EventProcessor.cpp
@@ -25,6 +26,8 @@ add_library(dpi
   PccConfig.cpp
   PccConfigProvider.cpp
   UserSession.cpp
+  SCTPConnection.cpp
+  ConnectionKeeper.cpp
   )
 
 target_link_libraries(dpi

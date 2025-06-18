@@ -20,6 +20,11 @@ namespace dpi
     UserSessionPtr added_session;
 
     {
+      std::cout << "User sessions: add session for ip = " <<
+        ipv4_address_to_string(user_session_traits.framed_ip_address) <<
+        " (msisdn = " << user->msisdn() << ")" <<
+        std::endl;
+
       std::unique_lock lock{lock_};
 
       auto it = user_sessions_by_ip_.find(user_session_traits.framed_ip_address);
@@ -29,7 +34,7 @@ namespace dpi
       }
       else
       {
-        added_session = std::make_shared<UserSession>(UserSessionTraits(), user);
+        added_session = std::make_shared<UserSession>(user_session_traits, user);
         user_sessions_by_ip_.emplace(
           user_session_traits.framed_ip_address,
           added_session);
@@ -42,6 +47,9 @@ namespace dpi
   UserSessionPtr
   UserSessionStorage::remove_user_session(uint32_t ip)
   {
+    std::cout << "User sessions: remove session for ip = " <<
+      ipv4_address_to_string(ip) <<
+      std::endl;
     std::unique_lock lock{lock_};
 
     auto it = user_sessions_by_ip_.find(ip);

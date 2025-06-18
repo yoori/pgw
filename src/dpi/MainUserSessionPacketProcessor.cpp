@@ -43,6 +43,12 @@ namespace dpi
     uint64_t packet_size,
     const void* packet)
   {
+    if (session_key.traffic_type() == "unknown" && flow_traits.src_ip == 0)
+    {
+      return;
+    }
+
+    if (user)
     {
       PacketProcessingState local_packet_processing_state = user->process_packet(
         session_rule_config_,
@@ -52,57 +58,90 @@ namespace dpi
 
       if (local_packet_processing_state.block_packet)
       {
-        std::cout << "MainUserSessionPacketProcessor::process_user_session_packet(): block packet" << std::endl;
+        log_packet_block_(session_key, flow_traits, "user processing");
+        //std::cout << "MainUserSessionPacketProcessor::process_user_session_packet(): block packet" << std::endl;
       }
 
       packet_processing_state += local_packet_processing_state;
-    }
 
-    if (session_key.category_type() == "fishing")
-    {
-      // fishing event
-      if (!process_event_(
-            session_key.category_type(),
-            now,
-            flow_traits.src_ip,
-            flow_traits.dst_ip))
+      if (session_key.category_type() == "fishing")
       {
-        packet_processing_state.block_packet = true;
-      }
-    }
-
-    // Check possible state changes
-    if (!user->msisdn().empty())
-    {
-      /*
-      std::cout << "XXX packet: traffic_type = " << session_key.traffic_type <<
-        ", category_type = " << session_key.category_type <<
-        ", src = " << ipv4_address_to_string(src_ip) <<
-        ", dst = " << ipv4_address_to_string(dst_ip) <<
-        std::endl;
-      */
-
-      if (packet_processing_state.opened_new_session)
-        //< check events state change only if new session opened
-      {
-        packet_processing_state.opened_new_session = true;
-
-        if (recheck_state_session_keys_.find(session_key) != recheck_state_session_keys_.end() ||
-          recheck_state_session_keys_.find(SessionKey(std::string(), session_key.category_type())) !=
-            recheck_state_session_keys_.end())
+        // fishing event
+        if (!process_event_(
+              session_key.category_type(),
+              now,
+              flow_traits.src_ip,
+              flow_traits.dst_ip))
         {
-          bool local_send_packet = check_user_state_(
-            *user,
-            session_key,
-            flow_traits.src_ip,
-            flow_traits.dst_ip,
-            now);
-          if (!local_send_packet)
+          log_packet_block_(session_key, flow_traits, "event");
+          packet_processing_state.block_packet = true;
+        }
+      }
+
+      // Check possible state changes
+      if (!user->msisdn().empty())
+      {
+        /*
+        std::cout << "XXX packet: traffic_type = " << session_key.traffic_type <<
+          ", category_type = " << session_key.category_type <<
+          ", src = " << ipv4_address_to_string(src_ip) <<
+          ", dst = " << ipv4_address_to_string(dst_ip) <<
+          std::endl;
+        */
+
+        if (packet_processing_state.opened_new_session)
+          //< check events state change only if new session opened
+        {
+          packet_processing_state.opened_new_session = true;
+
+          if (recheck_state_session_keys_.find(session_key) != recheck_state_session_keys_.end() ||
+            recheck_state_session_keys_.find(SessionKey(std::string(), session_key.category_type())) !=
+              recheck_state_session_keys_.end())
           {
-            packet_processing_state.block_packet = true;
+            bool local_send_packet = check_user_state_(
+              *user,
+              session_key,
+              flow_traits.src_ip,
+              flow_traits.dst_ip,
+              now);
+            if (!local_send_packet)
+            {
+              log_packet_block_(session_key, flow_traits, "user state");
+              packet_processing_state.block_packet = true;
+            }
           }
         }
       }
+
+      // check session
+      uint32_t src_ip = flow_traits.src_ip;
+      uint32_t dst_ip = flow_traits.dst_ip;
+      auto user_session = get_user_session_(src_ip, dst_ip);
+      if (!user_session)
+      {
+        log_packet_block_(session_key, flow_traits, "non found session");
+        packet_processing_state.block_packet = true;
+      }
+      else
+      {
+        UserSession::UseLimitResult use_limit_result =
+          user_session->use_limit(session_key, now, packet_size);
+
+        if (use_limit_result.block)
+        {
+          log_packet_block_(session_key, flow_traits, "reached limit");
+          packet_processing_state.block_packet = true;
+          packet_processing_state.limit_reached = true;
+        }
+      }
+    }
+    else
+    {
+      log_packet_block_(session_key, flow_traits, "non registered user");
+      // Block packets for non registered users
+      PacketProcessingState local_packet_processing_state;
+      local_packet_processing_state.block_packet = true;
+      packet_processing_state += local_packet_processing_state;
     }
   }
 
@@ -111,6 +150,19 @@ namespace dpi
     SessionKey session_key;
     std::string name;
   };
+
+  void
+  MainUserSessionPacketProcessor::log_packet_block_(
+    const SessionKey& session_key,
+    const FlowTraits& flow_traits,
+    const char* block_reason)
+  {
+    std::cout << "Process packet: block packet " << session_key.to_string() <<
+      " - " << block_reason << ", flow traits: " <<
+      ipv4_address_to_string(flow_traits.src_ip) << " => " <<
+      ipv4_address_to_string(flow_traits.dst_ip) <<
+      std::endl;
+  }
 
   bool MainUserSessionPacketProcessor::check_user_state_(
     User& user,
@@ -188,12 +240,10 @@ namespace dpi
     return send_packet;
   }
 
-  bool MainUserSessionPacketProcessor::process_event_(
-    const std::string& event,
-    const Gears::Time& now,
-    uint32_t src_ip,
-    uint32_t dst_ip
-    )
+  dpi::UserSessionPtr
+  MainUserSessionPacketProcessor::get_user_session_(
+    uint32_t& src_ip,
+    uint32_t& dst_ip)
   {
     auto user_session = user_session_storage_->get_user_session_by_ip(src_ip);
 
@@ -205,6 +255,18 @@ namespace dpi
         std::swap(src_ip, dst_ip);
       }
     }
+
+    return user_session;
+  }
+
+  bool MainUserSessionPacketProcessor::process_event_(
+    const std::string& event,
+    const Gears::Time& now,
+    uint32_t src_ip,
+    uint32_t dst_ip
+    )
+  {
+    auto user_session = get_user_session_(src_ip, dst_ip);
 
     if (!user_session)
     {

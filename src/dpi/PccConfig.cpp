@@ -16,7 +16,7 @@ namespace dpi
     if (!file.is_open())
     {
       std::ostringstream ostr;
-      ostr << "Can't open ip list by path: " << file_path;
+      ostr << "Can't open pcc config by path: " << file_path;
       throw Exception(ostr.str());
     }
 
@@ -31,6 +31,12 @@ namespace dpi
         const auto& session_key_obj = config_element_obj["session_key"];
         const std::string traffic_type = session_key_obj["traffic_type"].as_string();
         const std::string category_type = session_key_obj["category_type"].as_string();
+        session_key_rule.session_key = SessionKey(traffic_type, category_type);
+
+        if (config_element_obj.contains("charging_rule_name"))
+        {
+          session_key_rule.charging_rule_name = config_element_obj["charging_rule_name"].as_string();
+        }
 
         if (config_element_obj.contains("rating_groups"))
         {
@@ -74,9 +80,31 @@ namespace dpi
           session_key_rule.allow_traffic = config_element_obj["allow_traffic"].as_bool();
         }
 
-        result_config->session_keys.emplace(
-          SessionKey(traffic_type, category_type),
-          session_key_rule);
+        if (config_element_obj.contains("check_gx"))
+        {
+          session_key_rule.check_gx = config_element_obj["check_gx"].as_bool();
+        }
+
+        if (config_element_obj.contains("check_gy"))
+        {
+          session_key_rule.check_gy = config_element_obj["check_gy"].as_bool();
+        }
+
+        result_config->session_keys.emplace(session_key_rule.session_key, session_key_rule);
+
+        if (!session_key_rule.charging_rule_name.empty())
+        {
+          result_config->session_rule_by_charging_name.emplace(
+            session_key_rule.charging_rule_name,
+            session_key_rule);
+        }
+
+        for (const auto& rating_group_id : session_key_rule.rating_groups)
+        {
+          result_config->session_rule_by_rating_group.emplace(
+            rating_group_id,
+            session_key_rule);
+        }
       }
     }
 

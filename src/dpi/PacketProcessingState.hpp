@@ -24,6 +24,7 @@ namespace dpi
     bool block_packet = false;
     bool opened_new_session = false;
     bool shaped = false;
+    bool limit_reached = false; //< set if blocked by limit
   };
 }
 

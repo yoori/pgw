@@ -44,29 +44,33 @@ int main(int argc, char* argv[])
 
   try
   {
-    std::vector<dpi::Connection::Endpoint> local_endpoints;
+    std::vector<dpi::SCTPConnection::Endpoint> local_endpoints;
     for (auto it = opt_local_servers->begin(); it != opt_local_servers->end(); ++it)
     {
-      local_endpoints.emplace_back(dpi::Connection::Endpoint(*it, *opt_local_port));
+      local_endpoints.emplace_back(dpi::SCTPConnection::Endpoint(*it, *opt_local_port));
     }
 
-    std::vector<dpi::Connection::Endpoint> connect_endpoints;
+    std::vector<dpi::SCTPConnection::Endpoint> connect_endpoints;
     for (auto it = opt_connect_servers->begin(); it != opt_connect_servers->end(); ++it)
     {
-      connect_endpoints.emplace_back(dpi::Connection::Endpoint(*it, *opt_connect_port));
+      connect_endpoints.emplace_back(dpi::SCTPConnection::Endpoint(*it, *opt_connect_port));
     }
 
     auto logger = std::make_shared<dpi::StreamLogger>(std::cout);
 
-    auto connection = std::make_shared<dpi::Connection>(
+    auto sctp_connection = std::make_shared<dpi::SCTPConnection>(
       logger,
       local_endpoints,
       connect_endpoints
     );
 
+    sctp_connection->connect();
+
+    sleep(10);
+
     std::shared_ptr<dpi::DiameterSession> session = std::make_shared<dpi::DiameterSession>(
       logger,
-      connection,
+      sctp_connection,
       *opt_origin_host,
       *opt_origin_realm,
       !opt_destination_host->empty() ? std::optional<std::string>(*opt_destination_host) : std::nullopt,
@@ -75,22 +79,29 @@ int main(int argc, char* argv[])
       "Diameter Credit Control Application"
       );
 
+    session->activate_object();
+
     dpi::DiameterSession::GyRequest request;
-    request.msisdn = "79662660021";
-    request.imsi = "250507712932915";
-    request.framed_ip_address = ipv4(10, 243, 64, 1);
-    request.nas_ip_address = ipv4(10, 77, 21, 116);
-    request.rat_type = 1004;
-    request.mcc_mnc = "25020";
-    request.timezone = 33;
-    request.sgsn_ip_address = ipv4(185, 77, 17, 121);
-    request.access_network_charging_ip_address = ipv4(185, 174, 131, 53);
-    request.charging_id = 0x4188491;
-    request.gprs_negotiated_qos_profile = "08-48080000c350000249f0"; // 08-48080000c350000249f0
-    request.rating_groups.emplace_back(32); // Internet(MVNO_SBT_UNLIM): RG32 MK64
+    request.user_session_traits.msisdn = "79662660021";
+    request.user_session_traits.imsi = "250507712932915";
+    request.user_session_traits.framed_ip_address = ipv4(10, 243, 64, 1);
+    request.user_session_traits.nas_ip_address = ipv4(10, 77, 21, 116);
+    request.user_session_traits.rat_type = 1004;
+    request.user_session_traits.mcc_mnc = "25020";
+    request.user_session_traits.timezone = 33;
+    request.user_session_traits.sgsn_ip_address = ipv4(185, 77, 17, 121);
+    request.user_session_traits.access_network_charging_ip_address = ipv4(185, 174, 131, 53);
+    request.user_session_traits.charging_id = 0x4188491;
+    request.user_session_traits.gprs_negotiated_qos_profile = "08-48080000c350000249f0"; // 08-48080000c350000249f0
+    request.usage_rating_groups.emplace_back(dpi::DiameterSession::GyRequest::UsageRatingGroup(32)); // Internet(MVNO_SBT_UNLIM): RG32 MK64
 
     dpi::DiameterSession::GyResponse gy_init_response = session->send_gy_init(request);
     std::cout << "Gy init request: result-code: " << gy_init_response.result_code << std::endl;
+
+    ::sleep(100);
+
+    session->deactivate_object();
+    session->wait_object();
   }
   catch(const Gears::Exception& ex)
   {

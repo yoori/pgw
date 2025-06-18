@@ -38,17 +38,16 @@ namespace dpi
   }
 
   UserSession::UseLimitResult
-  UserSession::use_limit(
+  UserSession::use_limit_i_(
     const SessionKey& session_key,
     const Gears::Time& now,
     unsigned long used_bytes)
   {
-    //std::cout << "use_limit: used_bytes = " << used_bytes << std::endl;
     UseLimitResult use_limit_result;
 
-    std::unique_lock<std::shared_mutex> guard(limits_lock_);
     auto use_it = used_limits_.find(session_key);
     auto limit_it = limits_.find(session_key);
+
     if (limit_it == limits_.end())
     {
       //std::cout << "use_limit: #1" << std::endl;
@@ -85,11 +84,37 @@ namespace dpi
     if (limit_it->second.gy_limit.has_value() &&
       prev_used_bytes + used_bytes > *limit_it->second.gy_limit)
     {
+      //std::cout << "use_limit: #3, prev_used_bytes = " << prev_used_bytes <<
+      //  ", used_bytes = " << used_bytes <<
+      //  ", gy_limit = " << *limit_it->second.gy_limit <<
+      //  std::endl;
       use_limit_result.revalidate_gy = true;
       use_limit_result.block = true;
     }
 
-    used_limits_[session_key].used_bytes += used_bytes;
+    if (!use_limit_result.block)
+    {
+      used_limits_[session_key].used_bytes += used_bytes;
+    }
+
+    return use_limit_result;
+  }
+
+  UserSession::UseLimitResult
+  UserSession::use_limit(
+    const SessionKey& session_key,
+    const Gears::Time& now,
+    unsigned long used_bytes)
+  {
+    //std::cout << "use_limit: used_bytes = " << used_bytes << std::endl;
+
+    std::unique_lock<std::shared_mutex> guard(limits_lock_);
+    UseLimitResult use_limit_result = use_limit_i_(session_key, now, used_bytes);
+
+    if (use_limit_result.block)
+    {
+      use_limit_result = use_limit_i_(SessionKey(), now, used_bytes);
+    }
 
     return use_limit_result;
   }

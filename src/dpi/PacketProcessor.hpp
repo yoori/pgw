@@ -17,7 +17,8 @@
 #include "NetInterfaceProcessor.hpp"
 #include "ShapingManager.hpp"
 #include "DiameterSession.hpp"
-#include "TrafficRules.hpp"
+//#include "TrafficRules.hpp"
+#include "PccConfigProvider.hpp"
 
 namespace dpi
 {
@@ -31,7 +32,8 @@ namespace dpi
       LoggerPtr event_logger,
       std::string_view ip_rules_path,
       dpi::DiameterSessionPtr gx_diameter_session,
-      dpi::DiameterSessionPtr gy_diameter_session
+      dpi::DiameterSessionPtr gy_diameter_session,
+      PccConfigProviderPtr pcc_config_provider
       );
 
     PacketProcessingState
@@ -81,10 +83,16 @@ namespace dpi
 
     const SessionKey& proto_to_session_key_(u_int16_t proto) const;
 
+    void
+    fill_gx_gy_stats_(
+      dpi::DiameterSession::GxUpdateRequest& gx_request,
+      dpi::DiameterSession::GyRequest& gy_request,
+      const dpi::UserSession& user_session);
+
   private:
     const Gears::Time TELEGRAM_CALL_MAX_PERIOD_ = Gears::Time(30);
     const Gears::Time SBER_OPEN_MAX_PERIOD_ = Gears::Time(60);
-    const DiameterTrafficTypeProvider diameter_traffic_type_provider_;
+    //const DiameterTrafficTypeProviderPtr diameter_traffic_type_provider_;
     const UserStoragePtr user_storage_;
     const UserSessionStoragePtr user_session_storage_;
     const LoggerPtr event_logger_;
@@ -92,6 +100,7 @@ namespace dpi
     const UserSessionPacketProcessorPtr user_session_packet_processor_;
     const dpi::DiameterSessionPtr gx_diameter_session_;
     const dpi::DiameterSessionPtr gy_diameter_session_;
+    const PccConfigProviderPtr pcc_config_provider_;
 
     //SessionRuleConfig session_rule_config_;
 

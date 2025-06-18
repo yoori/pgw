@@ -143,10 +143,10 @@ create_ipv4_avp(
   const uint8_t addr_buf[] = {
     0,
     0x1,
-    static_cast<uint8_t>((val >> 24) & 0xFF),
-    static_cast<uint8_t>((val >> 16) & 0xFF),
+    static_cast<uint8_t>(val & 0xFF),
     static_cast<uint8_t>((val >> 8) & 0xFF),
-    static_cast<uint8_t>(val & 0xFF)
+    static_cast<uint8_t>((val >> 16) & 0xFF),
+    static_cast<uint8_t>((val >> 24) & 0xFF)
   };
   return create_octets_avp(
     avp_code,
@@ -164,10 +164,10 @@ create_ipv4_4bytes_avp(
   bool mandatory)
 {
   const uint8_t addr_buf[] = {
-    static_cast<uint8_t>((val >> 24) & 0xFF),
-    static_cast<uint8_t>((val >> 16) & 0xFF),
+    static_cast<uint8_t>(val & 0xFF),
     static_cast<uint8_t>((val >> 8) & 0xFF),
-    static_cast<uint8_t>(val & 0xFF)
+    static_cast<uint8_t>((val >> 16) & 0xFF),
+    static_cast<uint8_t>((val >> 24) & 0xFF)
   };
   return create_octets_avp(
     avp_code,

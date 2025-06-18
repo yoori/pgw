@@ -39,4 +39,6 @@ namespace dpi
     DiameterTrafficTypeArray default_traffic_types_;
     Gears::HashTable<SessionKey, DiameterTrafficTypeArray> diameter_traffic_type_by_session_key_;
   };
+
+  //using DiameterTrafficTypeProviderPtr = std::shared_ptr<DiameterTrafficTypeProvider>;
 }

@@ -111,6 +111,7 @@ bool test_block_by_limit()
   return true;
 }
 
+// test_use_and_block_by_limit
 bool test_use_and_block_by_limit()
 {
   static const char* TEST_NAME = "use and block by limit check";
@@ -169,6 +170,7 @@ bool test_use_and_block_by_limit()
   return true;
 }
 
+// test_gx_flow
 bool test_gx_flow()
 {
   static const char* TEST_NAME = "gx flow";
@@ -246,9 +248,56 @@ bool test_gx_flow()
   return true;
 }
 
+// test_pass_by_generic_limit
+bool test_pass_by_generic_limit()
+{
+  static const char* TEST_NAME = "pass by generic limit check";
+
+  Gears::Time now = Gears::Time::get_time_of_day();
+
+  dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
+  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+
+  dpi::UserSession::SetLimitArray limits;
+  limits.emplace_back(
+    dpi::UserSession::SetLimit(
+      dpi::SessionKey(),
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      100000
+    )
+  );
+  limits.emplace_back(
+    dpi::UserSession::SetLimit(
+      dpi::SessionKey("test", std::string()),
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      0
+    )
+  );
+  user_session.set_limits(limits);
+
+  dpi::UserSession::UseLimitResult res = user_session.use_limit(
+    dpi::SessionKey("test", std::string()),
+    now,
+    10);
+
+  if (res.block)
+  {
+    std::cerr << TEST_NAME << ": blocked packet" << std::endl;
+    return false;
+  }
+
+  std::cout << TEST_NAME << ": success" << std::endl;
+  return true;
+}
+
 int main()
 {
   bool res = true;
+
   if (!test_no_limits())
   {
     res = false;
@@ -270,6 +319,11 @@ int main()
   }
 
   if (!test_gx_flow())
+  {
+    res = false;
+  }
+
+  if (!test_pass_by_generic_limit())
   {
     res = false;
   }

@@ -2,135 +2,32 @@
 
 #include <string>
 #include <optional>
+#include <unordered_set>
 #include <mutex>
+#include <condition_variable>
 
 #include <gears/Exception.hpp>
+#include <gears/TaskRunner.hpp>
+#include <gears/CompositeActiveObject.hpp>
 
 #include <Diameter/Packet.hpp>
 
 #include "Logger.hpp"
 #include "NetworkUtils.hpp"
+#include "BaseConnection.hpp"
+#include "SCTPConnection.hpp"
+#include "UserSessionTraits.hpp"
 
 namespace dpi
 {
-  // BaseConnection
-  class BaseConnection
-  {
-  public:
-    class Lock
-    {
-    public:
-      Lock(BaseConnection* connection)
-        : locker_(std::make_unique<std::unique_lock<std::mutex>>(connection->lock_)),
-          connection_(connection)
-      {}
-
-      BaseConnection* operator->()
-      {
-        return connection_;
-      }
-
-    private:
-      std::unique_ptr<std::unique_lock<std::mutex>> locker_;
-      BaseConnection* connection_;
-    };
-
-  public:
-    Lock lock();
-
-    virtual void send_packet(const ByteArray& send_packet) = 0;
-
-    virtual std::vector<unsigned char> read_bytes(unsigned long size) = 0;
-
-  protected:
-    std::mutex lock_;
-  };
-
-  // Connection
-  class Connection: public BaseConnection
-  {
-  public:
-    DECLARE_EXCEPTION(Exception, Gears::DescriptiveException);
-    DECLARE_EXCEPTION(NetworkError, Exception);
-    DECLARE_EXCEPTION(ConnectionClosedOnRead, NetworkError);
-
-    struct Endpoint
-    {
-      Endpoint() {};
-
-      Endpoint(std::string host_val, int port_val)
-        : host(std::move(host_val)), port(port_val)
-      {}
-
-      std::string host;
-      int port = 0;
-    };
-
-  public:
-    Connection(
-      LoggerPtr logger,
-      std::vector<Endpoint> local_endpoints,
-      std::vector<Endpoint> connect_endpoints,
-      std::function<void(Connection&)> init_fun = [](Connection&) {}
-    );
-
-    void send_packet(const ByteArray& send_packet) override;
-
-    std::vector<unsigned char> read_bytes(unsigned long size) override;
-
-    /*
-    void stream_send_packet(
-      unsigned int stream_index, const ByteArray& send_packet) override;
-
-    std::vector<unsigned char> stream_read_bytes(
-      unsigned int stream_index, unsigned long size) override;
-    */
-
-  private:
-    struct ConnectionHolder
-    {
-      int socket_fd;
-    };
-
-  private:
-    static void send_packet_(int socket_fd, const ByteArray& send_packet);
-
-    static std::vector<unsigned char>
-    read_bytes_(int socket_fd, unsigned long size);
-
-    ConnectionHolder socket_init_();
-
-    static void socket_close_(int socket_fd);
-
-    static void fill_addr_(struct sockaddr_in& res, const Endpoint& endpoint);
-
-  private:
-    const bool keep_open_connection_;
-
-    LoggerPtr logger_;
-    std::vector<Endpoint> local_endpoints_;
-    std::vector<Endpoint> connect_endpoints_;
-    std::function<void(Connection&)> init_fun_;
-
-    std::optional<ConnectionHolder> connection_holder_;
-  };
-
-  using BaseConnectionPtr = std::shared_ptr<BaseConnection>;
-
+  // DiameterSession
   /*
-  class ConnectionStream: public BaseConnection
+  class DiameterMessageContainer: public Gears::CompositeActiveObject
   {
-  public:
-    ConnectionStream(ConnectionPtr connection);
-
-    void send_packet(const ByteArray& send_packet) override;
-
-    std::vector<unsigned char> read_bytes(unsigned long size) override;
   };
   */
 
-  // DiameterSession
-  class DiameterSession
+  class DiameterSession: public Gears::CompositeActiveObject
   {
   public:
     DECLARE_EXCEPTION(Exception, Gears::DescriptiveException);
@@ -138,26 +35,27 @@ namespace dpi
 
     struct Request
     {
-      std::string msisdn;
-      std::string imsi;
-      std::string imei;
-      uint32_t framed_ip_address = 0;
-      uint32_t nas_ip_address = 0;
-      uint32_t rat_type = 0;
-      unsigned char timezone = 0; //< RADIUS: Vendor-Specific.3GPP.MS-TimeZone.TZ
-      std::string mcc_mnc;
-      uint32_t sgsn_ip_address = 0; //< RADIUS: Vendor-Specific.3GPP.SGSN-Address
-      uint32_t access_network_charging_ip_address = 0;
-      //< RADIUS: Vendor-Specific.3GPP.Access-Network-Charging-Address
-      uint32_t charging_id = 0; //< RADIUS: Vendor-Specific.3GPP.Charging-ID
-      std::string gprs_negotiated_qos_profile; //< RADIUS
+      UserSessionTraits user_session_traits;
 
       std::string to_string() const;
     };
 
     struct GyRequest: public Request
     {
-      std::vector<unsigned long> rating_groups;
+      struct UsageRatingGroup
+      {
+        UsageRatingGroup() {}
+
+        UsageRatingGroup(unsigned long rating_group_id_val, uint64_t total_octets_val = 0)
+          : rating_group_id(rating_group_id_val),
+            total_octets(total_octets_val)
+        {}
+
+        unsigned long rating_group_id = 0;
+        uint64_t total_octets = 0;
+      };
+
+      std::vector<UsageRatingGroup> usage_rating_groups;
     };
 
     struct GxUpdateRequest
@@ -198,7 +96,9 @@ namespace dpi
     };
 
     struct GxInitResponse: public GxResponse
-    {};
+    {
+      std::unordered_set<std::string> charging_rule_names;
+    };
 
     struct GxUpdateResponse: public GxResponse
     {};
@@ -208,7 +108,19 @@ namespace dpi
 
     struct GyResponse
     {
+      struct RatingGroupLimit
+      {
+        unsigned long rating_group_id = 0;
+        std::optional<unsigned long> max_bps;
+        std::optional<uint64_t> cc_total_octets;
+        Gears::Time validity_time;
+        unsigned long result_code = 0;
+
+        std::string to_string() const;
+      };
+
       unsigned int result_code = 0;
+      std::vector<RatingGroupLimit> rating_group_limits;
     };
 
     DiameterSession(
@@ -224,6 +136,8 @@ namespace dpi
       );
 
     virtual ~DiameterSession();
+
+    void deactivate_object() override;
 
     void set_logger(dpi::LoggerPtr logger);
 
@@ -242,51 +156,105 @@ namespace dpi
 
     GyResponse send_gy_init(const GyRequest& request);
 
-  private:
-    using PacketGenerator = std::function<ByteArray()>;
+    GyResponse send_gy_update(const GyRequest& request);
+
+    GyResponse send_gy_terminate(const GyRequest& request);
+
+    static void make_exchange(
+      BaseConnection& connection,
+      const std::string& origin_host,
+      const std::string& origin_realm,
+      const std::optional<std::string>& destination_host,
+      const std::optional<std::string>& destination_realm,
+      const std::string& product_name,
+      const std::vector<uint32_t>& applications,
+      const std::vector<std::string>& source_addresses);
+
+    void set_application(unsigned long application_id);
+
+  protected:
+    class ReadResponsesTask;
 
   private:
-    ByteArray generate_exchange_packet_() const;
+    using PacketGenerator = std::function<std::pair<unsigned int, ByteArray>()>;
 
-    ByteArray generate_gx_init_(
-      const Request& request) const;
+  private:
+    static ByteArray generate_exchange_packet_(
+      const std::string& origin_host,
+      const std::string& origin_realm,
+      const std::optional<std::string>& destination_host,
+      const std::optional<std::string>& destination_realm,
+      const std::string& product_name,
+      const std::vector<uint32_t>& applications,
+      const std::vector<std::string>& source_addresses);
 
-    ByteArray generate_gx_update_(
+    std::pair<unsigned int, ByteArray>
+    generate_gx_init_(const Request& request) const;
+
+    std::pair<unsigned int, ByteArray>
+    generate_gx_update_(
       const Request& request,
       const GxUpdateRequest& update_request) const;
 
-    ByteArray generate_gx_terminate_(
+    std::pair<unsigned int, ByteArray>
+    generate_gx_terminate_(
       const Request& request,
       const GxTerminateRequest& terminate_request) const;
 
-    Diameter::Packet generate_base_gx_packet_(
-      const Request& request)
+    std::pair<unsigned int, Diameter::Packet>
+    generate_base_gx_packet_(const Request& request)
       const;
 
-    ByteArray generate_gy_init_(
-      const GyRequest& request) const;
+    std::pair<unsigned int, ByteArray>
+    generate_gy_init_(const GyRequest& request) const;
 
-    ByteArray generate_base_gy_packet_(
-      const GyRequest& request) const;
+    std::pair<unsigned int, ByteArray>
+    generate_gy_update_(const GyRequest& request) const;
 
-    ByteArray generate_watchdog_packet_() const;
+    std::pair<unsigned int, ByteArray>
+    generate_gy_terminate_(const GyRequest& request) const;
 
-    std::pair<std::optional<uint32_t>, Diameter::Packet>
+    std::pair<unsigned int, Diameter::Packet>
+    generate_base_gy_packet_(const GyRequest& request) const;
+
+    ByteArray
+    generate_watchdog_packet_() const;
+
+    ByteArray
+    generate_rar_response_packet_(const std::string& session_id) const;
+
+    std::pair<std::optional<uint32_t>, std::shared_ptr<Diameter::Packet>>
     send_and_read_response_i_(
       PacketGenerator packet_generator);
 
-    static Diameter::Packet read_packet_(BaseConnection::Lock& connection);
+    //static Diameter::Packet read_packet_(BaseConnection::Lock& connection);
 
     bool is_connected_(int socket_fd);
 
-    void make_exchange_i_(BaseConnection::Lock& connection_lock);
+    //void make_exchange_i_();
 
     static ByteArray uint32_to_buf_(uint32_t val);
+
+    // responses reading thread
+    void responses_reading_();
+
+    void
+    process_input_request_(const Diameter::Packet& request);
+
+    std::shared_ptr<Diameter::Packet>
+    wait_response_(std::optional<uint32_t> request_i = std::nullopt);
+
+    void
+    parse_gy_response_(GyResponse& gy_response, Diameter::Packet& response);
 
   private:
     dpi::LoggerPtr logger_;
     BaseConnectionPtr connection_;
+    Gears::TaskRunner_var task_runner_;
+
     const int RETRY_COUNT_ = 1;
+    unsigned int gx_application_id_;
+    unsigned int gy_application_id_;
     const std::string product_name_;
     std::vector<uint32_t> source_addresses_;
     const uint32_t origin_state_id_;
@@ -296,10 +264,15 @@ namespace dpi
     std::optional<std::string> destination_host_;
     std::optional<std::string> destination_realm_;
     std::string session_id_;
-    unsigned int application_id_;
     //unsigned int service_id_;
     mutable unsigned long request_i_;
     bool exchange_done_ = false;
+
+    // responses (other thread fill it)
+    std::mutex responses_lock_;
+    std::condition_variable responses_cond_;
+    std::unordered_map<unsigned long, std::shared_ptr<Diameter::Packet>> responses_;
+    std::shared_ptr<Diameter::Packet> last_response_;
   };
 
   using DiameterSessionPtr = std::shared_ptr<DiameterSession>;
@@ -308,22 +281,25 @@ namespace dpi
 namespace dpi
 {
   inline std::string
-  DiameterSession::Request::to_string() const
+  DiameterSession::GyResponse::RatingGroupLimit::to_string() const
   {
     std::string res;
     res += "{";
-    res += "msisdn = " + msisdn;
-    res += ", imsi = " + imsi;
-    res += ", framed_ip_address = " + ipv4_address_to_string(framed_ip_address);
-    res += ", nas_ip_address = " + ipv4_address_to_string(nas_ip_address);
-    res += ", rat_type = " + std::to_string(rat_type);
-    res += ", timezone = " + std::to_string((unsigned int)timezone);
-    res += ", mcc_mnc = " + mcc_mnc;
-    res += ", sgsn_ip_address = " + ipv4_address_to_string(sgsn_ip_address);
-    res += ", access_network_charging_ip_address = " + ipv4_address_to_string(access_network_charging_ip_address);
-    res += ", charging_id = " + std::to_string(charging_id);
+    res += "rating_group_id = " + std::to_string(rating_group_id);
+    res += ", max_bps = " + (max_bps.has_value() ? std::to_string(*max_bps) : std::string("null"));
+    res += ", cc_total_octets = " + (
+      cc_total_octets.has_value() ? std::to_string(*cc_total_octets) : std::string("null"));
+    res += ", validity_time = " + std::to_string(validity_time.tv_sec);
+    res += ", result_code = " + std::to_string(result_code);
     res += "}";
+    return res;
+  }
 
+  inline std::string
+  DiameterSession::Request::to_string() const
+  {
+    std::string res;
+    res += std::string("{user_session_traits = ") + user_session_traits.to_string() + "}";
     return res;
   }
 
