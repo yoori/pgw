@@ -677,6 +677,8 @@ namespace dpi
     const Request& request)
     const
   {
+    std::cout << "DIAMETER: SEND GX INIT" << std::endl;
+
     auto packet = Diameter::Packet()
       .setHeader(
         Diameter::Packet::Header()
@@ -842,17 +844,12 @@ namespace dpi
     );
   }
 
-  std::pair<unsigned int, ByteArray>
-  DiameterSession::generate_gx_update_(
-    const Request& request,
-    const GxUpdateRequest& update_request)
-    const
+  void
+  DiameterSession::fill_gx_stat_update_(
+    Diameter::Packet& packet,
+    const DiameterSession::GxUpdateRequest& gx_update_request)
   {
-    auto [request_i, packet] = generate_base_gx_packet_(request);
-
-    packet.addAVP(create_int32_avp(416, 2)); // CC-Request-Type
-
-    for (const auto& usage_monitoring : update_request.usage_monitorings)
+    for (const auto& usage_monitoring : gx_update_request.usage_monitorings)
     {
       packet.addAVP(create_avp(
         1067,
@@ -869,6 +866,21 @@ namespace dpi
         false
       ));
     }
+  }
+
+  std::pair<unsigned int, ByteArray>
+  DiameterSession::generate_gx_update_(
+    const Request& request,
+    const GxUpdateRequest& update_request)
+    const
+  {
+    std::cout << "DIAMETER: SEND GX UPDATE: " << update_request.to_string() << std::endl;
+
+    auto [request_i, packet] = generate_base_gx_packet_(request);
+
+    fill_gx_stat_update_(packet, update_request);
+
+    packet.addAVP(create_int32_avp(416, 2)); // CC-Request-Type
 
     return std::make_pair(
       request_i,
@@ -883,14 +895,20 @@ namespace dpi
     const
   {
     auto [request_i, packet] = generate_base_gx_packet_(request);
+
+    std::cout << "DIAMETER: SEND GX TERMINATE: " << terminate_request.to_string() << std::endl;
+
+    fill_gx_stat_update_(packet, terminate_request);
+
+    packet
+      .addAVP(create_uint32_avp(1006, terminate_request.event_trigger, 10415, true)) // Event-Trigger(1006)
+      .addAVP(create_uint32_avp(295, terminate_request.termination_cause, std::nullopt, true)) // Termination-Cause(295)
+      .addAVP(create_int32_avp(416, 3)) // CC-Request-Type
+      ;
+
     return std::make_pair(
       request_i,
-      packet
-        .addAVP(create_uint32_avp(1006, terminate_request.event_trigger, 10415, true)) // Event-Trigger(1006)
-        .addAVP(create_uint32_avp(295, terminate_request.termination_cause, std::nullopt, true)) // Termination-Cause(295)
-        .addAVP(create_int32_avp(416, 3)) // CC-Request-Type
-        .updateLength()
-        .deploy()
+      packet.updateLength().deploy()
     );
   }
 
@@ -962,6 +980,8 @@ namespace dpi
   std::pair<unsigned int, ByteArray>
   DiameterSession::generate_gy_init_(const GyRequest& request) const
   {
+    std::cout << "DIAMETER: SEND GY INIT: " << request.to_string() << std::endl;
+
     auto [request_i, packet] = generate_base_gy_packet_(request);
 
     packet.addAVP(create_int32_avp(416, 1, std::nullopt, true)); // CC-Request-Type
@@ -975,6 +995,8 @@ namespace dpi
   std::pair<unsigned int, ByteArray>
   DiameterSession::generate_gy_update_(const GyRequest& request) const
   {
+    std::cout << "DIAMETER: SEND GY UPDATE: " << request.to_string() << std::endl;
+
     auto [request_i, packet] = generate_base_gy_packet_(request);
 
     packet.addAVP(create_int32_avp(416, 2, std::nullopt, true)); // CC-Request-Type
@@ -988,6 +1010,8 @@ namespace dpi
   std::pair<unsigned int, ByteArray>
   DiameterSession::generate_gy_terminate_(const GyRequest& request) const
   {
+    std::cout << "DIAMETER: SEND GY TERMINATE: " << request.to_string() << std::endl;
+
     auto [request_i, packet] = generate_base_gy_packet_(request);
 
     packet.addAVP(create_int32_avp(295, 1, std::nullopt, true)); // Termination-Cause(295)=DIAMETER_LOGOUT
@@ -1171,7 +1195,7 @@ namespace dpi
         10415,
         false));
     }
-    
+
     if (!request.user_session_traits.user_location_info.empty())
     {
       ps_information_avp_data.addAVP(create_octets_avp(

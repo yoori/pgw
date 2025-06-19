@@ -33,6 +33,7 @@ namespace dpi
     DECLARE_EXCEPTION(Exception, Gears::DescriptiveException);
     DECLARE_EXCEPTION(DiameterError, Exception);
 
+    // requests
     struct Request
     {
       UserSessionTraits user_session_traits;
@@ -56,6 +57,8 @@ namespace dpi
       };
 
       std::vector<UsageRatingGroup> usage_rating_groups;
+
+      std::string to_string() const;
     };
 
     struct GxUpdateRequest
@@ -90,6 +93,7 @@ namespace dpi
       unsigned long termination_cause = 1; // DIAMETER_LOGOUT
     };
 
+    // responses
     struct GxResponse
     {
       unsigned int result_code = 0;
@@ -101,10 +105,12 @@ namespace dpi
     };
 
     struct GxUpdateResponse: public GxResponse
-    {};
+    {
+    };
 
     struct GxTerminateResponse: public GxResponse
-    {};
+    {
+    };
 
     struct GyResponse
     {
@@ -247,6 +253,11 @@ namespace dpi
     void
     parse_gy_response_(GyResponse& gy_response, Diameter::Packet& response);
 
+    static void
+    fill_gx_stat_update_(
+      Diameter::Packet& packet,
+      const DiameterSession::GxUpdateRequest& gx_update_request);
+
   private:
     dpi::LoggerPtr logger_;
     BaseConnectionPtr connection_;
@@ -307,14 +318,33 @@ namespace dpi
   DiameterSession::GxUpdateRequest::to_string() const
   {
     std::string res;
-    res += "{";
+    res += "{\"usage_monitorings\": [";
     for (const auto& usage_monitoring: usage_monitorings)
     {
-      res += "(mk = " + std::to_string(usage_monitoring.monitoring_key) +
-        ", total-octets = " + std::to_string(usage_monitoring.total_octets) + ")";
+      res += std::string("{") +
+        "\"mk\": \"" + std::to_string(usage_monitoring.monitoring_key) + "\"," +
+        "\"total-octets\": " + std::to_string(usage_monitoring.total_octets) +
+        "}";
     }
-    res += "}";
+    res += "]}";
 
+    return res;
+  }
+
+  inline std::string
+  DiameterSession::GyRequest::to_string() const
+  {
+    std::string res;
+    res += std::string("{\"user_session_traits\": ") + user_session_traits.to_string() +
+      ", \"usage_rating_groups\": [";
+    for (auto it = usage_rating_groups.begin(); it != usage_rating_groups.end(); ++it)
+    {
+      res += std::string("{") +
+        "\"rg_id\":" + std::to_string(it->rating_group_id) + "," +
+        "\"total_octets\": " + std::to_string(it->total_octets) +
+        "}";
+    }
+    res += "]}";
     return res;
   }
 }
