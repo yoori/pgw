@@ -63,6 +63,8 @@ namespace dpi
 
       SessionKey session_key;
       unsigned long used_bytes = 0;
+      unsigned long used_output_bytes = 0;
+      unsigned long used_input_bytes = 0;
     };
 
     using UsedLimitArray = std::vector<UsedLimit>;
@@ -88,7 +90,9 @@ namespace dpi
     UseLimitResult use_limit(
       const SessionKey& session_key,
       const Gears::Time& now,
-      unsigned long used_bytes);
+      unsigned long used_bytes,
+      unsigned long used_output_bytes,
+      unsigned long used_input_bytes);
 
     UsedLimitArray
     get_used_limits() const;
@@ -116,7 +120,9 @@ namespace dpi
     use_limit_i_(
       const SessionKey& session_key,
       const Gears::Time& now,
-      unsigned long used_bytes);
+      unsigned long used_bytes,
+      unsigned long used_output_bytes,
+      unsigned long used_input_bytes);
 
   private:
     UserSessionTraits traits_;

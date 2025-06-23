@@ -102,6 +102,8 @@ namespace dpi
     struct GxInitResponse: public GxResponse
     {
       std::unordered_set<std::string> charging_rule_names;
+
+      std::string to_string() const;
     };
 
     struct GxUpdateResponse: public GxResponse
@@ -347,5 +349,17 @@ namespace dpi
     res += "]}";
     return res;
   }
-}
 
+  inline std::string
+  DiameterSession::GxInitResponse::to_string() const
+  {
+    std::string res;
+    res += std::string("{charging_rule_names = ");
+    for (auto it = charging_rule_names.begin(); it != charging_rule_names.end(); ++it)
+    {
+      res += (it != charging_rule_names.begin() ? ", " : "") + *it;
+    }
+    res += "}";
+    return res;
+  }
+}

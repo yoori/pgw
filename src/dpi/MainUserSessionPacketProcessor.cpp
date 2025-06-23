@@ -125,7 +125,7 @@ namespace dpi
       else
       {
         UserSession::UseLimitResult use_limit_result =
-          user_session->use_limit(session_key, now, packet_size);
+          user_session->use_limit(session_key, now, packet_size, 0, 0);
 
         if (use_limit_result.block)
         {

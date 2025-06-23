@@ -28,7 +28,7 @@ bool test_no_limits()
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
-    10);
+    10, 0, 0);
   if (!res.block)
   {
     std::cerr << TEST_NAME << ": non blocked packet" << std::endl;
@@ -62,7 +62,7 @@ bool test_pass_by_limit()
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
-    10);
+    10, 0, 0);
 
   if (!res.block)
   {
@@ -99,7 +99,7 @@ bool test_block_by_limit()
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
-    1500);
+    1500, 0, 0);
 
   if (!res.block)
   {
@@ -137,7 +137,7 @@ bool test_use_and_block_by_limit()
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
-    100);
+    100, 0, 0);
 
   if (res.block)
   {
@@ -158,7 +158,7 @@ bool test_use_and_block_by_limit()
   res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
-    910);
+    910, 0, 0);
 
   if (!res.block)
   {
@@ -196,7 +196,7 @@ bool test_gx_flow()
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
-    100);
+    100, 0, 0);
 
   if (res.block)
   {
@@ -230,7 +230,7 @@ bool test_gx_flow()
   res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
-    110);
+    110, 0, 0);
 
   user_session.set_limits(limits);
 
@@ -282,7 +282,7 @@ bool test_pass_by_generic_limit()
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
-    10);
+    10, 0, 0);
 
   if (res.block)
   {

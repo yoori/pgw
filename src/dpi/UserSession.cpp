@@ -41,7 +41,9 @@ namespace dpi
   UserSession::use_limit_i_(
     const SessionKey& session_key,
     const Gears::Time& now,
-    unsigned long used_bytes)
+    unsigned long used_bytes,
+    unsigned long used_output_bytes,
+    unsigned long used_input_bytes)
   {
     UseLimitResult use_limit_result;
 
@@ -104,16 +106,24 @@ namespace dpi
   UserSession::use_limit(
     const SessionKey& session_key,
     const Gears::Time& now,
-    unsigned long used_bytes)
+    unsigned long used_bytes,
+    unsigned long used_output_bytes,
+    unsigned long used_input_bytes)
   {
     //std::cout << "use_limit: used_bytes = " << used_bytes << std::endl;
 
     std::unique_lock<std::shared_mutex> guard(limits_lock_);
-    UseLimitResult use_limit_result = use_limit_i_(session_key, now, used_bytes);
+    UseLimitResult use_limit_result = use_limit_i_(
+      session_key, now, used_bytes, used_output_bytes, used_input_bytes);
 
     if (use_limit_result.block)
     {
-      use_limit_result = use_limit_i_(SessionKey(), now, used_bytes);
+      use_limit_result = use_limit_i_(
+        SessionKey(),
+        now,
+        used_bytes,
+        used_output_bytes,
+        used_input_bytes);
     }
 
     return use_limit_result;
