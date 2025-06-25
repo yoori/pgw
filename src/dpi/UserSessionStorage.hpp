@@ -28,11 +28,14 @@ namespace dpi
 
     UserSessionPtr get_user_session_by_ip(uint32_t ip) const;
 
+    UserSessionPtr get_user_session_by_gx_session_suffix(const std::string& gx_session_suffix) const;
+
   private:
     LoggerPtr logger_;
 
     mutable std::shared_mutex lock_;
     std::unordered_map<uint32_t, UserSessionPtr> user_sessions_by_ip_;
+    std::unordered_map<std::string, UserSessionPtr> user_sessions_by_gx_session_suffix_;
   };
 
   using UserSessionStoragePtr = std::shared_ptr<UserSessionStorage>;

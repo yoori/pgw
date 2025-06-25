@@ -1,7 +1,39 @@
+#include <gears/Rand.hpp>
+
 #include "UserSession.hpp"
 
 namespace dpi
 {
+  UserSession::UserSession(const UserSessionTraits& traits, UserPtr user)
+    : traits_(traits),
+      user_(std::move(user)),
+      gx_request_id_(0),
+      gy_request_id_(0)
+  {
+    gx_session_id_suffix_ = std::string(";") +
+      std::to_string(Gears::safe_rand()) + ";0;" + std::to_string(Gears::safe_rand());
+    gy_session_id_suffix_ = std::string(";") +
+      std::to_string(Gears::safe_rand()) + ";0;" + std::to_string(Gears::safe_rand());
+  }
+
+  const std::string&
+  UserSession::gx_session_suffix() const
+  {
+    return gx_session_id_suffix_;
+  }
+
+  std::pair<std::string, unsigned long>
+  UserSession::generate_gx_request_id()
+  {
+    return std::make_pair(gx_session_id_suffix_, gx_request_id_++);
+  }
+
+  std::pair<std::string, unsigned long>
+  UserSession::generate_gy_request_id()
+  {
+    return std::make_pair(gy_session_id_suffix_, gy_request_id_++);
+  }
+
   void
   UserSession::set_limits(
     const SetLimitArray& limits,
@@ -113,10 +145,14 @@ namespace dpi
     //std::cout << "use_limit: used_bytes = " << used_bytes << std::endl;
 
     std::unique_lock<std::shared_mutex> guard(limits_lock_);
-    UseLimitResult use_limit_result = use_limit_i_(
-      session_key, now, used_bytes, used_output_bytes, used_input_bytes);
 
-    if (use_limit_result.block)
+    UseLimitResult use_limit_result;
+
+    if (is_closed_)
+    {
+      use_limit_result.block = true;
+    }
+    else
     {
       use_limit_result = use_limit_i_(
         SessionKey(),
@@ -124,6 +160,16 @@ namespace dpi
         used_bytes,
         used_output_bytes,
         used_input_bytes);
+
+      if (use_limit_result.block)
+      {
+        use_limit_result = use_limit_i_(
+          SessionKey(),
+          now,
+          used_bytes,
+          used_output_bytes,
+          used_input_bytes);
+      }
     }
 
     return use_limit_result;
@@ -141,5 +187,47 @@ namespace dpi
     }
 
     return res;
+  }
+
+  bool
+  UserSession::is_closed() const
+  {
+    std::shared_lock<std::shared_mutex> guard(limits_lock_);
+    return is_closed_;
+  }
+
+  void
+  UserSession::close()
+  {
+    std::unique_lock<std::shared_mutex> guard(limits_lock_);
+    is_closed_ = true;
+  }
+
+  void
+  UserSession::set_gx_inited(bool gx_inited)
+  {
+    std::unique_lock<std::shared_mutex> guard(diameter_lock_);
+    gx_inited_ = gx_inited;
+  }
+
+  bool
+  UserSession::gx_inited() const
+  {
+    std::shared_lock<std::shared_mutex> guard(diameter_lock_);
+    return gx_inited_;
+  }
+
+  void
+  UserSession::set_gy_inited(bool gy_inited)
+  {
+    std::unique_lock<std::shared_mutex> guard(diameter_lock_);
+    gy_inited_ = gy_inited;
+  }
+
+  bool
+  UserSession::gy_inited() const
+  {
+    std::shared_lock<std::shared_mutex> guard(diameter_lock_);
+    return gy_inited_;
   }
 }

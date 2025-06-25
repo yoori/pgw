@@ -106,6 +106,7 @@ int main(int argc, char* argv[])
       !opt_destination_realm->empty() ? std::optional<std::string>(*opt_destination_realm) : std::nullopt,
       16777238, //< Gx
       "PGW", //"3GPP Gx",
+      [](const Diameter::Packet&) {},
       *opt_source_addresses
       );
 
@@ -131,7 +132,15 @@ int main(int argc, char* argv[])
     gy_session->activate_object();
     */
 
+    const unsigned long GX_APPLICATION_ID = 16777238;
+    const unsigned long GY_APPLICATION_ID = 4;
+    const std::string GX_SESSION_ID_SUFFIX = ";1;0;1";
+    unsigned int gx_request_i = 0;
+
     dpi::DiameterSession::Request request;
+    request.application_id = GX_APPLICATION_ID;
+    request.session_id_suffix = GX_SESSION_ID_SUFFIX;
+    request.request_id = gx_request_i++;
     request.user_session_traits.msisdn = "79662660021";
     //request.service_id = 1; // TO FILL
     request.user_session_traits.called_station_id = "ltpcef.test";
@@ -153,7 +162,10 @@ int main(int argc, char* argv[])
     }
     std::cout << "]" << std::endl;
 
+    // UPDATE
+    request.request_id = gx_request_i++;
     dpi::DiameterSession::GxUpdateRequest gx_update_request;
+
     gx_update_request.usage_monitorings.emplace_back(
       dpi::DiameterSession::GxUpdateRequest::UsageMonitoring(
         64, //< Internet: MK64
@@ -167,15 +179,21 @@ int main(int argc, char* argv[])
       )
     );
 
-    dpi::DiameterSession::GxUpdateResponse gx_update_response = session->send_gx_update(request, gx_update_request);
+    dpi::DiameterSession::GxUpdateResponse gx_update_response = session->send_gx_update(
+      request, gx_update_request);
     std::cout << "Gx update request: result-code: " << gx_init_response.result_code << std::endl;
 
+    // TERMINATE
+    request.request_id = gx_request_i++;
+
     dpi::DiameterSession::GxTerminateRequest gx_terminate_request;
-    dpi::DiameterSession::GxTerminateResponse gx_terminate_response = session->send_gx_terminate(request, gx_terminate_request);
+    dpi::DiameterSession::GxTerminateResponse gx_terminate_response = session->send_gx_terminate(
+      request, gx_terminate_request);
     std::cout << "Gx terminate request: result-code: " << gx_terminate_response.result_code << std::endl;
 
     std::cout << "====== SEND GY ======" << std::endl;
-    session->set_application(4);
+    const std::string GY_SESSION_ID_SUFFIX = ";2;0;1";
+    unsigned int gy_request_i = 0;
 
     {
       const unsigned char USER_LOCATION_INFO[] = {
@@ -183,6 +201,10 @@ int main(int argc, char* argv[])
       };
 
       dpi::DiameterSession::GyRequest request;
+      request.application_id = GY_APPLICATION_ID;
+      request.session_id_suffix = GY_SESSION_ID_SUFFIX;
+      request.request_id = gy_request_i++;
+
       request.user_session_traits.msisdn = "79662660021";
       request.user_session_traits.imsi = "250507712932915";
       request.user_session_traits.called_station_id = "ltpcef.test";
@@ -211,7 +233,10 @@ int main(int argc, char* argv[])
       }
       //std::cout << std::endl;
 
+      request.request_id = gy_request_i++;
       dpi::DiameterSession::GyResponse gy_update_response = session->send_gy_update(request);
+
+      request.request_id = gy_request_i++;
       dpi::DiameterSession::GyResponse gy_terminate_response = session->send_gy_terminate(request);
     }
 

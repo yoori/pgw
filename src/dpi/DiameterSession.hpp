@@ -9,6 +9,8 @@
 #include <gears/Exception.hpp>
 #include <gears/TaskRunner.hpp>
 #include <gears/CompositeActiveObject.hpp>
+#include <gears/Hash.hpp>
+#include <gears/HashTable.hpp>
 
 #include <Diameter/Packet.hpp>
 
@@ -21,12 +23,6 @@
 namespace dpi
 {
   // DiameterSession
-  /*
-  class DiameterMessageContainer: public Gears::CompositeActiveObject
-  {
-  };
-  */
-
   class DiameterSession: public Gears::CompositeActiveObject
   {
   public:
@@ -37,6 +33,10 @@ namespace dpi
     struct Request
     {
       UserSessionTraits user_session_traits;
+
+      unsigned long application_id = 0;
+      std::string session_id_suffix;
+      unsigned int request_id = 0;
 
       std::string to_string() const;
     };
@@ -106,7 +106,7 @@ namespace dpi
       std::string to_string() const;
     };
 
-    struct GxUpdateResponse: public GxResponse
+    struct GxUpdateResponse: public GxInitResponse
     {
     };
 
@@ -131,6 +131,8 @@ namespace dpi
       std::vector<RatingGroupLimit> rating_group_limits;
     };
 
+    using RequestProcessor = std::function<void(const Diameter::Packet& packet)>;
+
     DiameterSession(
       dpi::LoggerPtr logger,
       BaseConnectionPtr connection,
@@ -140,6 +142,7 @@ namespace dpi
       std::optional<std::string> destination_realm,
       unsigned long auth_application_id,
       std::string product_name,
+      RequestProcessor request_processor = [](const Diameter::Packet&) {},
       const std::vector<std::string>& source_addresses = std::vector<std::string>()
       );
 
@@ -149,8 +152,12 @@ namespace dpi
 
     void set_logger(dpi::LoggerPtr logger);
 
+    void set_request_processor(RequestProcessor request_processor);
+
     // connect if isn't connected
     //void connect();
+
+    void send_packet(const ByteArray& send_packet);
 
     GxInitResponse send_gx_init(const Request& request);
 
@@ -178,13 +185,31 @@ namespace dpi
       const std::vector<uint32_t>& applications,
       const std::vector<std::string>& source_addresses);
 
-    void set_application(unsigned long application_id);
-
   protected:
     class ReadResponsesTask;
 
+    struct RequestKey
+    {
+      RequestKey();
+      
+      RequestKey(std::string session_id_val, unsigned int request_i_val);
+
+      bool operator==(const RequestKey& right) const;
+
+      unsigned long hash() const;
+
+      const std::string session_id;
+      const unsigned int request_i = 0;
+
+    protected:
+      void calc_hash_();
+
+    protected:
+      unsigned long hash_;
+    };
+
   private:
-    using PacketGenerator = std::function<std::pair<unsigned int, ByteArray>()>;
+    using PacketGenerator = std::function<std::pair<RequestKey, ByteArray>()>;
 
   private:
     static ByteArray generate_exchange_packet_(
@@ -196,40 +221,39 @@ namespace dpi
       const std::vector<uint32_t>& applications,
       const std::vector<std::string>& source_addresses);
 
-    std::pair<unsigned int, ByteArray>
+    std::pair<RequestKey, ByteArray>
     generate_gx_init_(const Request& request) const;
 
-    std::pair<unsigned int, ByteArray>
+    std::pair<RequestKey, ByteArray>
     generate_gx_update_(
       const Request& request,
       const GxUpdateRequest& update_request) const;
 
-    std::pair<unsigned int, ByteArray>
+    std::pair<RequestKey, ByteArray>
     generate_gx_terminate_(
       const Request& request,
       const GxTerminateRequest& terminate_request) const;
 
-    std::pair<unsigned int, Diameter::Packet>
+    std::pair<RequestKey, Diameter::Packet>
     generate_base_gx_packet_(const Request& request)
       const;
 
-    std::pair<unsigned int, ByteArray>
+    std::pair<RequestKey, ByteArray>
     generate_gy_init_(const GyRequest& request) const;
 
-    std::pair<unsigned int, ByteArray>
+    std::pair<RequestKey, ByteArray>
     generate_gy_update_(const GyRequest& request) const;
 
-    std::pair<unsigned int, ByteArray>
+    std::pair<RequestKey, ByteArray>
     generate_gy_terminate_(const GyRequest& request) const;
 
-    std::pair<unsigned int, Diameter::Packet>
-    generate_base_gy_packet_(const GyRequest& request) const;
+    std::pair<RequestKey, Diameter::Packet>
+    generate_base_gy_packet_(
+      const GyRequest& request,
+      const std::optional<unsigned int>& reporting_reason) const;
 
     ByteArray
     generate_watchdog_packet_() const;
-
-    ByteArray
-    generate_rar_response_packet_(const std::string& session_id) const;
 
     std::pair<std::optional<uint32_t>, std::shared_ptr<Diameter::Packet>>
     send_and_read_response_i_(
@@ -250,7 +274,10 @@ namespace dpi
     process_input_request_(const Diameter::Packet& request);
 
     std::shared_ptr<Diameter::Packet>
-    wait_response_(std::optional<uint32_t> request_i = std::nullopt);
+    wait_response_(const RequestKey& request_key);
+
+    std::shared_ptr<Diameter::Packet>
+    wait_response_();
 
     void
     parse_gy_response_(GyResponse& gy_response, Diameter::Packet& response);
@@ -259,6 +286,9 @@ namespace dpi
     fill_gx_stat_update_(
       Diameter::Packet& packet,
       const DiameterSession::GxUpdateRequest& gx_update_request);
+
+    std::string
+    get_session_id_(const std::string& session_id_suffix) const;
 
   private:
     dpi::LoggerPtr logger_;
@@ -270,21 +300,22 @@ namespace dpi
     unsigned int gy_application_id_;
     const std::string product_name_;
     std::vector<uint32_t> source_addresses_;
+    RequestProcessor request_processor_;
     const uint32_t origin_state_id_;
 
     std::string origin_host_;
     std::string origin_realm_;
     std::optional<std::string> destination_host_;
     std::optional<std::string> destination_realm_;
-    std::string session_id_;
+    //std::string session_id_;
     //unsigned int service_id_;
-    mutable unsigned long request_i_;
+    //mutable unsigned long request_i_;
     bool exchange_done_ = false;
 
     // responses (other thread fill it)
     std::mutex responses_lock_;
     std::condition_variable responses_cond_;
-    std::unordered_map<unsigned long, std::shared_ptr<Diameter::Packet>> responses_;
+    Gears::HashTable<RequestKey, std::shared_ptr<Diameter::Packet>> responses_;
     std::shared_ptr<Diameter::Packet> last_response_;
   };
 
@@ -293,6 +324,42 @@ namespace dpi
 
 namespace dpi
 {
+  // DiameterSession::RequestKey
+  inline
+  DiameterSession::RequestKey::RequestKey()
+    : hash_(0)
+  {}
+
+  inline
+  DiameterSession::RequestKey::RequestKey(std::string session_id_val, unsigned int request_i_val)
+    : session_id(session_id_val),
+      request_i(request_i_val),
+      hash_(0)
+  {
+    calc_hash_();
+  }
+
+  inline bool
+  DiameterSession::RequestKey::operator==(const RequestKey& right) const
+  {
+    return session_id == right.session_id && request_i == right.request_i;
+  }
+
+  inline unsigned long
+  DiameterSession::RequestKey::hash() const
+  {
+    return hash_;
+  }
+
+  inline void
+  DiameterSession::RequestKey::calc_hash_()
+  {
+    Gears::Murmur64Hash hasher(hash_);
+    hash_add(hasher, session_id);
+    hash_add(hasher, request_i);
+  }
+
+  // DiameterSession::GyResponse::RatingGroupLimit
   inline std::string
   DiameterSession::GyResponse::RatingGroupLimit::to_string() const
   {

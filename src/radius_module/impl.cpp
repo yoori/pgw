@@ -19,6 +19,7 @@
 #include <dpi/StatUserSessionPacketProcessor.hpp>
 #include <dpi/SessionRuleOverrideUserSessionPacketProcessor.hpp>
 #include <dpi/ConnectionKeeper.hpp>
+#include <dpi/InputDiameterRequestProcessor.hpp>
 
 #include <http_server/HttpServer.hpp>
 
@@ -85,6 +86,7 @@ bool tel_gateway_process_request(
 {
   std::cout << ">>> imsi_buf: " << (imsi_buf ? imsi_buf : "NULL") << std::endl;
   std::cout << ">>> tz: " << (unsigned int)tz << std::endl;
+  std::cout << ">>> sgsn_address: " << sgsn_address << std::endl;
   std::string_view calling_station_id = calling_station_id_buf ?
     std::string_view(calling_station_id_buf, calling_station_id_len) :
     std::string_view();
@@ -103,7 +105,7 @@ bool tel_gateway_process_request(
     std::string_view();
 
   processor->process_request(
-    static_cast<Processor::AcctStatusType>(acct_status_type),
+    static_cast<dpi::Manager::AcctStatusType>(acct_status_type),
     calling_station_id, //< msisdn
     called_station_id, //< APN
     imsi_buf ? std::string_view(imsi_buf) : std::string_view(),
@@ -225,13 +227,33 @@ void tel_gateway_initialize(const char* config_path, int config_path_len)
     nullptr, session_rule_config);
   auto user_session_storage = std::make_shared<dpi::UserSessionStorage>(
     nullptr);
-  processor = std::make_shared<Processor>(
+
+  auto manager = std::make_shared<dpi::Manager>(
     user_storage,
     user_session_storage,
     gx_diameter_session,
     gy_diameter_session,
     pcc_config_provider
   );
+
+  if (gx_diameter_session)
+  {
+    auto input_diameter_request_processor = std::make_shared<dpi::InputDiameterRequestProcessor>(
+      config.gx_diameter_url->origin_host,
+      config.gx_diameter_url->origin_realm,
+      gx_diameter_session,
+      manager
+    );
+
+    gx_diameter_session->set_request_processor(
+      [input_diameter_request_processor](const Diameter::Packet& packet)
+      {
+        input_diameter_request_processor->process(packet);
+      }
+    );
+  }
+
+  processor = std::make_shared<Processor>(manager);
   std::string config_path_str(config_path, config_path_len);
   processor->load_config(config_path_str);
 

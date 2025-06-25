@@ -5,6 +5,7 @@
 #include <optional>
 #include <mutex>
 #include <shared_mutex>
+#include <atomic>
 
 #include <gears/Time.hpp>
 #include <gears/Hash.hpp>
@@ -97,6 +98,33 @@ namespace dpi
     UsedLimitArray
     get_used_limits() const;
 
+    std::pair<std::string, unsigned long>
+    generate_gx_request_id();
+
+    std::pair<std::string, unsigned long>
+    generate_gy_request_id();
+
+    const std::string&
+    gx_session_suffix() const;
+
+    void
+    set_gx_inited(bool gx_inited);
+
+    bool
+    gx_inited() const;
+
+    void
+    set_gy_inited(bool gy_inited);
+
+    bool
+    gy_inited() const;
+
+    bool
+    is_closed() const;
+
+    void
+    close();
+
   private:
     struct LimitHolder
     {
@@ -128,7 +156,17 @@ namespace dpi
     UserSessionTraits traits_;
     UserPtr user_;
 
+    std::string gx_session_id_suffix_;
+    std::atomic<int> gx_request_id_;
+    std::string gy_session_id_suffix_;
+    std::atomic<int> gy_request_id_;
+
+    mutable std::shared_mutex diameter_lock_;
+    bool gx_inited_ = true;
+    bool gy_inited_ = true;
+
     mutable std::shared_mutex limits_lock_;
+    bool is_closed_ = false;
     LimitMap limits_;
     UsedLimitHolderMap used_limits_;
   };
@@ -149,12 +187,6 @@ namespace dpi
         gy_limit.has_value() ? std::to_string(*gy_limit) : std::string("null")) +
       "}";
   }
-
-  inline
-  UserSession::UserSession(const UserSessionTraits& traits, UserPtr user)
-    : traits_(traits),
-      user_(std::move(user))
-  {}
 
   inline const UserPtr&
   UserSession::user() const

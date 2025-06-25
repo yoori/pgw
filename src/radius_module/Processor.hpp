@@ -8,31 +8,29 @@
 
 #include <dpi/DiameterSession.hpp>
 #include <dpi/PccConfigProvider.hpp>
+#include <dpi/Manager.hpp>
 
 class Processor
 {
 public:
   DECLARE_EXCEPTION(Invalid, Gears::DescriptiveException);
 
+  /*
   enum class AcctStatusType: int
   {
     START = 1,
     STOP = 2,
     UPDATE = 3
   };
+  */
 
 public:
-  Processor(
-    dpi::UserStoragePtr user_storage,
-    dpi::UserSessionStoragePtr user_session_storage,
-    dpi::DiameterSessionPtr gx_diameter_session,
-    dpi::DiameterSessionPtr gy_diameter_session,
-    dpi::PccConfigProviderPtr pcc_config_provider);
+  Processor(dpi::ManagerPtr manager);
 
   void load_config(std::string_view config_path);
 
   bool process_request(
-    AcctStatusType acct_status_type,
+    dpi::Manager::AcctStatusType acct_status_type,
     std::string_view called_station_id,
     std::string_view calling_station_id,
     std::string_view imsi,
@@ -57,31 +55,17 @@ public:
   dpi::LoggerPtr event_logger() const;
 
 private:
-  bool
-  init_gx_gy_session_(
-    const dpi::UserSessionPtr& user_session,
-    const dpi::UserSessionTraits& user_session_traits,
-    bool init);
-
-  void
-  terminate_gx_gy_session_(const dpi::UserSession& user_session);
-
-  void
-  fill_gx_gy_stats_(
-    dpi::DiameterSession::GxUpdateRequest& gx_request,
-    dpi::DiameterSession::GyRequest& gy_request,
-    const dpi::UserSession& user_session);
-
-private:
   dpi::LoggerPtr logger_;
   dpi::LoggerPtr event_logger_;
-  dpi::UserStoragePtr user_storage_;
-  dpi::UserSessionStoragePtr user_session_storage_;
+  dpi::ManagerPtr manager_;
+
+  //dpi::UserStoragePtr user_storage_;
+  //dpi::UserSessionStoragePtr user_session_storage_;
   std::string config_path_;
-  std::string diameter_url_;
-  dpi::DiameterSessionPtr gx_diameter_session_;
-  dpi::DiameterSessionPtr gy_diameter_session_;
-  dpi::PccConfigProviderPtr pcc_config_provider_;
+  //std::string diameter_url_;
+  //dpi::DiameterSessionPtr gx_diameter_session_;
+  //dpi::DiameterSessionPtr gy_diameter_session_;
+  //dpi::PccConfigProviderPtr pcc_config_provider_;
 };
 
 using ProcessorPtr = std::shared_ptr<Processor>;

@@ -29,6 +29,8 @@ add_library(dpi
   SCTPConnection.cpp
   ConnectionKeeper.cpp
   DiameterDictionary.cpp
+  InputDiameterRequestProcessor.cpp
+  Manager.cpp
   )
 
 target_link_libraries(dpi

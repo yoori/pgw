@@ -21,6 +21,14 @@ namespace dpi
     {
       const auto& avp_data = avp.data();
       ByteArray ba = avp_data.toOctetString();
+      return std::string(reinterpret_cast<const char*>(&ba[0]), ba.size());
+    }
+
+    std::string
+    get_avp_octets_as_string_value(const Diameter::AVP& avp)
+    {
+      const auto& avp_data = avp.data();
+      ByteArray ba = avp_data.toOctetString();
       if (ba.size() > 12)
       {
         std::string charging_rule_name = std::string(reinterpret_cast<const char*>(&ba[0]) + 12, ba.size() - 12);
@@ -78,6 +86,7 @@ namespace dpi
     std::optional<std::string> destination_realm,
     unsigned long auth_application_id,
     std::string product_name,
+    RequestProcessor request_processor,
     const std::vector<std::string>& source_addresses // source addresses for diameter packet
     )
     : logger_(std::move(logger)),
@@ -86,11 +95,10 @@ namespace dpi
       origin_realm_(std::move(origin_realm)),
       destination_host_(std::move(destination_host)),
       destination_realm_(std::move(destination_realm)),
-      //application_id_(auth_application_id),
       gx_application_id_(16777238),
       gy_application_id_(4),
       product_name_(product_name),
-      request_i_(0),
+      request_processor_(request_processor),
       origin_state_id_(3801248757)
   {
     Gears::ActiveObjectCallback_var callback(new CerrCallback());
@@ -116,8 +124,8 @@ namespace dpi
     }
     */
 
-    session_id_ = origin_host_ + ";" + std::to_string(Gears::safe_rand()) + ";0;" +
-      std::to_string(Gears::safe_rand());
+    //session_id_ = origin_host_ + ";" + std::to_string(Gears::safe_rand()) + ";0;" +
+    //  std::to_string(Gears::safe_rand());
   }
 
   DiameterSession::~DiameterSession()
@@ -144,9 +152,9 @@ namespace dpi
   }
 
   void
-  DiameterSession::set_application(unsigned long application_id)
+  DiameterSession::set_request_processor(RequestProcessor request_processor)
   {
-    //application_id_ = application_id;
+    request_processor_ = request_processor;
   }
 
   /*
@@ -255,9 +263,9 @@ namespace dpi
           ", this = " << this << std::endl;
 
         {
-          auto [request_i, send_packet] = packet_generator();
+          auto [request_key, send_packet] = packet_generator();
           connection_->lock()->send_packet(send_packet);
-          response = wait_response_(request_i);
+          response = wait_response_(request_key);
         }
 
         std::cout << "[DIAMETER] From send diameter packet: connection_ = " << connection_.get() <<
@@ -305,31 +313,16 @@ namespace dpi
       auto watchdog_packet = generate_watchdog_packet_();
       connection_->lock()->send_packet(watchdog_packet);
     }
-    else if (request.header().commandCode() == 258)
-    {
-      std::cout << "[DIAMETER] Send response for RAR request" << std::endl;
-      std::string session_id;
-
-      // find Session-Id(263)
-      for (int i = 0; i < request.numberOfAVPs(); ++i)
-      {
-        const auto& avp = request.avp(i);
-        if (avp.header().avpCode() == 263)
-        {
-          ByteArray ba = avp.data().toOctetString();
-          session_id = std::string(reinterpret_cast<const char*>(&ba[0]), ba.size());
-          break;
-        }
-      }
-
-      auto rar_response_packet = generate_rar_response_packet_(session_id);
-      connection_->lock()->send_packet(rar_response_packet);
-    }
     else
     {
-      std::cout << "[ERROR] Request(Command-Code = " << request.header().commandCode() <<
-        ") that can't be processed" << std::endl;
+      request_processor_(request);
     }
+  }
+
+  void
+  DiameterSession::send_packet(const ByteArray& send_packet)
+  {
+    connection_->lock()->send_packet(send_packet);
   }
 
   DiameterSession::GxInitResponse
@@ -352,7 +345,7 @@ namespace dpi
       const auto& avp = response->avp(i);
       if (avp.header().avpCode() == 1001) //< Charging-Rule-Install(1001)
       {
-        const std::string charging_rule_name = get_avp_string_value(avp);
+        const std::string charging_rule_name = get_avp_octets_as_string_value(avp);
         if (!charging_rule_name.empty())
         {
           init_response.charging_rule_names.emplace(std::move(charging_rule_name));
@@ -380,6 +373,20 @@ namespace dpi
 
     GxUpdateResponse update_response;
     update_response.result_code = result_code.has_value() ? *result_code : 0;
+
+    for (int i = 0; i < response->numberOfAVPs(); ++i)
+    {
+      const auto& avp = response->avp(i);
+      if (avp.header().avpCode() == 1001) //< Charging-Rule-Install(1001)
+      {
+        const std::string charging_rule_name = get_avp_octets_as_string_value(avp);
+        if (!charging_rule_name.empty())
+        {
+          update_response.charging_rule_names.emplace(std::move(charging_rule_name));
+        }
+      }
+    }
+
     return update_response;
   }
 
@@ -555,21 +562,26 @@ namespace dpi
         }
         else
         {
+          std::string session_id;
           std::optional<uint32_t> request_i;
 
           // find CC-Request-Number(415)
           for (int i = 0; i < response->numberOfAVPs(); ++i)
           {
             const auto& avp = response->avp(i);
-            if (avp.header().avpCode() == 415)
+            if (avp.header().avpCode() == 263)
+            {
+              session_id = get_avp_string_value(avp);
+            }
+            else if (avp.header().avpCode() == 415)
             {
               request_i = avp.data().toInteger32();
-              break;
             }
           }
 
           std::cout << "[DIAMETER] Reading thread: got RESPONSE #" <<
             (request_i.has_value() ? std::to_string(*request_i) : std::string("null")) <<
+            "(" + session_id + ")"
             ", this = " << this <<
             std::endl;
 
@@ -578,7 +590,7 @@ namespace dpi
 
             if (request_i.has_value())
             {
-              responses_.emplace(*request_i, response);
+              responses_.emplace(RequestKey(session_id, *request_i), response);
             }
             last_response_ = response;
           }
@@ -598,86 +610,97 @@ namespace dpi
   }
 
   std::shared_ptr<Diameter::Packet>
-  DiameterSession::wait_response_(std::optional<uint32_t> request_i)
+  DiameterSession::wait_response_(const RequestKey& request_key)
   {
     std::shared_ptr<Diameter::Packet> result;
 
     {
       std::unique_lock<std::mutex> lock(responses_lock_);
 
+      /*
       std::cout << "[DIAMETER] Waiting thread: wait_response_ step #0: " << (
         request_i.has_value() ? std::to_string(*request_i) : std::string("null")) <<
         ", responses_cond_ = " << &responses_cond_ <<
         ", this = " << this <<
         std::endl;
+      */
 
       responses_cond_.wait(
         lock,
-        [this, request_i]
+        [this, &request_key]
         {
+          /*
           std::cout << "[DIAMETER] Waiting thread: wait_response_ ST: "
             "last_response_ = " << last_response_.get() <<
             ", this = " << this <<
             std::endl;
-          return (
-            request_i.has_value() ?
-            this->responses_.find(*request_i) != this->responses_.end() :
-            static_cast<bool>(this->last_response_)
-          );
+          */
+          return this->responses_.find(request_key) != this->responses_.end();
         }
       );
 
+      /*
       std::cout << "[DIAMETER] Waiting thread: wait_response_ step #1" <<
         ", this = " << this <<
         std::endl;
+      */
 
-      if (request_i.has_value())
-      {
-        result = std::move(this->responses_[*request_i]);
-        this->responses_.erase(*request_i);
-      }
-      else
-      {
-        result.swap(last_response_);
-      }
+      result = std::move(this->responses_[request_key]);
+      this->responses_.erase(request_key);
     }
 
     return result;
   }
 
-  /*
-  Diameter::Packet
-  DiameterSession::read_packet_(BaseConnection::Lock& connection)
+  std::shared_ptr<Diameter::Packet>
+  DiameterSession::wait_response_()
   {
-    //std::cout << "DDDD: to read 4 bytes" << std::endl;
-    std::vector<unsigned char> head_buf = connection->read_bytes(4);
-    uint32_t head = htonl(*(const uint32_t*)head_buf.data());
-    int packet_size = head & 0xFFFFFF;
-    //std::cout << "readed = " << read_res << ", packet_size = " << packet_size << std::endl;
+    std::shared_ptr<Diameter::Packet> result;
 
-    //std::cout << "DDDD: to read " << (packet_size - 4) << " bytes" << std::endl;
-    std::vector<unsigned char> read_buf = connection->read_bytes(packet_size - 4);
-    head_buf.insert(head_buf.end(), read_buf.begin(), read_buf.end());
+    {
+      std::unique_lock<std::mutex> lock(responses_lock_);
 
-    try
-    {
-      std::cout << "[DIAMETER] To parse diameter packet (bytes = " << head_buf.size() <<
-        ")" << std::endl;
-      return Diameter::Packet(ByteArray(&head_buf[0], head_buf.size()));
+      /*
+      std::cout << "[DIAMETER] Waiting thread: wait_response_ step #0: " << (
+        request_i.has_value() ? std::to_string(*request_i) : std::string("null")) <<
+        ", responses_cond_ = " << &responses_cond_ <<
+        ", this = " << this <<
+        std::endl;
+      */
+
+      responses_cond_.wait(
+        lock,
+        [this]
+        {
+          /*
+          std::cout << "[DIAMETER] Waiting thread: wait_response_ ST: "
+            "last_response_ = " << last_response_.get() <<
+            ", this = " << this <<
+            std::endl;
+          */
+          return static_cast<bool>(this->last_response_);
+        }
+      );
+
+      /*
+      std::cout << "[DIAMETER] Waiting thread: wait_response_ step #1" <<
+        ", this = " << this <<
+        std::endl;
+      */
+
+      result.swap(last_response_);
     }
-    catch (const std::invalid_argument& ex)
-    {
-      throw DiameterError(std::string("Can't parse response: ") + ex.what());
-    }
+
+    return result;
   }
-  */
 
-  std::pair<unsigned int, ByteArray>
-  DiameterSession::generate_gx_init_(
-    const Request& request)
+  std::pair<DiameterSession::RequestKey, ByteArray>
+  DiameterSession::generate_gx_init_(const Request& request)
     const
   {
-    std::cout << "DIAMETER: SEND GX INIT" << std::endl;
+    const RequestKey request_key(get_session_id_(request.session_id_suffix), request.request_id);
+
+    std::cout << "DIAMETER: SEND GX INIT, session_id = " << request_key.session_id << std::endl;
 
     auto packet = Diameter::Packet()
       .setHeader(
@@ -688,14 +711,14 @@ namespace dpi
              .setFlag(Diameter::Packet::Header::Flags::Bits::Proxiable, true)
           )
           .setCommandCode(272)
-          .setApplicationId(gx_application_id_)
+          .setApplicationId(request.application_id)
           .setHBHIdentifier(0x7ddf9367)
           .setETEIdentifier(0xc15ecb12)
       );
 
     packet
-      .addAVP(create_string_avp(263, session_id_, std::nullopt, true)) // Session-Id
-      .addAVP(create_uint32_avp(258, gx_application_id_, std::nullopt, true)) // Auth-Application-Id
+      .addAVP(create_string_avp(263, request_key.session_id, std::nullopt, true)) // Session-Id
+      .addAVP(create_uint32_avp(258, request.application_id, std::nullopt, true)) // Auth-Application-Id
       .addAVP(create_string_avp(264, origin_host_, std::nullopt, true)) // Origin-Host
       .addAVP(create_string_avp(296, origin_realm_, std::nullopt, true)) // Origin-Realm
       ;
@@ -710,10 +733,8 @@ namespace dpi
       packet.addAVP(create_string_avp(283, *destination_realm_)); // Destination-Realm(283)
     }
 
-    const unsigned int request_i = ++request_i_;
-
     packet
-      .addAVP(create_uint32_avp(415, request_i, std::nullopt, true)) // CC-Request-Number
+      .addAVP(create_uint32_avp(415, request_key.request_i, std::nullopt, true)) // CC-Request-Number
       .addAVP(create_uint32_avp(278, 3801248757, std::nullopt, true)) // Origin-State-Id
       .addAVP(create_avp( //< QoS-Information
         1016,
@@ -835,12 +856,11 @@ namespace dpi
       );
     }
 
+    packet.addAVP(create_int32_avp(416, 1, std::nullopt, true)); // CC-Request-Type
+
     return std::make_pair(
-      request_i,
-      packet
-        .addAVP(create_int32_avp(416, 1, std::nullopt, true)) // CC-Request-Type
-        .updateLength()
-        .deploy()
+      request_key,
+      packet.updateLength().deploy()
     );
   }
 
@@ -868,7 +888,7 @@ namespace dpi
     }
   }
 
-  std::pair<unsigned int, ByteArray>
+  std::pair<DiameterSession::RequestKey, ByteArray>
   DiameterSession::generate_gx_update_(
     const Request& request,
     const GxUpdateRequest& update_request)
@@ -876,38 +896,38 @@ namespace dpi
   {
     std::cout << "DIAMETER: SEND GX UPDATE: " << update_request.to_string() << std::endl;
 
-    auto [request_i, packet] = generate_base_gx_packet_(request);
+    auto [request_key, packet] = generate_base_gx_packet_(request);
 
     fill_gx_stat_update_(packet, update_request);
 
     packet.addAVP(create_int32_avp(416, 2)); // CC-Request-Type
 
     return std::make_pair(
-      request_i,
+      request_key,
       packet.updateLength().deploy()
     );
   }
 
-  std::pair<unsigned int, ByteArray>
+  std::pair<DiameterSession::RequestKey, ByteArray>
   DiameterSession::generate_gx_terminate_(
     const Request& request,
     const GxTerminateRequest& terminate_request)
     const
   {
-    auto [request_i, packet] = generate_base_gx_packet_(request);
+    auto [request_key, packet] = generate_base_gx_packet_(request);
 
     std::cout << "DIAMETER: SEND GX TERMINATE: " << terminate_request.to_string() << std::endl;
 
     fill_gx_stat_update_(packet, terminate_request);
 
     packet
-      .addAVP(create_uint32_avp(1006, terminate_request.event_trigger, 10415, true)) // Event-Trigger(1006)
+      //.addAVP(create_uint32_avp(1006, terminate_request.event_trigger, 10415, true)) // Event-Trigger(1006)
       .addAVP(create_uint32_avp(295, terminate_request.termination_cause, std::nullopt, true)) // Termination-Cause(295)
       .addAVP(create_int32_avp(416, 3)) // CC-Request-Type
       ;
 
     return std::make_pair(
-      request_i,
+      request_key,
       packet.updateLength().deploy()
     );
   }
@@ -937,94 +957,56 @@ namespace dpi
       .deploy();
   }
 
-  ByteArray
-  DiameterSession::generate_rar_response_packet_(const std::string& session_id) const
-  {
-    auto packet = Diameter::Packet()
-      .setHeader(
-        Diameter::Packet::Header()
-          .setCommandFlags(Diameter::Packet::Header::Flags())
-          .setCommandCode(258)
-          .setApplicationId(gx_application_id_)
-          .setHBHIdentifier(0x7ddf9367)
-          .setETEIdentifier(0xc15ecb12)
-      );
-
-    packet
-      .addAVP(create_string_avp(263, session_id, std::nullopt, true)) // Session-Id(263)
-      .addAVP(create_string_avp(264, origin_host_, std::nullopt, true)) // Origin-Host(264)
-      .addAVP(create_string_avp(296, origin_realm_, std::nullopt, true)) // Origin-Realm(296)
-      .addAVP(create_uint32_avp(278, origin_state_id_, std::nullopt, true)) // Origin-State-Id(278)
-      .addAVP(create_uint32_avp(268, 2001, std::nullopt, true)) // Result-Code(268)
-      /*
-      .addAVP(create_ipv4_avp(
-        501,
-        request.access_network_charging_ip_address,
-        10415,
-        true)) //< Access-Network-Charging-Address
-      .addAVP(create_avp( //< Access-Network-Charging-Identifier-Gx(1022)
-        1022,
-        Diameter::AVP::Data()
-        .addAVP(create_octets_avp(503, uint32_to_buf_(request.charging_id), 10415, true))
-        //< Access-Network-Charging-Identifier-Value(503)
-        ,
-        10415,
-        true
-        ))
-      */
-      ;
-
-    return packet.updateLength().deploy();
-  }
-
-  std::pair<unsigned int, ByteArray>
+  std::pair<DiameterSession::RequestKey, ByteArray>
   DiameterSession::generate_gy_init_(const GyRequest& request) const
   {
     std::cout << "DIAMETER: SEND GY INIT: " << request.to_string() << std::endl;
 
-    auto [request_i, packet] = generate_base_gy_packet_(request);
+    auto [request_key, packet] = generate_base_gy_packet_(request, std::nullopt);
 
     packet.addAVP(create_int32_avp(416, 1, std::nullopt, true)); // CC-Request-Type
 
     return std::make_pair(
-      request_i,
+      request_key,
       packet.updateLength().deploy()
     );
   }
 
-  std::pair<unsigned int, ByteArray>
+  std::pair<DiameterSession::RequestKey, ByteArray>
   DiameterSession::generate_gy_update_(const GyRequest& request) const
   {
     std::cout << "DIAMETER: SEND GY UPDATE: " << request.to_string() << std::endl;
 
-    auto [request_i, packet] = generate_base_gy_packet_(request);
+    auto [request_key, packet] = generate_base_gy_packet_(request, std::nullopt);
 
     packet.addAVP(create_int32_avp(416, 2, std::nullopt, true)); // CC-Request-Type
 
     return std::make_pair(
-      request_i,
+      request_key,
       packet.updateLength().deploy()
     );
   }
 
-  std::pair<unsigned int, ByteArray>
+  std::pair<DiameterSession::RequestKey, ByteArray>
   DiameterSession::generate_gy_terminate_(const GyRequest& request) const
   {
     std::cout << "DIAMETER: SEND GY TERMINATE: " << request.to_string() << std::endl;
 
-    auto [request_i, packet] = generate_base_gy_packet_(request);
+    auto [request_key, packet] = generate_base_gy_packet_(request, 2);
 
     packet.addAVP(create_int32_avp(295, 1, std::nullopt, true)); // Termination-Cause(295)=DIAMETER_LOGOUT
     packet.addAVP(create_int32_avp(416, 3, std::nullopt, true)); // CC-Request-Type
 
     return std::make_pair(
-      request_i,
+      request_key,
       packet.updateLength().deploy()
     );
   }
 
-  std::pair<unsigned int, Diameter::Packet>
-  DiameterSession::generate_base_gy_packet_(const GyRequest& request) const
+  std::pair<DiameterSession::RequestKey, Diameter::Packet>
+  DiameterSession::generate_base_gy_packet_(
+    const GyRequest& request,
+    const std::optional<unsigned int>& reporting_reason) const
   {
     auto packet = Diameter::Packet()
       .setHeader(
@@ -1035,14 +1017,17 @@ namespace dpi
              .setFlag(Diameter::Packet::Header::Flags::Bits::Proxiable, true)
           )
           .setCommandCode(272)
-          .setApplicationId(gy_application_id_)
+          .setApplicationId(request.application_id)
           .setHBHIdentifier(0x7ddf9367)
           .setETEIdentifier(0xc15ecb12)
       );
 
+    const auto session_id = get_session_id_(request.session_id_suffix);
+    const unsigned int request_i = request.request_id;
+
     packet
-      .addAVP(create_string_avp(263, session_id_, std::nullopt, true)) // Session-Id
-      .addAVP(create_uint32_avp(258, gy_application_id_, std::nullopt, true)) // Auth-Application-Id
+      .addAVP(create_string_avp(263, session_id, std::nullopt, true)) // Session-Id
+      .addAVP(create_uint32_avp(258, request.application_id, std::nullopt, true)) // Auth-Application-Id
       .addAVP(create_string_avp(264, origin_host_, std::nullopt, true)) // Origin-Host
       .addAVP(create_string_avp(296, origin_realm_, std::nullopt, true)) // Origin-Realm
       ;
@@ -1056,8 +1041,6 @@ namespace dpi
     {
       packet.addAVP(create_string_avp(283, *destination_realm_)); // Destination-Realm(283)
     }
-
-    const unsigned int request_i = ++request_i_;
 
     packet
       .addAVP(create_uint32_avp(415, request_i, std::nullopt, true)) // CC-Request-Number
@@ -1099,12 +1082,16 @@ namespace dpi
 
       if (rating_group.total_octets > 0)
       {
+        Diameter::AVP::Data used_avp_data;
+        used_avp_data.addAVP(create_uint64_avp(421, rating_group.total_octets, std::nullopt, true));
+        if (reporting_reason.has_value())
+        {
+          used_avp_data.addAVP(create_uint32_avp(872, *reporting_reason, 10415, true)); // 3GPP-Reporting-Reason(872)=THRESHOLD
+        }
+
         avp_data.addAVP(create_avp(
           446, // Used-Service-Unit(446)
-          Diameter::AVP::Data()
-            .addAVP(create_uint32_avp(872, 0, 10415, true)) // 3GPP-Reporting-Reason(872)=THRESHOLD
-            .addAVP(create_uint64_avp(421, rating_group.total_octets, std::nullopt, true)) // CC-Total-Octets(421)
-          ,
+          used_avp_data,
           std::nullopt,
           true
         ));
@@ -1232,14 +1219,15 @@ namespace dpi
       )
     );
 
-    return std::make_pair(request_i, packet);
+    return std::make_pair(RequestKey(session_id, request_i), packet);
   }
 
-  std::pair<unsigned int, Diameter::Packet>
-  DiameterSession::generate_base_gx_packet_(
-    const Request& request)
+  std::pair<DiameterSession::RequestKey, Diameter::Packet>
+  DiameterSession::generate_base_gx_packet_(const Request& request)
     const
   {
+    const RequestKey request_key(get_session_id_(request.session_id_suffix), request.request_id);
+
     auto packet = Diameter::Packet()
       .setHeader(
         Diameter::Packet::Header()
@@ -1249,14 +1237,14 @@ namespace dpi
              .setFlag(Diameter::Packet::Header::Flags::Bits::Proxiable, true)
           )
           .setCommandCode(272)
-          .setApplicationId(gx_application_id_)
+          .setApplicationId(request.application_id)
           .setHBHIdentifier(0x7ddf9367)
           .setETEIdentifier(0xc15ecb12)
       );
 
     packet
-      .addAVP(create_string_avp(263, session_id_, std::nullopt, true)) // Session-Id
-      .addAVP(create_uint32_avp(258, gx_application_id_, std::nullopt, true)) // Auth-Application-Id
+      .addAVP(create_string_avp(263, request_key.session_id, std::nullopt, true)) // Session-Id
+      .addAVP(create_uint32_avp(258, request.application_id, std::nullopt, true)) // Auth-Application-Id
       .addAVP(create_string_avp(264, origin_host_, std::nullopt, true)) // Origin-Host
       .addAVP(create_string_avp(296, origin_realm_, std::nullopt, true)) // Origin-Realm
       ;
@@ -1271,32 +1259,29 @@ namespace dpi
       packet.addAVP(create_string_avp(283, *destination_realm_));
     }
 
-    const unsigned int request_i = ++request_i_;
+    packet
+      .addAVP(create_uint32_avp(415, request_key.request_i, std::nullopt, true)) // CC-Request-Number
+      .addAVP(create_uint32_avp(278, origin_state_id_, std::nullopt, true)) // Origin-State-Id
+      .addAVP(create_string_avp(30, request.user_session_traits.called_station_id, std::nullopt, true))
+      //< Called-Station-Id
+      .addAVP(create_avp( // Subscription-Id
+        443,
+        Diameter::AVP::Data()
+          .addAVP(create_int32_avp(450, 0)) // Subscription-Id-Type = END_USER_E164
+          .addAVP(create_string_avp(444, request.user_session_traits.msisdn)), // Subscription-Id-Data
+        std::nullopt,
+        true
+        ))
+      .addAVP(create_avp( // Subscription-Id
+        443,
+        Diameter::AVP::Data()
+          .addAVP(create_int32_avp(450, 1)) // Subscription-Id-Type = END_USER_IMSI
+          .addAVP(create_string_avp(444, request.user_session_traits.imsi)), // Subscription-Id-Data
+        std::nullopt,
+        true
+      ));
 
-    return std::make_pair(
-      request_i,
-      packet
-        .addAVP(create_uint32_avp(415, request_i, std::nullopt, true)) // CC-Request-Number
-        .addAVP(create_uint32_avp(278, origin_state_id_, std::nullopt, true)) // Origin-State-Id
-        .addAVP(create_string_avp(30, request.user_session_traits.called_station_id, std::nullopt, true))
-        //< Called-Station-Id
-        .addAVP(create_avp( // Subscription-Id
-          443,
-          Diameter::AVP::Data()
-            .addAVP(create_int32_avp(450, 0)) // Subscription-Id-Type = END_USER_E164
-            .addAVP(create_string_avp(444, request.user_session_traits.msisdn)), // Subscription-Id-Data
-          std::nullopt,
-          true
-          ))
-        .addAVP(create_avp( // Subscription-Id
-          443,
-          Diameter::AVP::Data()
-            .addAVP(create_int32_avp(450, 1)) // Subscription-Id-Type = END_USER_IMSI
-            .addAVP(create_string_avp(444, request.user_session_traits.imsi)), // Subscription-Id-Data
-          std::nullopt,
-          true
-          ))
-    );
+    return std::make_pair(request_key, packet);
   }
 
   void
@@ -1352,6 +1337,12 @@ namespace dpi
       ostr << "Prime exchange failed, Result-Code: " << *result_code;
       throw DiameterError(ostr.str());
     }
+  }
+
+  std::string
+  DiameterSession::get_session_id_(const std::string& session_id_suffix) const
+  {
+    return origin_host_ + session_id_suffix;
   }
 
   ByteArray
@@ -1411,56 +1402,6 @@ namespace dpi
 
     return packet.updateLength().deploy();
   }
-
-  /*
-  ByteArray
-  DiameterSession::generate_exchange_packet_() const
-  {
-    auto packet = Diameter::Packet()
-      .setHeader(
-        Diameter::Packet::Header()
-          // Setting that it's request 
-          .setCommandFlags(
-             Diameter::Packet::Header::Flags()
-             .setFlag(Diameter::Packet::Header::Flags::Bits::Request, true)
-          )
-          .setCommandCode(257)
-          .setApplicationId(0)
-          .setHBHIdentifier(0x00000ad1)
-          .setETEIdentifier(0x00000ad1)
-       );
-
-    if (destination_host_.has_value())
-    {
-      packet.addAVP(create_string_avp(293, *destination_host_));
-    }
-
-    if (destination_realm_.has_value())
-    {
-      packet.addAVP(create_string_avp(283, *destination_realm_));
-    }
-
-    if (!source_addresses_.empty())
-    {
-      for (const auto& source_addr : source_addresses_)
-      {
-        packet.addAVP(create_ipv4_avp(257, source_addr)); // Host-IP-Address(257)
-      }
-    }
-
-    return packet
-      .addAVP(create_string_avp(264, origin_host_)) // Origin-Host
-      .addAVP(create_string_avp(296, origin_realm_)) // Origin-Realm
-      .addAVP(create_uint32_avp(266, 2011)) // Vendor-Id
-      .addAVP(create_string_avp(269, product_name_)) // "Diameter Credit Control Application")) // Product-Name
-      .addAVP(create_uint32_avp(299, 0)) // Inband-Security-Id
-      .addAVP(create_uint32_avp(258, application_id_)) // Auth-Application-Id
-
-      .updateLength()
-      .deploy()
-      ;
-  }
-  */
 
   ByteArray DiameterSession::uint32_to_buf_(uint32_t val)
   {

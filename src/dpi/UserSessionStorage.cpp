@@ -38,6 +38,9 @@ namespace dpi
         user_sessions_by_ip_.emplace(
           user_session_traits.framed_ip_address,
           added_session);
+        user_sessions_by_gx_session_suffix_.emplace(
+          added_session->gx_session_suffix(),
+          added_session);
       }
     }
 
@@ -70,6 +73,20 @@ namespace dpi
 
     auto it = user_sessions_by_ip_.find(ip);
     if (it == user_sessions_by_ip_.end())
+    {
+      return UserSessionPtr();
+    }
+
+    return it->second;
+  }
+
+  UserSessionPtr
+  UserSessionStorage::get_user_session_by_gx_session_suffix(const std::string& gx_session_suffix) const
+  {
+    std::shared_lock lock{lock_};
+
+    auto it = user_sessions_by_gx_session_suffix_.find(gx_session_suffix);
+    if (it == user_sessions_by_gx_session_suffix_.end())
     {
       return UserSessionPtr();
     }

@@ -13,8 +13,12 @@ int main()
   auto user = user_storage->add_user("89263411124");
   dpi::UserSessionTraits user_session_traits;
   user_session_traits.framed_ip_address = 1;
-  user_session_storage->add_user_session(user_session_traits, user);
-  
+
+  auto user_session = user_session_storage->add_user_session(user_session_traits, user);
+  auto user_session_by_gx_session_suffix = user_session_storage->get_user_session_by_gx_session_suffix(
+    user_session->gx_session_suffix());
+
+  std::cout << (user_session_by_gx_session_suffix ? "session found" : "session not found") << std::endl;
 
   return 0;
 }
