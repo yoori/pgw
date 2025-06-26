@@ -9,6 +9,7 @@ add_subdirectory(utils)
 add_subdirectory(tests)
 add_subdirectory(http_server)
 add_subdirectory(net_bridge)
+add_subdirectory(pgw_server)
 
 ExternalProject_Add(radius
   SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/radius

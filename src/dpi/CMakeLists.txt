@@ -31,6 +31,7 @@ add_library(dpi
   DiameterDictionary.cpp
   InputDiameterRequestProcessor.cpp
   Manager.cpp
+  IOServiceActiveObject.cpp
   )
 
 target_link_libraries(dpi

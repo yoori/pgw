@@ -117,6 +117,16 @@ namespace dpi
       result.pcc_config_file = document["pcc_config_file"].GetString();
     }
 
+    if (document.HasMember("radius_port"))
+    {
+      result.http_port = document["radius_port"].GetInt();
+    }
+
+    if (document.HasMember("radius_secret"))
+    {
+      result.radius_secret = document["radius_secret"].GetString();
+    }
+
     std::cout << "Pcc config path: " << result.pcc_config_file << std::endl;
     return result;
   }

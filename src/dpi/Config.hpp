@@ -35,6 +35,8 @@ namespace dpi
     std::optional<DiameterUrl> gx_diameter_url;
     std::optional<DiameterUrl> gy_diameter_url;
     std::string pcc_config_file;
+    unsigned int radius_port = 0;
+    std::string radius_secret;
 
     static Config read(const std::string_view& file);
   };
