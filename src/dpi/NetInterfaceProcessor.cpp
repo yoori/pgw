@@ -50,7 +50,7 @@ namespace dpi
     int promisc = 1;
     char pcap_error_buffer[PCAP_ERRBUF_SIZE];
 
-    std::cout << "NetInterface: snaplen = " << snaplen << std::endl;
+    //std::cout << "NetInterface: snaplen = " << snaplen << std::endl;
 
     // Trying to open the interface
     if ((pcap_handle_ = pcap_open_live(

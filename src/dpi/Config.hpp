@@ -37,6 +37,7 @@ namespace dpi
     std::string pcc_config_file;
     unsigned int radius_port = 0;
     std::string radius_secret;
+    std::string radius_dictionary;
 
     static Config read(const std::string_view& file);
   };

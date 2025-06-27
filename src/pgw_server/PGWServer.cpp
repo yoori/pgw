@@ -31,9 +31,7 @@ int main(int argc, char **argv)
   // read config
   Gears::AppUtils::Args args;
   Gears::AppUtils::StringOption opt_config;
-  Gears::AppUtils::Option<unsigned int> opt_http_port(8080);
   args.add(Gears::AppUtils::equal_name("config") || Gears::AppUtils::short_name("y"), opt_config);
-  //args.add(Gears::AppUtils::equal_name("http-port"), opt_http_port);
   args.parse(argc - 1, argv + 1);
 
   if (opt_config->empty())
@@ -42,6 +40,7 @@ int main(int argc, char **argv)
     return 1;
   }
 
+  interrupter = std::make_shared<Gears::SimpleActiveObject>();
   signal(SIGINT, sigproc);
 
   auto all_active_objects = std::make_shared<Gears::CompositeActiveObject>();
@@ -271,16 +270,18 @@ int main(int argc, char **argv)
   all_active_objects->add_child_object(bridge);
 
   auto io_service_active_object = std::make_shared<dpi::IOServiceActiveObject>();
+  io_service_active_object->activate_object();
+
+  std::cout << "config.radius_port = " << config.radius_port << std::endl;
 
   dpi::RadiusServerImpl server(
     io_service_active_object->io_service(),
     config.radius_secret,
     config.radius_port,
-    "/usr/share/freeradius/dictionary",
+    config.radius_dictionary,
     processor);
 
-  all_active_objects->add_child_object(io_service_active_object);
-
+  //all_active_objects->add_child_object(io_service_active_object);
   all_active_objects->activate_object();
 
   interrupter->activate_object();
@@ -288,6 +289,9 @@ int main(int argc, char **argv)
 
   all_active_objects->deactivate_object();
   all_active_objects->wait_object();
+
+  io_service_active_object->deactivate_object();
+  io_service_active_object->wait_object();
 
   std::cout << "Exit application" << std::endl;
 

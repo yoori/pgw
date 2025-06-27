@@ -18,6 +18,8 @@ namespace dpi
   std::optional<RadProto::Packet>
   RadiusServerImpl::process_packet_(const RadProto::Packet& request)
   {
+    std::cout << "RADIUS INPUT PACKET" << std::endl;
+
     // Check request.type() == RadProto::ACCESS_REQUEST
     RadProto::PacketReader packet_reader(request, m_dictionaries, secret_);
     auto acct_status_type_attr = packet_reader.get_attribute_by_name("Acct-Status-Type");

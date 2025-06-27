@@ -119,12 +119,17 @@ namespace dpi
 
     if (document.HasMember("radius_port"))
     {
-      result.http_port = document["radius_port"].GetInt();
+      result.radius_port = document["radius_port"].GetInt();
     }
 
     if (document.HasMember("radius_secret"))
     {
       result.radius_secret = document["radius_secret"].GetString();
+    }
+
+    if (document.HasMember("radius_dictionary"))
+    {
+      result.radius_dictionary = document["radius_dictionary"].GetString();
     }
 
     std::cout << "Pcc config path: " << result.pcc_config_file << std::endl;

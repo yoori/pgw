@@ -98,7 +98,7 @@ namespace dpi
   {
     try
     {
-      std::cout << "SCTPConnection::send_packet: size = " << send_packet.size() << std::endl;
+      // std::cout << "SCTPConnection::send_packet: size = " << send_packet.size() << std::endl;
       if (!connection_holder_.has_value())
       {
         connection_holder_ = socket_init_();
@@ -385,7 +385,7 @@ namespace dpi
       {
         unsigned int result_local_port = local_endpoints_.begin()->port;
         unsigned int local_addr_i = 0;
-        std::cout << "SCTP local_endpoints_.size() = " << local_endpoints_.size() << std::endl;
+        //std::cout << "SCTP local_endpoints_.size() = " << local_endpoints_.size() << std::endl;
         for (auto addr_it = local_endpoints_.begin(); addr_it != local_endpoints_.end();
           ++addr_it, ++local_addr_i)
         {

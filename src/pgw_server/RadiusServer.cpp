@@ -17,23 +17,19 @@ namespace dpi
     const std::string& secret,
     uint16_t port,
     const std::string& filePath)
-    : m_radius(io_service, secret, port),
+    : m_radius(
+        io_service,
+        secret,
+        port,
+        [this](const auto& error, const auto& packet, const boost::asio::ip::udp::endpoint& source)
+        {
+          handle_receive_(error, packet, source);
+        }),
       m_dictionaries(filePath),
       secret_(secret)
   {
     m_dictionaries.resolve(); // TODO: make this in Dictionaries c-tor, but use other class for included dictionaries
     std::cout << "To start receive" << std::endl;
-    startReceive();
-  }
-
-  void RadiusServer::startReceive()
-  {
-    m_radius.asyncReceive(
-      [this](const auto& error, const auto& packet, const boost::asio::ip::udp::endpoint& source)
-      {
-        handleReceive(error, packet, source);
-      }
-    );
   }
 
   std::string
@@ -122,24 +118,26 @@ namespace dpi
       std::cout << "Error asyncSend: " << ec.message() << "\n";
     }
 
-    startReceive();
+    //startReceive();
   }
 
-  void RadiusServer::handleReceive(
+  void RadiusServer::handle_receive_(
     const error_code& error,
     const std::optional<RadProto::Packet>& packet,
     const boost::asio::ip::udp::endpoint& source)
   {
+    std::cout << "RadiusServer::handle_receive_" << std::endl;
+
     if (error)
     {
-        std::cout << "Error asyncReceive: " << error.message() << "\n";
-        return;
+      std::cout << "Error asyncReceive: " << error.message() << "\n";
+      return;
     }
 
     if (packet == std::nullopt)
     {
-        std::cout << "Error asyncReceive: the request packet is missing\n";
-        return;
+      std::cout << "Error asyncReceive: the request packet is missing\n";
+      return;
     }
     else
     {
