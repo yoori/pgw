@@ -23,7 +23,7 @@
 namespace dpi
 {
   // DiameterSession
-  class DiameterSession: public Gears::CompositeActiveObject
+  class DiameterSession
   {
   public:
     DECLARE_EXCEPTION(Exception, Gears::DescriptiveException);
@@ -133,7 +133,45 @@ namespace dpi
 
     using RequestProcessor = std::function<void(const Diameter::Packet& packet)>;
 
-    DiameterSession(
+  public:
+    virtual void
+    set_request_processor(RequestProcessor request_processor) = 0;
+
+    virtual void
+    send_packet(const ByteArray& send_packet) = 0;
+
+    virtual GxInitResponse
+    send_gx_init(const Request& request) = 0;
+
+    virtual GxUpdateResponse
+    send_gx_update(
+      const Request& request,
+      const GxUpdateRequest& update_request) = 0;
+
+    virtual GxTerminateResponse
+    send_gx_terminate(
+      const Request& request,
+      const GxTerminateRequest& terminate_request) = 0;
+
+    virtual GyResponse
+    send_gy_init(const GyRequest& request) = 0;
+
+    virtual GyResponse
+    send_gy_update(const GyRequest& request) = 0;
+
+    virtual GyResponse
+    send_gy_terminate(const GyRequest& request) = 0;
+  };
+
+  using DiameterSessionPtr = std::shared_ptr<DiameterSession>;
+
+  // SCTPDiameterSession
+  class SCTPDiameterSession:
+    public DiameterSession,
+    public Gears::CompositeActiveObject
+  {
+  public:
+    SCTPDiameterSession(
       dpi::LoggerPtr logger,
       BaseConnectionPtr connection,
       std::string origin_host,
@@ -146,34 +184,39 @@ namespace dpi
       const std::vector<std::string>& source_addresses = std::vector<std::string>()
       );
 
-    virtual ~DiameterSession();
+    virtual ~SCTPDiameterSession();
 
     void deactivate_object() override;
 
     void set_logger(dpi::LoggerPtr logger);
 
-    void set_request_processor(RequestProcessor request_processor);
+    virtual void
+    set_request_processor(RequestProcessor request_processor) override;
 
-    // connect if isn't connected
-    //void connect();
+    void
+    send_packet(const ByteArray& send_packet) override;
 
-    void send_packet(const ByteArray& send_packet);
+    GxInitResponse
+    send_gx_init(const Request& request) override;
 
-    GxInitResponse send_gx_init(const Request& request);
-
-    GxUpdateResponse send_gx_update(
+    GxUpdateResponse
+    send_gx_update(
       const Request& request,
-      const GxUpdateRequest& update_request);
+      const GxUpdateRequest& update_request) override;
 
-    GxTerminateResponse send_gx_terminate(
+    GxTerminateResponse
+    send_gx_terminate(
       const Request& request,
-      const GxTerminateRequest& terminate_request);
+      const GxTerminateRequest& terminate_request) override;
 
-    GyResponse send_gy_init(const GyRequest& request);
+    GyResponse
+    send_gy_init(const GyRequest& request) override;
 
-    GyResponse send_gy_update(const GyRequest& request);
+    GyResponse
+    send_gy_update(const GyRequest& request) override;
 
-    GyResponse send_gy_terminate(const GyRequest& request);
+    GyResponse
+    send_gy_terminate(const GyRequest& request) override;
 
     static void make_exchange(
       BaseConnection& connection,
@@ -285,7 +328,7 @@ namespace dpi
     static void
     fill_gx_stat_update_(
       Diameter::Packet& packet,
-      const DiameterSession::GxUpdateRequest& gx_update_request);
+      const SCTPDiameterSession::GxUpdateRequest& gx_update_request);
 
     std::string
     get_session_id_(const std::string& session_id_suffix) const;
@@ -318,20 +361,18 @@ namespace dpi
     Gears::HashTable<RequestKey, std::shared_ptr<Diameter::Packet>> responses_;
     std::shared_ptr<Diameter::Packet> last_response_;
   };
-
-  using DiameterSessionPtr = std::shared_ptr<DiameterSession>;
 };
 
 namespace dpi
 {
-  // DiameterSession::RequestKey
+  // SCTPDiameterSession::RequestKey
   inline
-  DiameterSession::RequestKey::RequestKey()
+  SCTPDiameterSession::RequestKey::RequestKey()
     : hash_(0)
   {}
 
   inline
-  DiameterSession::RequestKey::RequestKey(std::string session_id_val, unsigned int request_i_val)
+  SCTPDiameterSession::RequestKey::RequestKey(std::string session_id_val, unsigned int request_i_val)
     : session_id(session_id_val),
       request_i(request_i_val),
       hash_(0)
@@ -340,28 +381,28 @@ namespace dpi
   }
 
   inline bool
-  DiameterSession::RequestKey::operator==(const RequestKey& right) const
+  SCTPDiameterSession::RequestKey::operator==(const RequestKey& right) const
   {
     return session_id == right.session_id && request_i == right.request_i;
   }
 
   inline unsigned long
-  DiameterSession::RequestKey::hash() const
+  SCTPDiameterSession::RequestKey::hash() const
   {
     return hash_;
   }
 
   inline void
-  DiameterSession::RequestKey::calc_hash_()
+  SCTPDiameterSession::RequestKey::calc_hash_()
   {
     Gears::Murmur64Hash hasher(hash_);
     hash_add(hasher, session_id);
     hash_add(hasher, request_i);
   }
 
-  // DiameterSession::GyResponse::RatingGroupLimit
+  // SCTPDiameterSession::GyResponse::RatingGroupLimit
   inline std::string
-  DiameterSession::GyResponse::RatingGroupLimit::to_string() const
+  SCTPDiameterSession::GyResponse::RatingGroupLimit::to_string() const
   {
     std::string res;
     res += "{";
@@ -376,7 +417,7 @@ namespace dpi
   }
 
   inline std::string
-  DiameterSession::Request::to_string() const
+  SCTPDiameterSession::Request::to_string() const
   {
     std::string res;
     res += std::string("{user_session_traits = ") + user_session_traits.to_string() + "}";
@@ -384,7 +425,7 @@ namespace dpi
   }
 
   inline std::string
-  DiameterSession::GxUpdateRequest::to_string() const
+  SCTPDiameterSession::GxUpdateRequest::to_string() const
   {
     std::string res;
     res += "{\"usage_monitorings\": [";
@@ -401,7 +442,7 @@ namespace dpi
   }
 
   inline std::string
-  DiameterSession::GyRequest::to_string() const
+  SCTPDiameterSession::GyRequest::to_string() const
   {
     std::string res;
     res += std::string("{\"user_session_traits\": ") + user_session_traits.to_string() +
@@ -418,7 +459,7 @@ namespace dpi
   }
 
   inline std::string
-  DiameterSession::GxInitResponse::to_string() const
+  SCTPDiameterSession::GxInitResponse::to_string() const
   {
     std::string res;
     res += std::string("{charging_rule_names = ");

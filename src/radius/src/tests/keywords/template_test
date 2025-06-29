@@ -1,9 +1,0 @@
-#
-#  PRE: if
-#
-template_test
-if (!ok) {
-	test_fail
-}
-
-success

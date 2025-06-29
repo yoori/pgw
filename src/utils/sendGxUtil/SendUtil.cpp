@@ -71,7 +71,7 @@ int main(int argc, char* argv[])
 
     sctp_connection->connect();
 
-    dpi::DiameterSession::make_exchange(
+    dpi::SCTPDiameterSession::make_exchange(
       *sctp_connection,
       *opt_origin_host,
       *opt_origin_realm,
@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
     */
     auto gx_connection = sctp_connection;
 
-    std::shared_ptr<dpi::DiameterSession> session = std::make_shared<dpi::DiameterSession>(
+    std::shared_ptr<dpi::SCTPDiameterSession> session = std::make_shared<dpi::SCTPDiameterSession>(
       logger,
       gx_connection,
       *opt_origin_host,

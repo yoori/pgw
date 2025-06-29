@@ -1,5 +1,0 @@
-#
-#	ARGV: -s
-#
-User-Name = "bob",
-User-Password = "hello"

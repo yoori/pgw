@@ -11,6 +11,7 @@
 #include <dpi/UserStorage.hpp>
 #include <dpi/UserSessionStorage.hpp>
 #include <dpi/EventProcessor.hpp>
+#include <dpi/Manager.hpp>
 
 namespace dpi
 {
@@ -22,6 +23,7 @@ namespace dpi
       UserStoragePtr user_storage,
       UserSessionStoragePtr user_session_storage,
       EventProcessorPtr event_processor,
+      ManagerPtr manager,
       unsigned int port,
       std::string url_prefix
       );

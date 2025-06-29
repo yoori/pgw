@@ -1,3 +1,0 @@
-#
-#	ARGV: -t pap -u tapioca authorize -c key1=var1
-#

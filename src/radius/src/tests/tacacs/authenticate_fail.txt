@@ -1,3 +1,0 @@
-#
-#	ARGV: -t pap -u scald authenticate -p pegapilha
-#

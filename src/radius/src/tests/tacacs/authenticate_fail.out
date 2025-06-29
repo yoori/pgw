@@ -1,3 +1,0 @@
-status: FAIL
-data: b'Authentication-Data'
-server_msg: b'Authentication-Start failed for scald'

@@ -1,8 +1,0 @@
-#
-#  Password is already set in radiusd.conf
-#
-
-#
-#  Set CHAP-Password
-#
-&CHAP-Password := %chap.password("%{CHAP-Password}")

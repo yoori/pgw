@@ -11,7 +11,6 @@
 
 #include "DiameterSession.hpp"
 
-
 namespace dpi
 {
   namespace
@@ -57,11 +56,11 @@ namespace dpi
     };
   }
 
-  // DiameterSession::ReadResponsesTask
-  class DiameterSession::ReadResponsesTask: public Gears::Task
+  // SCTPDiameterSession::ReadResponsesTask
+  class SCTPDiameterSession::ReadResponsesTask: public Gears::Task
   {
   public:
-    ReadResponsesTask(DiameterSession* diameter_session)
+    ReadResponsesTask(SCTPDiameterSession* diameter_session)
       throw()
       : diameter_session_(diameter_session)
     {}
@@ -73,11 +72,11 @@ namespace dpi
     }
 
   private:
-    DiameterSession* diameter_session_;
+    SCTPDiameterSession* diameter_session_;
   };
 
-  // DiameterSession impl
-  DiameterSession::DiameterSession(
+  // SCTPDiameterSession impl
+  SCTPDiameterSession::SCTPDiameterSession(
     dpi::LoggerPtr logger,
     BaseConnectionPtr connection,
     std::string origin_host,
@@ -128,7 +127,7 @@ namespace dpi
     //  std::to_string(Gears::safe_rand());
   }
 
-  DiameterSession::~DiameterSession()
+  SCTPDiameterSession::~SCTPDiameterSession()
   {
     /*
     if (connection_holder_.has_value())
@@ -139,27 +138,27 @@ namespace dpi
   }
 
   void
-  DiameterSession::deactivate_object()
+  SCTPDiameterSession::deactivate_object()
   {
     Gears::CompositeActiveObject::deactivate_object();
     connection_->close();
   }
 
   void
-  DiameterSession::set_logger(dpi::LoggerPtr logger)
+  SCTPDiameterSession::set_logger(dpi::LoggerPtr logger)
   {
     logger_.swap(logger);
   }
 
   void
-  DiameterSession::set_request_processor(RequestProcessor request_processor)
+  SCTPDiameterSession::set_request_processor(RequestProcessor request_processor)
   {
     request_processor_ = request_processor;
   }
 
   /*
   void
-  DiameterSession::connect()
+  SCTPDiameterSession::connect()
   {
     int socket_fd;
 
@@ -176,7 +175,7 @@ namespace dpi
 
   /*
   bool
-  DiameterSession::is_connected_(int socket_fd)
+  SCTPDiameterSession::is_connected_(int socket_fd)
   {
     if (socket_fd <= 0)
     {
@@ -197,7 +196,7 @@ namespace dpi
 
   /*
   void
-  DiameterSession::make_exchange_i_()
+  SCTPDiameterSession::make_exchange_i_()
   {
     if (!exchange_done_)
     {
@@ -235,8 +234,8 @@ namespace dpi
   */
 
   std::pair<std::optional<uint32_t>, std::shared_ptr<Diameter::Packet>>
-  DiameterSession::send_and_read_response_i_(
-    DiameterSession::PacketGenerator packet_generator)
+  SCTPDiameterSession::send_and_read_response_i_(
+    SCTPDiameterSession::PacketGenerator packet_generator)
   {
     /*
     {
@@ -303,7 +302,7 @@ namespace dpi
   }
 
   void
-  DiameterSession::process_input_request_(const Diameter::Packet& request)
+  SCTPDiameterSession::process_input_request_(const Diameter::Packet& request)
   {
     // response to watchdog
     if (request.header().commandCode() == 280) // Command: Device-Watchdog
@@ -320,13 +319,13 @@ namespace dpi
   }
 
   void
-  DiameterSession::send_packet(const ByteArray& send_packet)
+  SCTPDiameterSession::send_packet(const ByteArray& send_packet)
   {
     connection_->lock()->send_packet(send_packet);
   }
 
-  DiameterSession::GxInitResponse
-  DiameterSession::send_gx_init(const Request& request)
+  SCTPDiameterSession::GxInitResponse
+  SCTPDiameterSession::send_gx_init(const Request& request)
   {
     std::cout << "[DIAMETER] To send Gx init" << std::endl;
 
@@ -356,8 +355,8 @@ namespace dpi
     return init_response;
   }
 
-  DiameterSession::GxUpdateResponse
-  DiameterSession::send_gx_update(
+  SCTPDiameterSession::GxUpdateResponse
+  SCTPDiameterSession::send_gx_update(
     const Request& request,
     const GxUpdateRequest& update_request)
   {
@@ -390,8 +389,8 @@ namespace dpi
     return update_response;
   }
 
-  DiameterSession::GxTerminateResponse
-  DiameterSession::send_gx_terminate(
+  SCTPDiameterSession::GxTerminateResponse
+  SCTPDiameterSession::send_gx_terminate(
     const Request& request,
     const GxTerminateRequest& terminate_request)
   {
@@ -408,9 +407,9 @@ namespace dpi
   }
 
   void
-  DiameterSession::parse_gy_response_(GyResponse& gy_response, Diameter::Packet& response)
+  SCTPDiameterSession::parse_gy_response_(GyResponse& gy_response, Diameter::Packet& response)
   {
-    std::cout << "to DiameterSession::parse_gy_response_" << std::endl;
+    std::cout << "to SCTPDiameterSession::parse_gy_response_" << std::endl;
 
     for (int i = 0; i < response.numberOfAVPs(); ++i)
     {
@@ -459,11 +458,11 @@ namespace dpi
       }
     }
 
-    std::cout << "from DiameterSession::parse_gy_response_" << std::endl;
+    std::cout << "from SCTPDiameterSession::parse_gy_response_" << std::endl;
   }
 
-  DiameterSession::GyResponse
-  DiameterSession::send_gy_init(const GyRequest& request)
+  SCTPDiameterSession::GyResponse
+  SCTPDiameterSession::send_gy_init(const GyRequest& request)
   {
     auto [result_code, response] = send_and_read_response_i_(
       [this, &request] ()
@@ -478,8 +477,8 @@ namespace dpi
     return init_response;
   }
 
-  DiameterSession::GyResponse
-  DiameterSession::send_gy_update(const GyRequest& request)
+  SCTPDiameterSession::GyResponse
+  SCTPDiameterSession::send_gy_update(const GyRequest& request)
   {
     auto [result_code, response] = send_and_read_response_i_(
       [this, &request] ()
@@ -494,8 +493,8 @@ namespace dpi
     return init_response;
   }
 
-  DiameterSession::GyResponse
-  DiameterSession::send_gy_terminate(const GyRequest& request)
+  SCTPDiameterSession::GyResponse
+  SCTPDiameterSession::send_gy_terminate(const GyRequest& request)
   {
     auto [result_code, response] = send_and_read_response_i_(
       [this, &request] ()
@@ -511,7 +510,7 @@ namespace dpi
   }
 
   void
-  DiameterSession::responses_reading_()
+  SCTPDiameterSession::responses_reading_()
   {
     try
     {
@@ -610,7 +609,7 @@ namespace dpi
   }
 
   std::shared_ptr<Diameter::Packet>
-  DiameterSession::wait_response_(const RequestKey& request_key)
+  SCTPDiameterSession::wait_response_(const RequestKey& request_key)
   {
     std::shared_ptr<Diameter::Packet> result;
 
@@ -653,7 +652,7 @@ namespace dpi
   }
 
   std::shared_ptr<Diameter::Packet>
-  DiameterSession::wait_response_()
+  SCTPDiameterSession::wait_response_()
   {
     std::shared_ptr<Diameter::Packet> result;
 
@@ -694,8 +693,8 @@ namespace dpi
     return result;
   }
 
-  std::pair<DiameterSession::RequestKey, ByteArray>
-  DiameterSession::generate_gx_init_(const Request& request)
+  std::pair<SCTPDiameterSession::RequestKey, ByteArray>
+  SCTPDiameterSession::generate_gx_init_(const Request& request)
     const
   {
     const RequestKey request_key(get_session_id_(request.session_id_suffix), request.request_id);
@@ -865,9 +864,9 @@ namespace dpi
   }
 
   void
-  DiameterSession::fill_gx_stat_update_(
+  SCTPDiameterSession::fill_gx_stat_update_(
     Diameter::Packet& packet,
-    const DiameterSession::GxUpdateRequest& gx_update_request)
+    const SCTPDiameterSession::GxUpdateRequest& gx_update_request)
   {
     for (const auto& usage_monitoring : gx_update_request.usage_monitorings)
     {
@@ -888,8 +887,8 @@ namespace dpi
     }
   }
 
-  std::pair<DiameterSession::RequestKey, ByteArray>
-  DiameterSession::generate_gx_update_(
+  std::pair<SCTPDiameterSession::RequestKey, ByteArray>
+  SCTPDiameterSession::generate_gx_update_(
     const Request& request,
     const GxUpdateRequest& update_request)
     const
@@ -908,8 +907,8 @@ namespace dpi
     );
   }
 
-  std::pair<DiameterSession::RequestKey, ByteArray>
-  DiameterSession::generate_gx_terminate_(
+  std::pair<SCTPDiameterSession::RequestKey, ByteArray>
+  SCTPDiameterSession::generate_gx_terminate_(
     const Request& request,
     const GxTerminateRequest& terminate_request)
     const
@@ -933,7 +932,7 @@ namespace dpi
   }
 
   ByteArray
-  DiameterSession::generate_watchdog_packet_() const
+  SCTPDiameterSession::generate_watchdog_packet_() const
   {
     auto packet = Diameter::Packet()
       .setHeader(
@@ -957,8 +956,8 @@ namespace dpi
       .deploy();
   }
 
-  std::pair<DiameterSession::RequestKey, ByteArray>
-  DiameterSession::generate_gy_init_(const GyRequest& request) const
+  std::pair<SCTPDiameterSession::RequestKey, ByteArray>
+  SCTPDiameterSession::generate_gy_init_(const GyRequest& request) const
   {
     std::cout << "DIAMETER: SEND GY INIT: " << request.to_string() << std::endl;
 
@@ -972,8 +971,8 @@ namespace dpi
     );
   }
 
-  std::pair<DiameterSession::RequestKey, ByteArray>
-  DiameterSession::generate_gy_update_(const GyRequest& request) const
+  std::pair<SCTPDiameterSession::RequestKey, ByteArray>
+  SCTPDiameterSession::generate_gy_update_(const GyRequest& request) const
   {
     std::cout << "DIAMETER: SEND GY UPDATE: " << request.to_string() << std::endl;
 
@@ -987,8 +986,8 @@ namespace dpi
     );
   }
 
-  std::pair<DiameterSession::RequestKey, ByteArray>
-  DiameterSession::generate_gy_terminate_(const GyRequest& request) const
+  std::pair<SCTPDiameterSession::RequestKey, ByteArray>
+  SCTPDiameterSession::generate_gy_terminate_(const GyRequest& request) const
   {
     std::cout << "DIAMETER: SEND GY TERMINATE: " << request.to_string() << std::endl;
 
@@ -1003,8 +1002,8 @@ namespace dpi
     );
   }
 
-  std::pair<DiameterSession::RequestKey, Diameter::Packet>
-  DiameterSession::generate_base_gy_packet_(
+  std::pair<SCTPDiameterSession::RequestKey, Diameter::Packet>
+  SCTPDiameterSession::generate_base_gy_packet_(
     const GyRequest& request,
     const std::optional<unsigned int>& reporting_reason) const
   {
@@ -1222,8 +1221,8 @@ namespace dpi
     return std::make_pair(RequestKey(session_id, request_i), packet);
   }
 
-  std::pair<DiameterSession::RequestKey, Diameter::Packet>
-  DiameterSession::generate_base_gx_packet_(const Request& request)
+  std::pair<SCTPDiameterSession::RequestKey, Diameter::Packet>
+  SCTPDiameterSession::generate_base_gx_packet_(const Request& request)
     const
   {
     const RequestKey request_key(get_session_id_(request.session_id_suffix), request.request_id);
@@ -1285,7 +1284,7 @@ namespace dpi
   }
 
   void
-  DiameterSession::make_exchange(
+  SCTPDiameterSession::make_exchange(
     BaseConnection& connection,
     const std::string& origin_host,
     const std::string& origin_realm,
@@ -1340,13 +1339,13 @@ namespace dpi
   }
 
   std::string
-  DiameterSession::get_session_id_(const std::string& session_id_suffix) const
+  SCTPDiameterSession::get_session_id_(const std::string& session_id_suffix) const
   {
     return origin_host_ + session_id_suffix;
   }
 
   ByteArray
-  DiameterSession::generate_exchange_packet_(
+  SCTPDiameterSession::generate_exchange_packet_(
     const std::string& origin_host,
     const std::string& origin_realm,
     const std::optional<std::string>& destination_host,
@@ -1403,7 +1402,7 @@ namespace dpi
     return packet.updateLength().deploy();
   }
 
-  ByteArray DiameterSession::uint32_to_buf_(uint32_t val)
+  ByteArray SCTPDiameterSession::uint32_to_buf_(uint32_t val)
   {
     const uint8_t BUF[] = {
       static_cast<uint8_t>((val >> 24) & 0xFF),

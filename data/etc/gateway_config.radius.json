@@ -1,0 +1,87 @@
+{
+  "radius": {
+    "listen_port": 1813,
+    "secret": "sbtel",
+    "dictionary": "/home/jurij_kuznecov/projects/telecom-gateway/data/etc/radius-dictionary/dictionary"
+  },
+  "gx": {
+    "_diameter_url": {
+      "local_endpoints": [{ "host": "10.77.208.36" }, { "host": "10.77.208.68" }],
+      "connect_endpoints": [
+        { "host": "10.77.18.99", "port": 3862 },
+        { "host": "10.77.18.82", "port": 3862 }
+      ],
+      "origin-host": "traflabpgw01.msk.epc.mnc050.mcc250.3gppnetwork.org",
+      "origin-realm": "epc.mnc050.mcc250.3gppnetwork.org",
+      "destination-realm": "test.epc.mnc050.mcc250.3gppnetwork.org"
+    },
+    "pass_attributes": [
+      { "avp_path": "", "radius": { "name": "NAS-IP-Address"}},
+      { "avp_path": "", "radius": { "name": "Called-Station-Id", "vendor": "3GPP"}},
+      { "avp_path": "", "radius": { "name": "IMSI", "vendor": "3GPP"}},
+      { "avp_path": "", "radius": { "name": "IMEISV", "vendor": "3GPP"}},
+      { "avp_path": "", "radius": { "name": "RAT-Type", "vendor": "3GPP"}},
+      { "avp_path": "", "radius": { "name": "SGSN-MCC-MNC", "vendor": "3GPP"}},
+      { "avp_path": "", "radius": { "name": "MS-TimeZone", "vendor": "3GPP"}},
+      { "avp_path": "", "radius": { "name": "SGSN-Address", "vendor": "3GPP"}},
+      { "avp_path": "", "radius": { "name": "CG-Address", "vendor": "3GPP"}},
+      { "avp_path": "", "radius": { "name": "Charging-ID", "vendor": "3GPP"}},
+      { "avp_path": "", "radius": { "name": "Charging-Characteristics", "vendor": "3GPP"}},
+      { "avp_path": "", "radius": { "name": "GPRS-Negotiated-QoS-profile", "vendor": "3GPP"}},
+      { "avp_path": "", "radius": { "name": "NSAPI", "vendor": "3GPP"}},
+      { "avp_path": "", "radius": { "name": "Selection-Mode", "vendor": "3GPP"}},
+      { "avp_path": "", "radius": { "name": "User-Location-Info", "vendor": "3GPP"}}
+    ]
+  },
+  "gy": {
+    "_diameter_url": {
+      "local_endpoints": [{ "host": "10.77.208.36" }, { "host": "10.77.208.68" }],
+      "connect_endpoints": [
+        { "host": "10.77.18.99", "port": 3862 },
+        { "host": "10.77.18.82", "port": 3862 }
+      ],
+      "origin-host": "traflabpgw01.msk.epc.mnc050.mcc250.3gppnetwork.org",
+      "origin-realm": "epc.mnc050.mcc250.3gppnetwork.org",
+      "destination-realm": "test.epc.mnc050.mcc250.3gppnetwork.org"
+    }
+  },
+  "http_port": 8080,
+  "dpi_interface": "eno1",
+  "dpi_interface2": "eno2",
+  "ip_rules_root": "/home/jurij_kuznecov/projects/telecom-gateway/data/etc/ip_rules/",
+  "pcc_config_file": "/home/jurij_kuznecov/projects/telecom-gateway/data/etc/pcc_config.json",
+  "processing_log_file": "/home/jurij_kuznecov/projects/telecom-gateway/var/log/processing.log",
+  "event_log_file": "/home/jurij_kuznecov/projects/telecom-gateway/var/log/event.log",
+  "dump_stat_root": "/home/jurij_kuznecov/projects/telecom-gateway/var/stat/dump/",
+  "stat": {
+    "clickhouse_conn": "--user gatewayuser --password gateway",
+    "error_root": "/home/jurij_kuznecov/projects/telecom-gateway/var/stat/error/"
+  },
+  "rules": [
+    {
+      "type": "state",
+      "name": "telegram call",
+      "protocol": "telegram-voip",
+      "drop_state_timeout": 30
+    },
+    {
+      "type": "state",
+      "name": "sber open",
+      "host": [ "online.sberbank.ru", "app.sberbank.ru" ],
+      "protocol": "tcp",
+      "drop_state_timeout": 60
+    },
+    {
+      "type": "event",
+      "name": "sber open on telegram call",
+      "conditions": [
+        {
+          "in-state": "telegram call"
+        },
+        {
+          "input-to-state": "sber open"
+        }
+      ]
+    }
+  ]
+}

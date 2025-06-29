@@ -1,3 +1,0 @@
-#
-#	ARGV: -t chap -u scald authenticate -p pegapilha -i a -c qwerQWERtyuiTYUI
-#

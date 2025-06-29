@@ -1,3 +1,0 @@
-#
-# Test the "imap" module
-#

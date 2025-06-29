@@ -1,20 +1,27 @@
+#include <boost/functional/hash.hpp>
+
 #include <gears/AppUtils.hpp>
 
 #include <dpi/Config.hpp>
+#include <dpi/DiameterSession.hpp>
+#include <dpi/DummyDiameterSession.hpp>
+#include <dpi/InputDiameterRequestProcessor.hpp>
+
 #include <dpi/NDPIPacketProcessor.hpp>
 #include <dpi/NetInterfaceNDPIProcessor.hpp>
 #include <dpi/NetInterfaceBridgeNDPIProcessor.hpp>
 #include <dpi/StatUserSessionPacketProcessor.hpp>
 #include <dpi/MainUserSessionPacketProcessor.hpp>
+
 #include <dpi/Manager.hpp>
-#include <dpi/InputDiameterRequestProcessor.hpp>
 #include <dpi/IOServiceActiveObject.hpp>
 #include <dpi/SessionRuleOverrideUserSessionPacketProcessor.hpp>
 
-#include "RadiusServerImpl.hpp"
+#include "RadiusServer.hpp"
 #include "Processor.hpp"
 
 #include <http_server/HttpServer.hpp>
+
 
 std::shared_ptr<Gears::ActiveObject> interrupter;
 
@@ -23,6 +30,24 @@ void sigproc(int)
   if (interrupter)
   {
     interrupter->deactivate_object();
+  }
+}
+
+namespace dpi
+{
+  ConstAttributeKeyPtrSet
+  resolve_attribute_keys(const std::vector<Config::Diameter::PassAttribute>& pass_attributes)
+  {
+    ConstAttributeKeyPtrSet result;
+    for (const auto& pass_attribute : pass_attributes)
+    {
+      auto attribute_key = std::make_shared<AttributeKey>();
+      attribute_key->name = pass_attribute.source.name;
+      attribute_key->vendor = pass_attribute.source.vendor;
+      result.emplace(attribute_key);
+    }
+
+    return result;
   }
 }
 
@@ -46,6 +71,9 @@ int main(int argc, char **argv)
   auto all_active_objects = std::make_shared<Gears::CompositeActiveObject>();
   auto config = dpi::Config::read(*opt_config);
 
+  auto logger = std::make_shared<dpi::StreamLogger>(std::cout);
+  auto event_logger = std::make_shared<dpi::StreamLogger>(std::cout);
+
   dpi::PccConfigProviderPtr pcc_config_provider;
 
   if (!config.pcc_config_file.empty())
@@ -59,56 +87,66 @@ int main(int argc, char **argv)
   session_rule_config.clear_closed_sessions_timeout = Gears::Time::ONE_DAY;
   session_rule_config.default_rule.close_timeout = Gears::Time(30);
 
-  dpi::DiameterSessionPtr gx_diameter_session;
+  std::shared_ptr<dpi::SCTPConnection> sctp_connection;
 
-  if (config.gx_diameter_url.has_value())
+  if (config.gx.has_value() && config.gx->diameter_url.has_value())
   {
-    auto sctp_connection = std::make_shared<dpi::SCTPConnection>(
+    sctp_connection = std::make_shared<dpi::SCTPConnection>(
       nullptr,
-      config.gx_diameter_url->local_endpoints,
-      config.gx_diameter_url->connect_endpoints
+      config.gx->diameter_url->local_endpoints,
+      config.gx->diameter_url->connect_endpoints
     );
 
     sctp_connection->connect();
 
     std::vector<std::string> local_ips;
-    for (const auto& local_endpoint : config.gx_diameter_url->local_endpoints)
+    for (const auto& local_endpoint : config.gx->diameter_url->local_endpoints)
     {
       local_ips.emplace_back(local_endpoint.host);
     }
 
-    dpi::DiameterSession::make_exchange(
+    dpi::SCTPDiameterSession::make_exchange(
       *sctp_connection,
-      config.gx_diameter_url->origin_host,
-      config.gx_diameter_url->origin_realm,
-      !config.gx_diameter_url->destination_host.empty() ?
-        std::optional<std::string>(config.gx_diameter_url->destination_host) :
+      config.gx->diameter_url->origin_host,
+      config.gx->diameter_url->origin_realm,
+      !config.gx->diameter_url->destination_host.empty() ?
+        std::optional<std::string>(config.gx->diameter_url->destination_host) :
         std::optional<std::string>(),
-      config.gx_diameter_url->destination_realm,
+      config.gx->diameter_url->destination_realm,
       "Traflab PGW",
       std::vector<uint32_t>({16777238, 4}),
       local_ips
     );
+  }
 
-    auto gx_connection = sctp_connection; // std::make_shared<dpi::SCTPStreamConnection>(sctp_connection, 1);
+  std::shared_ptr<dpi::SCTPDiameterSession> gx_sctp_diameter_session;
+  dpi::DiameterSessionPtr gx_diameter_session;
 
-    //auto connection_keeper = std::make_shared<dpi::ConnectionKeeper>(sctp_connection);
-    //all_active_objects->add_child_object(connection_keeper);
+  if (config.gx.has_value())
+  {
+    if (config.gx->diameter_url.has_value())
+    {
+      gx_sctp_diameter_session = std::make_shared<dpi::SCTPDiameterSession>(
+        logger,
+        sctp_connection,
+        config.gx->diameter_url->origin_host,
+        config.gx->diameter_url->origin_realm,
+        !config.gx->diameter_url->destination_host.empty() ?
+          std::optional<std::string>(config.gx->diameter_url->destination_host) :
+          std::optional<std::string>(),
+        config.gx->diameter_url->destination_realm,
+        16777238, //< Gx
+        "3GPP Gx"
+      );
 
-    gx_diameter_session = std::make_shared<dpi::DiameterSession>(
-      nullptr,
-      gx_connection,
-      config.gx_diameter_url->origin_host,
-      config.gx_diameter_url->origin_realm,
-      !config.gx_diameter_url->destination_host.empty() ?
-        std::optional<std::string>(config.gx_diameter_url->destination_host) :
-        std::optional<std::string>(),
-      config.gx_diameter_url->destination_realm,
-      16777238, //< Gx
-      "3GPP Gx"
-    );
+      all_active_objects->add_child_object(gx_sctp_diameter_session);
 
-    all_active_objects->add_child_object(gx_diameter_session);
+      gx_diameter_session = gx_sctp_diameter_session;
+    }
+    else
+    {
+      gx_diameter_session = std::make_shared<dpi::DummyDiameterSession>();
+    }
   }
 
   dpi::DiameterSessionPtr gy_diameter_session = gx_diameter_session;
@@ -149,8 +187,10 @@ int main(int argc, char **argv)
   if (gx_diameter_session)
   {
     auto input_diameter_request_processor = std::make_shared<dpi::InputDiameterRequestProcessor>(
-      config.gx_diameter_url->origin_host,
-      config.gx_diameter_url->origin_realm,
+      config.gx.has_value() && config.gx->diameter_url.has_value() ?
+        config.gx->diameter_url->origin_host : std::string("dummy"),
+      config.gx.has_value() && config.gx->diameter_url.has_value() ?
+        config.gx->diameter_url->origin_realm : std::string("dummy"),
       gx_diameter_session,
       manager
     );
@@ -163,17 +203,9 @@ int main(int argc, char **argv)
     );
   }
 
-  auto processor = std::make_shared<dpi::Processor>(manager);
+  auto processor = std::make_shared<dpi::Processor>(
+    logger, event_logger, manager);
   processor->load_config(*opt_config);
-
-  if (gx_diameter_session)
-  {
-    std::ostringstream ostr;
-    ostr << "  local_endpoints: " << config.gx_diameter_url->local_endpoints.size() << std::endl <<
-      "  connect_endpoints: " << config.gx_diameter_url->connect_endpoints.size() << std::endl;
-    processor->logger()->log(ostr.str());
-    gx_diameter_session->set_logger(processor->logger());
-  }
 
   user_storage->set_event_logger(processor->event_logger());
 
@@ -230,6 +262,7 @@ int main(int argc, char **argv)
       user_storage,
       user_session_storage,
       event_processor,
+      manager,
       config.http_port,
       ""
     );
@@ -269,29 +302,46 @@ int main(int argc, char **argv)
 
   all_active_objects->add_child_object(bridge);
 
+  std::shared_ptr<dpi::RadiusServer> radius_server;
   auto io_service_active_object = std::make_shared<dpi::IOServiceActiveObject>();
-  io_service_active_object->activate_object();
+  all_active_objects->add_child_object(io_service_active_object);
 
-  std::cout << "config.radius_port = " << config.radius_port << std::endl;
-
-  dpi::RadiusServerImpl server(
-    io_service_active_object->io_service(),
-    config.radius_secret,
-    config.radius_port,
-    config.radius_dictionary,
-    processor);
-
-  //all_active_objects->add_child_object(io_service_active_object);
   all_active_objects->activate_object();
 
+  if (config.radius.has_value()) // create RadiusServer on activated io_service !
+  {
+    // collect required custom attributes from radius
+    dpi::ConstAttributeKeyPtrSet resolve_radius_keys;
+
+    if (config.gx.has_value())
+    {
+      auto resolved_keys = dpi::resolve_attribute_keys(config.gx->pass_attributes);
+      resolve_radius_keys.insert(resolved_keys.begin(), resolved_keys.end());
+    }
+
+    if (config.gy.has_value())
+    {
+      auto resolved_keys = dpi::resolve_attribute_keys(config.gy->pass_attributes);
+      resolve_radius_keys.insert(resolved_keys.begin(), resolved_keys.end());
+    }
+
+    radius_server = std::make_shared<dpi::RadiusServer>(
+      io_service_active_object->io_service(),
+      config.radius->listen_port,
+      config.radius->secret,
+      config.radius->dictionary,
+      processor,
+      resolve_radius_keys);
+  }
+  
   interrupter->activate_object();
   interrupter->wait_object();
 
   all_active_objects->deactivate_object();
   all_active_objects->wait_object();
 
-  io_service_active_object->deactivate_object();
-  io_service_active_object->wait_object();
+  //io_service_active_object->deactivate_object();
+  //io_service_active_object->wait_object();
 
   std::cout << "Exit application" << std::endl;
 

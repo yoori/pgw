@@ -1,0 +1,70 @@
+{
+  "radius": {
+    "listen_port": 1813,
+    "secret": "sbtel",
+    "dictionary": "/opt/telecom-gateway/share/radius-dictionary/dictionary"
+  },
+  "gx": {
+    "diameter_url": {
+      "local_endpoints": [{ "host": "10.77.208.36" }, { "host": "10.77.208.68" }],
+      "connect_endpoints": [
+        { "host": "10.77.18.99", "port": 3862 },
+        { "host": "10.77.18.82", "port": 3862 }
+      ],
+      "origin-host": "traflabpgw01.msk.epc.mnc050.mcc250.3gppnetwork.org",
+      "origin-realm": "epc.mnc050.mcc250.3gppnetwork.org",
+      "destination-realm": "test.epc.mnc050.mcc250.3gppnetwork.org"
+    }
+  },
+  "gy" : {
+    "diameter_url": {
+      "local_endpoints": [{ "host": "10.77.208.36" }, { "host": "10.77.208.68" }],
+      "connect_endpoints": [
+        { "host": "10.77.18.99", "port": 3862 },
+        { "host": "10.77.18.82", "port": 3862 }
+      ],
+      "origin-host": "traflabpgw01.msk.epc.mnc050.mcc250.3gppnetwork.org",
+      "origin-realm": "epc.mnc050.mcc250.3gppnetwork.org",
+      "destination-realm": "test.epc.mnc050.mcc250.3gppnetwork.org"
+    }
+  },
+  "http_port": 8080,
+  "dpi_interface": "ens161",
+  "dpi_interface2": "ens193",
+  "ip_rules_root": "/opt/tel-gateway/etc/ip_rules/",
+  "pcc_config_file": "/opt/tel-gateway/etc/pcc_config.json",
+  "processing_log_file": "/opt/tel-gateway/var/log/processing.log",
+  "event_log_file": "/opt/tel-gateway/var/log/event.log",
+  "dump_stat_root": "/opt/tel-gateway/var/stat/dump/",
+  "stat": {
+    "clickhouse_conn": "--user gatewayuser --password gateway",
+    "error_root": "/opt/tel-gateway/var/stat/error/"
+  },
+  "rules": [
+    {
+      "type": "state",
+      "name": "telegram call",
+      "protocol": "telegram-voip",
+      "drop_state_timeout": 30
+    },
+    {
+      "type": "state",
+      "name": "sber open",
+      "host": [ "online.sberbank.ru", "app.sberbank.ru" ],
+      "protocol": "tcp",
+      "drop_state_timeout": 60
+    },
+    {
+      "type": "event",
+      "name": "sber open on telegram call",
+      "conditions": [
+        {
+            "in-state": "telegram call"
+        },
+        {
+            "input-to-state": "sber open"
+        }
+      ]
+    }
+  ]
+}

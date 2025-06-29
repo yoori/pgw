@@ -1,4 +1,0 @@
-#
-#  PRE: set-profile-status-yes
-#
-show profile status

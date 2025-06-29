@@ -1,62 +1,98 @@
 #include <iostream>
 #include <fstream>
-#include <rapidjson/document.h>
+
+#include <jsoncons/json.hpp>
 
 #include "Config.hpp"
 
 namespace dpi
 {
-  DiameterUrl read_diameter_url(const rapidjson::GenericValue<rapidjson::UTF8<>>& diameter_url_obj)
+  namespace
   {
-    DiameterUrl result_diameter_url;
-
-    if (diameter_url_obj.HasMember("local_endpoints"))
+    DiameterUrl
+    read_diameter_url(const jsoncons::json& diameter_url_obj)
     {
-      for (const auto& local_endpoint_json : diameter_url_obj["local_endpoints"].GetArray())
+      DiameterUrl result_diameter_url;
+
+      if (diameter_url_obj.contains("local_endpoints"))
       {
-        result_diameter_url.local_endpoints.emplace_back(SCTPConnection::Endpoint(
-          local_endpoint_json["host"].GetString(),
-          local_endpoint_json.HasMember("port") ? local_endpoint_json["port"].GetInt() : 0
-          ));
+        for (const auto& local_endpoint_json : diameter_url_obj["local_endpoints"].array_range())
+        {
+          result_diameter_url.local_endpoints.emplace_back(
+            SCTPConnection::Endpoint(
+              local_endpoint_json["host"].as_string(),
+              local_endpoint_json.contains("port") ?
+                local_endpoint_json["port"].as<unsigned int>() : 0
+            ));
+        }
       }
-    }
 
-    std::vector<SCTPConnection::Endpoint> connect_endpoints;
-    if (diameter_url_obj.HasMember("connect_endpoints"))
-    {
-      for (const auto& endpoint_json : diameter_url_obj["connect_endpoints"].GetArray())
+      std::vector<SCTPConnection::Endpoint> connect_endpoints;
+      if (diameter_url_obj.contains("connect_endpoints"))
       {
-        result_diameter_url.connect_endpoints.emplace_back(SCTPConnection::Endpoint(
-          endpoint_json["host"].GetString(),
-          endpoint_json["port"].GetInt()
-          ));
+        for (const auto& endpoint_json : diameter_url_obj["connect_endpoints"].array_range())
+        {
+          result_diameter_url.connect_endpoints.emplace_back(
+            SCTPConnection::Endpoint(
+              endpoint_json["host"].as_string(),
+              endpoint_json["port"].as<unsigned int>()
+            ));
+        }
       }
+
+      if (diameter_url_obj.contains("origin-host"))
+      {
+        result_diameter_url.origin_host = diameter_url_obj["origin-host"].as_string();
+      }
+
+      if (diameter_url_obj.contains("origin-realm"))
+      {
+        result_diameter_url.origin_realm = diameter_url_obj["origin-realm"].as_string();
+      }
+
+      if (diameter_url_obj.contains("destination-host"))
+      {
+        result_diameter_url.destination_host = diameter_url_obj["destination-host"].as_string();
+      }
+
+      if (diameter_url_obj.contains("destination-realm"))
+      {
+        result_diameter_url.destination_realm = diameter_url_obj["destination-realm"].as_string();
+      }
+
+      return result_diameter_url;
     }
 
-    if (diameter_url_obj.HasMember("origin-host"))
+    Config::Diameter
+    read_diameter_config(const jsoncons::json& diameter_obj)
     {
-      result_diameter_url.origin_host = diameter_url_obj["origin-host"].GetString();
-    }
+      Config::Diameter result_diameter_config;
+      if (diameter_obj.contains("diameter_url"))
+      {
+        result_diameter_config.diameter_url = read_diameter_url(diameter_obj["diameter_url"]);
+      }
 
-    if (diameter_url_obj.HasMember("origin-realm"))
-    {
-      result_diameter_url.origin_realm = diameter_url_obj["origin-realm"].GetString();
-    }
+      if (diameter_obj.contains("pass_attributes"))
+      { 
+        for (const auto& pass_attribute_json : diameter_obj["pass_attributes"].array_range())
+        {
+          Config::Diameter::PassAttribute pass_attribute;
+          pass_attribute.avp_path = pass_attribute_json["avp_path"].as_string();
+          pass_attribute.source.name = pass_attribute_json["radius"]["name"].as_string();
+          pass_attribute.source.vendor = pass_attribute_json["radius"].contains("vendor") ?
+            pass_attribute_json["radius"]["vendor"].as_string() :
+            std::string();
 
-    if (diameter_url_obj.HasMember("destination-host"))
-    {
-      result_diameter_url.destination_host = diameter_url_obj["destination-host"].GetString();
-    }
+          result_diameter_config.pass_attributes.emplace_back(pass_attribute);
+        }
+      }
 
-    if (diameter_url_obj.HasMember("destination-realm"))
-    {
-      result_diameter_url.destination_realm = diameter_url_obj["destination-realm"].GetString();
+      return result_diameter_config;
     }
-
-    return result_diameter_url;
   }
 
-  Config Config::read(const std::string_view& file)
+  Config
+  Config::read(const std::string_view& file)
   {
     Config result;
 
@@ -68,68 +104,73 @@ namespace dpi
       config_text += line;
     }
 
-    rapidjson::Document document;
-    document.Parse(config_text.c_str());
-    if (document.HasMember("pcap_file"))
+    jsoncons::json config_json = jsoncons::json::parse(config_text);
+
+    if (config_json.contains("pcap_file"))
     {
-      result.pcap_file = document["pcap_file"].GetString();
+      result.pcap_file = config_json["pcap_file"].as_string();
     }
 
-    if (document.HasMember("dpi_interface"))
+    if (config_json.contains("dpi_interface"))
     {
-      result.interface = document["dpi_interface"].GetString();
+      result.interface = config_json["dpi_interface"].as_string();
     }
 
-    if (document.HasMember("dpi_interface2"))
+    if (config_json.contains("dpi_interface2"))
     {
-      result.interface2 = document["dpi_interface2"].GetString();
+      result.interface2 = config_json["dpi_interface2"].as_string();
     }
 
-    if (document.HasMember("dump_stat_root"))
+    if (config_json.contains("dump_stat_root"))
     {
-      result.dump_stat_root = document["dump_stat_root"].GetString();
+      result.dump_stat_root = config_json["dump_stat_root"].as_string();
     }
 
-    if (document.HasMember("ip_rules_root"))
+    if (config_json.contains("ip_rules_root"))
     {
-      result.ip_rules_root = document["ip_rules_root"].GetString();
+      result.ip_rules_root = config_json["ip_rules_root"].as_string();
     }
 
-    if (document.HasMember("http_port"))
+    if (config_json.contains("http_port"))
     {
-      result.http_port = document["http_port"].GetInt();
+      result.http_port = config_json["http_port"].as<unsigned int>();
     }
 
-    if (document.HasMember("gx_diameter_url"))
+    if (config_json.contains("pcc_config_file"))
     {
-      DiameterUrl result_diameter_url = read_diameter_url(document["gx_diameter_url"]);
-      result.gx_diameter_url = result_diameter_url;
+      result.pcc_config_file = config_json["pcc_config_file"].as_string();
     }
 
-    if (document.HasMember("gy_diameter_url"))
+    if (config_json.contains("radius"))
     {
-      DiameterUrl result_diameter_url = read_diameter_url(document["gy_diameter_url"]);
-      result.gy_diameter_url = result_diameter_url;
+      const auto& radius_obj = config_json["radius"];
+      result.radius = Config::Radius();
+
+      result.radius->listen_port = radius_obj.contains("listen_port") ?
+        radius_obj["listen_port"].as<unsigned long>() :
+        1813;
+
+      if (radius_obj.contains("secret"))
+      {
+        result.radius->secret = radius_obj["secret"].as_string();
+      }
+
+      if (radius_obj.contains("dictionary"))
+      {
+        result.radius->dictionary = radius_obj["dictionary"].as_string();
+      }
     }
 
-    if (document.HasMember("pcc_config_file"))
+    // gx
+    if (config_json.contains("gx"))
     {
-      result.pcc_config_file = document["pcc_config_file"].GetString();
+      result.gx = read_diameter_config(config_json["gx"]);
     }
 
-    if (document.HasMember("radius_port"))
+    // gy
+    if (config_json.contains("gy"))
     {
-      result.radius_port = document["radius_port"].GetInt();
-    }
-
-    if (document.HasMember("radius_secret"))
-    {
-      result.radius_secret = document["radius_secret"].GetString();
-    }
-
-    if (document.HasMember("radius_dictionary"))
-    {
-      result.radius_dictionary = document["radius_dictionary"].GetString();
+      result.gy = read_diameter_config(config_json["gy"]);
     }
 
     std::cout << "Pcc config path: " << result.pcc_config_file << std::endl;

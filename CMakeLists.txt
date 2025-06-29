@@ -2,7 +2,7 @@ project(tel_gateway)
 
 cmake_minimum_required(VERSION 3.0)
 
-option(INSTALL_PREFIX "Install prefix" "/opt/tel-gateway")
+option(INSTALL_PREFIX "Install prefix" "/opt/pgw")
 set(CMAKE_INSTALL_PREFIX "${INSTALL_PREFIX}")
 
 if(NOT CMAKE_BUILD_TYPE)
@@ -85,7 +85,7 @@ install(
 )
 
 install(
-  DIRECTORY ${CMAKE_SOURCE_DIR}/data/ip_rules
-  DESTINATION "./${INSTALL_PREFIX}/etc/raddb/"
+  DIRECTORY ${CMAKE_SOURCE_DIR}/data/etc/
+  DESTINATION "./${INSTALL_PREFIX}/etc"
   USE_SOURCE_PERMISSIONS
 )

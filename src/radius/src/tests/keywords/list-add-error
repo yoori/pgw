@@ -1,3 +1,0 @@
-group foo
-
-foo := request + control # ERROR

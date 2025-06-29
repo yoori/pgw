@@ -147,7 +147,7 @@ namespace dpi
           ostr << "diameter cc init response code: " << response.result_code;
           logger_->log(ostr.str());
 
-          std::cout << ostr.str() << std::endl;
+          //std::cout << ostr.str() << std::endl;
         }
 
         if (response.result_code != 2001)
@@ -309,7 +309,7 @@ namespace dpi
       }
     }
 
-    std::cout << "Radius: return " << result <<
+    std::cout << "Manager: return " << result <<
       ", acct_status_type = " << (int)acct_status_type <<
       ", msisdn = " << user_session_traits.msisdn <<
       ", called-station-id = " << user_session_traits.called_station_id <<

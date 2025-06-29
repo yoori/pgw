@@ -1,3 +1,0 @@
-#
-#  Test the "idn" module
-#

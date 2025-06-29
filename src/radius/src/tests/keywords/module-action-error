@@ -1,9 +1,0 @@
-#
-# PRE: ok-return
-#
-
-ok {
-	foo = bar # ERROR
-}
-
-test_fail

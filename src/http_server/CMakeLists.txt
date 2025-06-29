@@ -7,10 +7,12 @@ add_library(http_server
   UserBlockHttpResource.cpp
   SetEventActionHttpResource.cpp
   UserSetShapingHttpResource.cpp
+  AbortSessionHttpResource.cpp
   )
 
 target_link_libraries(http_server
   PUBLIC
+    dpi
     Gears
     libhttpserver
     jsoncons

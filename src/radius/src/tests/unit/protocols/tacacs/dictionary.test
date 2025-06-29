@@ -1,7 +1,0 @@
-VENDOR Test  0xdeadbeef
-
-BEGIN-VENDOR Test
-
-DEFINE addr ipv4addr
-
-END-VENDOR Test

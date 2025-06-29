@@ -1,6 +1,0 @@
-TARGETNAME	:= rlm_date
-
-TARGET		:= $(TARGETNAME)$(L)
-SOURCES		:= $(TARGETNAME).c
-
-LOG_ID_LIB	= 9

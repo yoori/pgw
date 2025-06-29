@@ -1,3 +1,0 @@
-- add health checks for client
-  - if client is health check, accept() and close the connection immediately
-

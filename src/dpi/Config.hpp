@@ -3,6 +3,7 @@
 #include <string>
 #include <optional>
 #include <vector>
+#include <set>
 
 #include "DiameterSession.hpp"
 
@@ -26,18 +27,42 @@ namespace dpi
 
   struct Config
   {
+    struct Radius
+    {
+      unsigned int listen_port = 0;
+      std::string secret;
+      std::string dictionary;
+    };
+
+    struct RadiusAttributeSource
+    {
+      std::string name;
+      std::string vendor;
+    };
+
+    struct Diameter
+    {
+      struct PassAttribute
+      {
+        std::string avp_path;
+        RadiusAttributeSource source;
+      };
+
+      std::optional<DiameterUrl> diameter_url;
+      std::vector<PassAttribute> pass_attributes;
+    };
+
     std::string pcap_file;
     std::string interface;
     std::string interface2;
     std::string dump_stat_root;
     std::string ip_rules_root;
     unsigned int http_port = 0;
-    std::optional<DiameterUrl> gx_diameter_url;
-    std::optional<DiameterUrl> gy_diameter_url;
     std::string pcc_config_file;
-    unsigned int radius_port = 0;
-    std::string radius_secret;
-    std::string radius_dictionary;
+
+    std::optional<Radius> radius;
+    std::optional<Diameter> gx;
+    std::optional<Diameter> gy;
 
     static Config read(const std::string_view& file);
   };

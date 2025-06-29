@@ -1,8 +1,0 @@
-#
-#  The edit code doesn't do this yet.
-#
-#  Instead of doing something wrong, we forbid it with a descriptive error.
-#
-control -= {
-	Password.Cleartext == 'oracle01'	# ERROR
-}

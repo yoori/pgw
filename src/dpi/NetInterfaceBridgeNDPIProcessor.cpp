@@ -47,7 +47,7 @@ namespace dpi
 
       if (packet_processing_state.block_packet)
       {
-        std::cout << "NetInterfaceBridgeProcessor::process_packet(): block packet" << std::endl;
+        //std::cout << "NetInterfaceBridgeProcessor::process_packet(): block packet" << std::endl;
       }
 
       if (!packet_processing_state.block_packet)

@@ -72,6 +72,9 @@ namespace dpi
       std::string_view avp_path)
       const;
 
+    static std::string
+    avp_value_type_to_string(AVPValueType avp_value_type);
+
   private:
     ConstRequestCommandPtr
     parse_request_(const jsoncons::json& request_json);

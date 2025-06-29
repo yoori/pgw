@@ -1,9 +1,0 @@
-#!/bin/sh
-
-. src/tests/bin/lib.sh
-
-do_test $TEST_BIN/radsniff -h
-
-# list all interfaces
-do_test $TEST_BIN/radsniff -a
-

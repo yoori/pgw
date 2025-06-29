@@ -157,11 +157,13 @@ namespace dpi
     const FlowTraits& flow_traits,
     const char* block_reason)
   {
+    /*
     std::cout << "Process packet: block packet " << session_key.to_string() <<
       " - " << block_reason << ", flow traits: " <<
       ipv4_address_to_string(flow_traits.src_ip) << " => " <<
       ipv4_address_to_string(flow_traits.dst_ip) <<
       std::endl;
+    */
   }
 
   bool MainUserSessionPacketProcessor::check_user_state_(

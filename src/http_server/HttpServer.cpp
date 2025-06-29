@@ -10,6 +10,7 @@
 #include "UserBlockHttpResource.hpp"
 #include "SetEventActionHttpResource.hpp"
 #include "UserSetShapingHttpResource.hpp"
+#include "AbortSessionHttpResource.hpp"
 
 namespace dpi
 {
@@ -21,6 +22,7 @@ namespace dpi
       UserStoragePtr user_storage,
       UserSessionStoragePtr user_session_storage,
       EventProcessorPtr event_processor,
+      ManagerPtr manager,
       unsigned int port,
       std::string url_prefix,
       unsigned long max_threads = 32)
@@ -31,6 +33,7 @@ namespace dpi
         user_block_http_resource_(std::make_shared<UserBlockHttpResource>(user_storage)),
         set_event_action_http_resource_(std::make_shared<SetEventActionHttpResource>(event_processor)),
         user_set_shaping_http_resource_(std::make_shared<UserSetShapingHttpResource>(user_storage)),
+        abort_session_http_resource_(std::make_shared<AbortSessionHttpResource>(manager)),
         ws(httpserver::create_webserver(port)
           .max_threads(max_threads)
           .put_processed_data_to_content()
@@ -45,6 +48,7 @@ namespace dpi
       ws.register_resource("/api/block_user", user_block_http_resource_.get());
       ws.register_resource("/api/set_event_action", set_event_action_http_resource_.get());
       ws.register_resource("/api/set_user_shaping", user_set_shaping_http_resource_.get());
+      ws.register_resource("/api/abort_session", abort_session_http_resource_.get());
     }
 
   private:
@@ -54,6 +58,7 @@ namespace dpi
     const std::shared_ptr<httpserver::http_resource> user_block_http_resource_;
     const std::shared_ptr<httpserver::http_resource> set_event_action_http_resource_;
     const std::shared_ptr<httpserver::http_resource> user_set_shaping_http_resource_;
+    const std::shared_ptr<httpserver::http_resource> abort_session_http_resource_;
 
   public:
     httpserver::webserver ws;
@@ -65,6 +70,7 @@ namespace dpi
     UserStoragePtr user_storage,
     UserSessionStoragePtr user_session_storage,
     EventProcessorPtr event_processor,
+    ManagerPtr manager,
     unsigned int port,
     std::string url_prefix
     )
@@ -73,6 +79,7 @@ namespace dpi
         user_storage,
         user_session_storage,
         event_processor,
+        manager,
         port,
         url_prefix,
         16 //< threads

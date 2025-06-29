@@ -165,4 +165,43 @@ namespace dpi
 
     return AVP_TYPE_UNDEFINED;
   }
+
+  std::string
+  DiameterDictionary::avp_value_type_to_string(AVPValueType avp_value_type)
+  {
+    if (avp_value_type == AVPValueType::AVP_TYPE_OCTETSTRING)
+    {
+      return "string";
+    }
+    else if (avp_value_type == AVPValueType::AVP_TYPE_INTEGER32)
+    {
+      return "int32";
+    }
+    else if (avp_value_type == AVPValueType::AVP_TYPE_INTEGER64)
+    {
+      return "int64";
+    }
+    else if (avp_value_type == AVPValueType::AVP_TYPE_UNSIGNED32)
+    {
+      return "uint32";
+    }
+    else if (avp_value_type == AVPValueType::AVP_TYPE_UNSIGNED64)
+    {
+      return "uint64";
+    }
+    else if (avp_value_type == AVPValueType::AVP_TYPE_FLOAT32)
+    {
+      return "float32";
+    }
+    else if (avp_value_type == AVPValueType::AVP_TYPE_FLOAT64)
+    {
+      return "float64";
+    }
+    else if (avp_value_type == AVPValueType::AVP_TYPE_GROUPED)
+    {
+      return "grouped";
+    }
+
+    return "undefined";
+  }
 }

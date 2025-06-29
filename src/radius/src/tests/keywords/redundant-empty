@@ -1,7 +1,0 @@
-#
-#  Redundant blocks can be empry, and don't do anything
-#
-redundant {
-
-}
-success

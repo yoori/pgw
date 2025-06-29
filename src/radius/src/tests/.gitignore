@@ -1,8 +1,0 @@
-.cache
-.foo
-.bar
-.request
-*.ok
-radius.log
-radiusd.pid
-cui.sqlite

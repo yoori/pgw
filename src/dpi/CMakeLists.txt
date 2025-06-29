@@ -19,7 +19,11 @@ add_library(dpi
   EventProcessor.cpp
   ShapingManager.cpp
   PacketProcessingState.cpp
+
+  DiameterPacketFiller.cpp
   DiameterSession.cpp
+  DummyDiameterSession.cpp
+
   AVPUtils.cpp
   TrafficRules.cpp
   UserSessionStorage.cpp

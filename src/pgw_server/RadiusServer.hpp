@@ -1,11 +1,16 @@
 #pragma once
 
-#include "socket.h"
-#include "packet.h"
-#include "dictionaries.h"
-#include <boost/asio.hpp>
 #include <optional>
-#include <cstdint> //uint8_t, uint32_t
+
+#include <boost/asio.hpp>
+
+#include <radproto/socket.h>
+#include <radproto/packet.h>
+#include <radproto/dictionaries.h>
+
+#include <dpi/Value.hpp>
+
+#include "Processor.hpp"
 
 namespace dpi
 {
@@ -14,32 +19,40 @@ namespace dpi
   public:
     RadiusServer(
       boost::asio::io_service& io_service,
+      uint16_t listen_port,
       const std::string& secret,
-      uint16_t port,
-      const std::string& filePath);
+      const std::string& dictionary_file_path,
+      ProcessorPtr processor,
+      const ConstAttributeKeyPtrSet& attribute_keys);
 
   private:
-    RadProto::Packet makeResponse(const RadProto::Packet& request);
-
     void handle_receive_(
       const boost::system::error_code& error,
       const std::optional<RadProto::Packet>& packet,
       const boost::asio::ip::udp::endpoint& source);
 
-    void handleSend(const boost::system::error_code& ec);
+    void handle_send(const boost::system::error_code& ec);
 
-    //void startReceive();
+    static Value attribute_to_value_(const RadProto::Attribute& attribute);
 
-  protected:
-    virtual std::optional<RadProto::Packet>
-    process_packet_(const RadProto::Packet&)
+  private:
+    struct ResolveAttribute
     {
-      return std::nullopt;
-    }
+      ConstAttributeKeyPtr attribute_key;
+      RadProto::Dictionaries::AttributeKey resolve_attribute_key;
+    };
+
+    using ResolveAttributeArray = std::vector<ResolveAttribute>;
 
   protected:
-    RadProto::Socket m_radius;
-    RadProto::Dictionaries m_dictionaries;
-    std::string secret_;
+    std::optional<RadProto::Packet>
+    process_packet_(const RadProto::Packet&);
+
+  protected:
+    RadProto::Socket radius_;
+    RadProto::Dictionaries dictionaries_;
+    const std::string secret_;
+    const dpi::ProcessorPtr processor_;
+    ResolveAttributeArray pass_attribute_keys_;
   };
 }

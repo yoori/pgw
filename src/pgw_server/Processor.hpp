@@ -2,6 +2,8 @@
 
 #include <gears/Exception.hpp>
 
+#include <radproto/packet_reader.h>
+
 #include <dpi/UserStorage.hpp>
 #include <dpi/UserSessionStorage.hpp>
 #include <dpi/Logger.hpp>
@@ -9,6 +11,8 @@
 #include <dpi/DiameterSession.hpp>
 #include <dpi/PccConfigProvider.hpp>
 #include <dpi/Manager.hpp>
+#include <dpi/Value.hpp>
+#include <dpi/Attribute.hpp>
 
 namespace dpi
 {
@@ -17,20 +21,25 @@ namespace dpi
   public:
     DECLARE_EXCEPTION(Invalid, Gears::DescriptiveException);
 
-    /*
-    enum class AcctStatusType: int
-    {
-      START = 1,
-      STOP = 2,
-      UPDATE = 3
-    };
-    */
-
   public:
-    Processor(dpi::ManagerPtr manager);
+    Processor(
+      LoggerPtr logger,
+      dpi::LoggerPtr event_logger,
+      dpi::ManagerPtr manager);
 
-    void load_config(std::string_view config_path);
+    void
+    load_config(std::string_view config_path);
 
+    bool
+    process_request(
+      dpi::Manager::AcctStatusType acct_status_type,
+      std::string_view calling_station_id,
+      uint32_t framed_ip_address,
+      const std::unordered_map<ConstAttributeKeyPtr, Value>& pass_attributes,
+      const UserSessionTraits& user_session_traits
+      );
+
+    /*
     bool process_request(
       dpi::Manager::AcctStatusType acct_status_type,
       std::string_view called_station_id,
@@ -51,6 +60,7 @@ namespace dpi
       std::string_view selection_mode,
       std::string_view charging_characteristics
     );
+    */
 
     dpi::LoggerPtr logger() const;
 
@@ -71,7 +81,11 @@ namespace dpi
   };
 
   using ProcessorPtr = std::shared_ptr<Processor>;
+}
 
+namespace dpi
+{
+  // Processor impl
   inline dpi::LoggerPtr
   Processor::logger() const
   {

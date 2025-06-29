@@ -1,3 +1,0 @@
-if (User-Name == "bob") {
-	break			# ERROR
-}

@@ -1,5 +1,0 @@
-if (%test_trigger(test) == false) {
-	test_fail
-}
-
-test_pass

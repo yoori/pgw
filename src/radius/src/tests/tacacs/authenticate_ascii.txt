@@ -1,3 +1,0 @@
-#
-#	ARGV: -t ascii -u tapioca authenticate -p queijo
-#

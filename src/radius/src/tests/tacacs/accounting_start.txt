@@ -1,3 +1,0 @@
-#
-#	ARGV: -u tapioca account -f start -c key1=var1
-#

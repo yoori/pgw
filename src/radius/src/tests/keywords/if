@@ -1,5 +1,0 @@
-#  Static if condition
-#
-if (1) {
-	success
-}
