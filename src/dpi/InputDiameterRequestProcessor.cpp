@@ -41,13 +41,38 @@ namespace dpi
       if (request.header().commandCode() == 258)
       {
         std::cout << "[DIAMETER] Send response for RAR request" << std::endl;
-        // TODO : rerequest gx/gy
+
+        // check termination
+        bool terminate = false;
+
+        for (int i = 0; i < request.numberOfAVPs(); ++i)
+        {
+          const auto& avp = request.avp(i);
+          if (avp.header().avpCode() == 1045) // AVP: Session-Release-Cause(1045)
+          {
+            terminate = true;
+            break;
+          }
+        }
 
         auto rar_response_packet = generate_rar_response_packet_(session_id);
         auto diameter_session = diameter_session_.lock();
         if (diameter_session)
         {
           diameter_session->send_packet(rar_response_packet);
+        }
+
+        auto manager = manager_.lock();
+        if (manager)
+        {
+          if (terminate)
+          {
+            manager->abort_session(session_id, true, false, true);
+          }
+          else
+          {
+            manager->update_session(session_id);
+          }
         }
       }
       else if (request.header().commandCode() == 274 || request.header().commandCode() == 275)

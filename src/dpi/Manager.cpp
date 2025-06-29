@@ -3,6 +3,7 @@
 #include <iostream>
 #include <fstream>
 #include <sstream>
+#include <set>
 
 #include <gears/OutputMemoryStream.hpp>
 
@@ -56,6 +57,24 @@ namespace dpi
           rating_groups.insert(
             session_rule_it->second.rating_groups.begin(),
             session_rule_it->second.rating_groups.end());
+        }
+      }
+
+      // DEBUG >>>>
+      if (user_session.traits().msisdn == "79662660021")
+      {
+        std::set<std::string> debug_charging_rule_names;
+        debug_charging_rule_names.emplace("MVNO_SBT_UNLIM");
+
+        for (const auto& charging_rule_name : debug_charging_rule_names)
+        {
+          auto session_rule_it = pcc_config->session_rule_by_charging_name.find(charging_rule_name);
+          if (session_rule_it != pcc_config->session_rule_by_charging_name.end())
+          {
+            rating_groups.insert(
+              session_rule_it->second.rating_groups.begin(),
+              session_rule_it->second.rating_groups.end());
+          }
         }
       }
     }
@@ -262,6 +281,10 @@ namespace dpi
       if (acct_status_type == AcctStatusType::START ||
         acct_status_type == AcctStatusType::UPDATE)
       {
+        std::cout << "Manager::process_request(): start/update: " <<
+          "msisdn = " << user_session_traits.msisdn <<
+          std::endl;
+
         user_session = user_session_storage_->get_user_session_by_ip(
           user_session_traits.framed_ip_address);
 
@@ -274,6 +297,11 @@ namespace dpi
             user_session_traits,
             user
           );
+
+          std::cout << "Manager::process_request(): added user session: " <<
+            "msisdn = " << user_session_traits.msisdn <<
+            ", gx_session_suffix = " << user_session->gx_session_suffix() <<
+            std::endl;
 
           //std::cout << "YYY Manager::process_request(2): msisdn = " << user_session->traits().msisdn <<
           //  ", imsi = " << user_session->traits().imsi << std::endl;
@@ -297,6 +325,10 @@ namespace dpi
       }
       else if(acct_status_type == AcctStatusType::STOP)
       {
+        std::cout << "Manager::process_request(): stop: " <<
+          "msisdn = " << user_session_traits.msisdn <<
+          std::endl;
+
         user_session = user_session_storage_->remove_user_session(
           user_session_traits.framed_ip_address);
 
@@ -339,7 +371,16 @@ namespace dpi
     bool terminate_gy)
   {
     auto session_suffix = get_session_suffix_(gx_session_id);
+
+    std::cout << "Manager::abort_session(): request by gx_session_id = " << gx_session_id <<
+      ", terminate_radius = " << terminate_radius <<
+      ", terminate_gx = " << terminate_gx <<
+      ", terminate_gy = " << terminate_gy <<
+      ", session_suffix = " << session_suffix <<
+      std::endl;
+
     auto user_session = user_session_storage_->get_user_session_by_gx_session_suffix(session_suffix);
+
     if (user_session)
     {
       abort_session(*user_session, terminate_radius, terminate_gx, terminate_gy);
@@ -355,15 +396,22 @@ namespace dpi
   void
   Manager::abort_session(
     dpi::UserSession& user_session,
-    bool /*terminate_radius*/,
+    bool terminate_radius,
     bool terminate_gx,
     bool terminate_gy)
   {
+    std::cout << "Manager::abort_session(): msisdn = " << user_session.traits().msisdn <<
+      ", terminate_radius = " << terminate_radius <<
+      ", terminate_gx = " << terminate_gx <<
+      ", terminate_gy = " << terminate_gy <<
+      ", gx_session_id_suffix = " << user_session.gx_session_suffix() <<
+      std::endl;
+
     dpi::DiameterSession::GxTerminateRequest gx_terminate_request;
     dpi::DiameterSession::GyRequest gy_terminate_request;
 
-    std::cout << "YYY terminate_gx_gy_session_: msisdn = " << user_session.traits().msisdn <<
-      ", imsi = " << user_session.traits().imsi << std::endl;
+    //std::cout << "YYY terminate_gx_gy_session_: msisdn = " << user_session.traits().msisdn <<
+    //  ", imsi = " << user_session.traits().imsi << std::endl;
     gy_terminate_request.user_session_traits = user_session.traits();
     fill_gx_gy_stats_(gx_terminate_request, gy_terminate_request, user_session);
 
@@ -373,11 +421,11 @@ namespace dpi
       {
         logger_->log("send diameter gx terminate");
 
-        const auto [gx_session_id_suffix, gx_request_id] = user_session.generate_gx_request_id();
+        const auto [gx_session_suffix, gx_request_id] = user_session.generate_gx_request_id();
 
         dpi::DiameterSession::Request request;
         request.application_id = GX_APPLICATION_ID_;
-        request.session_id_suffix = gx_session_id_suffix;
+        request.session_id_suffix = gx_session_suffix;
         request.request_id = gx_request_id;
         request.user_session_traits = user_session.traits();
 

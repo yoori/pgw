@@ -32,6 +32,16 @@ namespace dpi
         const std::optional<Gears::Time>& gy_recheck_time,
         const std::optional<unsigned long>& gy_limit);
 
+      std::string to_string() const
+      {
+        return std::string("{") +
+          "gx_recheck_time = " + (gx_recheck_time.has_value() ? std::to_string(gx_recheck_time->tv_sec) : std::string("none")) +
+          ", gx_limit = " + (gx_limit.has_value() ? std::to_string(*gx_limit) : std::string("none")) +
+          ", gy_recheck_time = " + (gy_recheck_time.has_value() ? std::to_string(gy_recheck_time->tv_sec) : std::string("none")) +
+          ", gy_limit = " + (gy_limit.has_value() ? std::to_string(*gy_limit) : std::string("none")) +
+          "}";
+      }
+
       std::optional<Gears::Time> gx_recheck_time;
       std::optional<unsigned long> gx_limit;
       std::optional<Gears::Time> gy_recheck_time;
@@ -75,6 +85,7 @@ namespace dpi
       bool block = false;
       bool revalidate_gx = false;
       bool revalidate_gy = false;
+      bool closed = false;
     };
 
   public:

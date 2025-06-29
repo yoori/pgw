@@ -38,6 +38,19 @@ namespace dpi
 
       //std::cout << "flow_traits.proto = " << flow_traits.proto << std::endl;
 
+      /*
+      // DEBUG >>>
+      try
+      {
+        send_interface_->send(packet, header->caplen);
+      }
+      catch(const Gears::Exception&)
+      {}
+
+      return;
+      // <<< DEBUG
+      */
+
       PacketProcessingState packet_processing_state = packet_processor_->process_packet(
         flow_traits,
         header->caplen,
@@ -47,7 +60,7 @@ namespace dpi
 
       if (packet_processing_state.block_packet)
       {
-        //std::cout << "NetInterfaceBridgeProcessor::process_packet(): block packet" << std::endl;
+        std::cout << "NetInterfaceBridgeProcessor::process_packet(): block packet" << std::endl;
       }
 
       if (!packet_processing_state.block_packet)

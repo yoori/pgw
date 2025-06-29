@@ -59,7 +59,6 @@ namespace dpi
       if (local_packet_processing_state.block_packet)
       {
         log_packet_block_(session_key, flow_traits, "user processing");
-        //std::cout << "MainUserSessionPacketProcessor::process_user_session_packet(): block packet" << std::endl;
       }
 
       packet_processing_state += local_packet_processing_state;
@@ -77,6 +76,8 @@ namespace dpi
           packet_processing_state.block_packet = true;
         }
       }
+
+      std::cout << "user.msisdn = " << user->msisdn() << std::endl;
 
       // Check possible state changes
       if (!user->msisdn().empty())
@@ -129,7 +130,10 @@ namespace dpi
 
         if (use_limit_result.block)
         {
-          log_packet_block_(session_key, flow_traits, "reached limit");
+          log_packet_block_(
+            session_key,
+            flow_traits,
+            (std::string("reached limit") + (use_limit_result.closed ? "(closed)" : "")).c_str());
           packet_processing_state.block_packet = true;
           packet_processing_state.limit_reached = true;
         }
@@ -142,6 +146,16 @@ namespace dpi
       PacketProcessingState local_packet_processing_state;
       local_packet_processing_state.block_packet = true;
       packet_processing_state += local_packet_processing_state;
+    }
+
+    if (packet_processing_state.block_packet)
+    {
+      std::cout << "MainUserSessionPacketProcessor::process_user_session_packet(): block packet" <<
+        std::endl;
+    }
+    else
+    {
+      std::cout << "MainUserSessionPacketProcessor::process_user_session_packet(): pass packet" << std::endl;
     }
   }
 
@@ -157,13 +171,11 @@ namespace dpi
     const FlowTraits& flow_traits,
     const char* block_reason)
   {
-    /*
     std::cout << "Process packet: block packet " << session_key.to_string() <<
       " - " << block_reason << ", flow traits: " <<
       ipv4_address_to_string(flow_traits.src_ip) << " => " <<
       ipv4_address_to_string(flow_traits.dst_ip) <<
       std::endl;
-    */
   }
 
   bool MainUserSessionPacketProcessor::check_user_state_(

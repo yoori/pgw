@@ -284,7 +284,8 @@ namespace dpi
         }
       }
 
-      std::cout << "DEBUG: pass_attributes = " << pass_attributes.size() << std::endl;
+      std::cout << "RADIUS PACKET: pass_attributes = " << pass_attributes.size() <<
+        ", framed_ip_address = " << framed_ip_address << std::endl;
 
       // Check request.type() == RadProto::ACCOUNTING_REQUEST
 

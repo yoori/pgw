@@ -2,7 +2,7 @@
   "radius": {
     "listen_port": 1813,
     "secret": "sbtel",
-    "dictionary": "/opt/telecom-gateway/share/radius-dictionary/dictionary"
+    "dictionary": "/opt/tel-gateway/share/radius-dictionary/dictionary"
   },
   "gx": {
     "diameter_url": {

@@ -1,3 +1,5 @@
+#include <sstream>
+
 #include <gears/Rand.hpp>
 
 #include "UserSession.hpp"
@@ -39,6 +41,18 @@ namespace dpi
     const SetLimitArray& limits,
     const UsedLimitArray& decrease_used)
   {
+    /*
+    std::ostringstream ostr;
+    ostr << "UserSession::set_limits(msisdn = " << traits_.msisdn << "):";
+
+    for (const auto& limit: limits)
+    {
+      ostr << " " << limit.session_key.to_string() << " => " << limit.to_string();
+    }
+
+    std::cout << ostr.str() << std::endl;
+    */
+
     LimitMap new_limits;
     for (const auto& limit: limits)
     {
@@ -84,12 +98,12 @@ namespace dpi
 
     if (limit_it == limits_.end())
     {
-      //std::cout << "use_limit: #1" << std::endl;
+      //std::cout << "use_limit: #1, session_key = " << session_key.to_string() << std::endl;
       use_limit_result.block = true;
       return use_limit_result;
     }
 
-    //std::cout << "use_limit: #2" << std::endl;
+    //std::cout << "use_limit: #2" << session_key.to_string() << std::endl;
     use_limit_result.revalidate_gx |= (
       limit_it->second.gx_recheck_time.has_value() &&
       *(limit_it->second.gx_recheck_time) < now);
@@ -118,10 +132,12 @@ namespace dpi
     if (limit_it->second.gy_limit.has_value() &&
       prev_used_bytes + used_bytes > *limit_it->second.gy_limit)
     {
-      //std::cout << "use_limit: #3, prev_used_bytes = " << prev_used_bytes <<
-      //  ", used_bytes = " << used_bytes <<
-      //  ", gy_limit = " << *limit_it->second.gy_limit <<
-      //  std::endl;
+      /*
+      std::cout << "use_limit: #3, prev_used_bytes = " << prev_used_bytes <<
+        ", used_bytes = " << used_bytes <<
+        ", gy_limit = " << *limit_it->second.gy_limit <<
+        std::endl;
+      */
       use_limit_result.revalidate_gy = true;
       use_limit_result.block = true;
     }
@@ -150,6 +166,7 @@ namespace dpi
 
     if (is_closed_)
     {
+      use_limit_result.closed = true;
       use_limit_result.block = true;
     }
     else
