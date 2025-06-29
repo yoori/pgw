@@ -105,7 +105,9 @@ namespace dpi
 
         throw DiameterPacketFiller::IncompatibleType(
           std::string("Can't fill ") +
-          DiameterDictionary::avp_value_type_to_string(avp_dict_.base_type) + " by uint");
+          DiameterDictionary::avp_value_type_to_string(avp_dict_.base_type) +
+          "(" + avp_dict_.name + ":" + std::to_string(avp_dict_.avp_code) +
+          ") by uint");
       }
 
       void
@@ -233,15 +235,20 @@ namespace dpi
         }
       }
 
-      cur_avp_node->avp_data.addAVP(create_avp_(**last_it, value));
+      auto avp_node = std::make_shared<AVPNode>();
+      avp_node->avp_dict = *last_it;
+      avp_node->avp_data = create_avp_data_(value, **last_it);
+      cur_avp_node->child_avps.emplace((*last_it)->avp_code, avp_node);
     }
   }
 
   void
   DiameterPacketFiller::apply(Diameter::Packet& packet)
   {
+    //std::cout << "DiameterPacketFiller::apply(): " << root_node_->child_avps.size() << std::endl;
     for (const auto& [avp_code, avp_node] : root_node_->child_avps)
     {
+      //std::cout << "DiameterPacketFiller::apply(): AVP = " << avp_node->avp_dict->name << std::endl;
       Diameter::AVP::Data avp_data;
       apply_to_(avp_data, *avp_node);
       packet.addAVP(create_avp_(*(avp_node->avp_dict), avp_data));

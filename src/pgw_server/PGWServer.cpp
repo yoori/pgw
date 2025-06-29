@@ -71,6 +71,8 @@ int main(int argc, char **argv)
   auto all_active_objects = std::make_shared<Gears::CompositeActiveObject>();
   auto config = dpi::Config::read(*opt_config);
 
+  dpi::DiameterDictionary diameter_dictionary(config.diameter_dictionary);
+
   auto logger = std::make_shared<dpi::StreamLogger>(std::cout);
   auto event_logger = std::make_shared<dpi::StreamLogger>(std::cout);
 
@@ -128,6 +130,7 @@ int main(int argc, char **argv)
     {
       gx_sctp_diameter_session = std::make_shared<dpi::SCTPDiameterSession>(
         logger,
+        diameter_dictionary,
         sctp_connection,
         config.gx->diameter_url->origin_host,
         config.gx->diameter_url->origin_realm,

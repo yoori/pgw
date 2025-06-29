@@ -19,6 +19,7 @@
 #include "BaseConnection.hpp"
 #include "SCTPConnection.hpp"
 #include "UserSessionTraits.hpp"
+#include "DiameterDictionary.hpp"
 
 namespace dpi
 {
@@ -173,7 +174,8 @@ namespace dpi
   {
   public:
     SCTPDiameterSession(
-      dpi::LoggerPtr logger,
+      LoggerPtr logger,
+      const DiameterDictionary& diameter_dictionary,
       BaseConnectionPtr connection,
       std::string origin_host,
       std::string origin_realm,
@@ -336,6 +338,7 @@ namespace dpi
 
   private:
     dpi::LoggerPtr logger_;
+    const DiameterDictionary& diameter_dictionary_;
     BaseConnectionPtr connection_;
     Gears::TaskRunner_var task_runner_;
 

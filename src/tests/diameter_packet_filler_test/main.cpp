@@ -10,6 +10,7 @@ bool test1(dpi::DiameterDictionary& dictionary)
 {
   dpi::DiameterPacketFiller filler(dictionary, 272);
   filler.add_avp("User-Equipment-Info.User-Equipment-Info-Value", dpi::Value(std::string("11111")));
+  filler.add_avp("RAT-Type", dpi::Value(std::in_place_type<uint64_t>, 11111));
   /*
   dpi::Value val;
   val.emplace<int64_t>(11111);

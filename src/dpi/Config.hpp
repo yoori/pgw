@@ -63,6 +63,7 @@ namespace dpi
     std::optional<Radius> radius;
     std::optional<Diameter> gx;
     std::optional<Diameter> gy;
+    std::string diameter_dictionary;
 
     static Config read(const std::string_view& file);
   };

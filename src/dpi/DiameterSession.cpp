@@ -9,6 +9,7 @@
 
 #include "AVPUtils.hpp"
 
+#include "DiameterPacketFiller.hpp"
 #include "DiameterSession.hpp"
 
 namespace dpi
@@ -78,6 +79,7 @@ namespace dpi
   // SCTPDiameterSession impl
   SCTPDiameterSession::SCTPDiameterSession(
     dpi::LoggerPtr logger,
+    const DiameterDictionary& diameter_dictionary,
     BaseConnectionPtr connection,
     std::string origin_host,
     std::string origin_realm,
@@ -89,6 +91,7 @@ namespace dpi
     const std::vector<std::string>& source_addresses // source addresses for diameter packet
     )
     : logger_(std::move(logger)),
+      diameter_dictionary_(diameter_dictionary),
       connection_(connection),
       origin_host_(std::move(origin_host)),
       origin_realm_(std::move(origin_realm)),
@@ -785,7 +788,6 @@ namespace dpi
       //< 3GPP-SGSN-Address(6)
       .addAVP(create_ipv4_avp(1050, request.user_session_traits.sgsn_ip_address, 10415, false))
       //< AN-GW-Address(1050)=3GPP-SGSN-Address
-      .addAVP(create_uint32_avp(1032, request.user_session_traits.rat_type, 10415, false)) // RAT-Type
       .addAVP(create_uint32_avp(1024, 1, 10415, true)) // Network-Request-Support
       .addAVP(create_string_avp(18, request.user_session_traits.mcc_mnc, 10415, false)) // 3GPP-SGSN-MCC-MNC(18)
       .addAVP(create_uint16_avp(
@@ -822,6 +824,10 @@ namespace dpi
       .addAVP(create_uint32_avp(1027, 5, 10415, true)) // IP-CAN-Type
       //.addAVP(create_int32_avp()) // Access-Network-Charging-Address
       ;
+
+    DiameterPacketFiller packet_filler(diameter_dictionary_, 272);
+    packet_filler.add_avp("RAT-Type", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.rat_type));
+    packet_filler.apply(packet);
 
     if (!request.user_session_traits.user_location_info.empty())
     {

@@ -32,6 +32,7 @@ int main(int argc, char* argv[])
   Gears::AppUtils::Option<unsigned int> opt_connect_port(3869);
 
   Gears::AppUtils::OptionsSet<std::vector<std::string>> opt_source_addresses;
+  Gears::AppUtils::StringOption opt_dict;
 
   args.add(Gears::AppUtils::equal_name("connect-host"), opt_connect_servers);
   args.add(Gears::AppUtils::equal_name("connect-port"), opt_connect_port);
@@ -44,11 +45,14 @@ int main(int argc, char* argv[])
   args.add(Gears::AppUtils::equal_name("destination-realm"), opt_destination_realm);
 
   args.add(Gears::AppUtils::equal_name("source-address"), opt_source_addresses);
+  args.add(Gears::AppUtils::equal_name("dict"), opt_dict);
 
   args.parse(argc - 1, argv + 1);
 
   try
   {
+    dpi::DiameterDictionary dictionary(*opt_dict);
+
     std::vector<dpi::SCTPConnection::Endpoint> local_endpoints;
     for (auto it = opt_local_servers->begin(); it != opt_local_servers->end(); ++it)
     {
@@ -99,6 +103,7 @@ int main(int argc, char* argv[])
 
     std::shared_ptr<dpi::SCTPDiameterSession> session = std::make_shared<dpi::SCTPDiameterSession>(
       logger,
+      dictionary,
       gx_connection,
       *opt_origin_host,
       *opt_origin_realm,

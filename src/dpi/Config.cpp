@@ -173,6 +173,11 @@ namespace dpi
       result.gy = read_diameter_config(config_json["gy"]);
     }
 
+    if (config_json.contains("diameter_dictionary"))
+    {
+      result.diameter_dictionary = config_json["diameter_dictionary"].as_string();
+    }
+
     std::cout << "Pcc config path: " << result.pcc_config_file << std::endl;
     return result;
   }

@@ -130,8 +130,8 @@ namespace dpi
     result_avp->avp_code = avp_json["code"].as_integer<uint32_t>();
     result_avp->flags = avp_json.contains("flags") ?
       avp_json["flags"].as_integer<uint32_t>() : 0;
-    result_avp->vendor_id = avp_json.contains("vendor_id") ?
-      avp_json["vendor_id"].as_integer<uint32_t>() : 0;
+    result_avp->vendor_id = avp_json.contains("vendor") ?
+      avp_json["vendor"].as_integer<uint32_t>() : 0;
     result_avp->name = avp_json.contains("name") ?
       avp_json["name"].as_string() : std::string();
     result_avp->base_type = avp_json.contains("base_type") ?
@@ -161,6 +161,21 @@ namespace dpi
     if (avp_type_name == "octetstring")
     {
       return AVP_TYPE_OCTETSTRING;
+    }
+
+    if (avp_type_name == "int32")
+    {
+      return AVP_TYPE_INTEGER32;
+    }
+
+    if (avp_type_name == "int64")
+    {
+      return AVP_TYPE_INTEGER64;
+    }
+
+    if (avp_type_name == "uint32")
+    {
+      return AVP_TYPE_UNSIGNED32;
     }
 
     return AVP_TYPE_UNDEFINED;
