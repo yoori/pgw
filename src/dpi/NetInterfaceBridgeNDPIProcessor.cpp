@@ -12,6 +12,7 @@ namespace dpi
       ShapingManagerPtr shaping_manager,
       NetInterfacePtr interface,
       NetInterfacePtr send_interface,
+      ManagerPtr manager,
       unsigned int threads = 1,
       UserSessionPacketProcessor::Direction direction =
         UserSessionPacketProcessor::Direction::D_NONE,
@@ -22,6 +23,7 @@ namespace dpi
         packet_processor_(std::move(packet_processor)),
         shaping_manager_(std::move(shaping_manager)),
         send_interface_(std::move(send_interface)),
+        manager_(std::move(manager)),
         direction_(direction),
         logger_(std::move(logger))
     {
@@ -60,7 +62,19 @@ namespace dpi
 
       if (packet_processing_state.block_packet)
       {
-        std::cout << "NetInterfaceBridgeProcessor::process_packet(): block packet" << std::endl;
+        std::cout << "NetInterfaceBridgeProcessor::process_packet(): block packet: " <<
+          ipv4_address_to_string(flow_traits.src_ip) << " => " <<
+          ipv4_address_to_string(flow_traits.dst_ip) << std::endl;
+      }
+
+      if (packet_processing_state.user_session && (
+        packet_processing_state.revalidate_gx || packet_processing_state.revalidate_gy) &&
+        manager_)
+      {
+        manager_->update_session(
+          *packet_processing_state.user_session,
+          packet_processing_state.revalidate_gx,
+          packet_processing_state.revalidate_gy);
       }
 
       if (!packet_processing_state.block_packet)
@@ -101,6 +115,7 @@ namespace dpi
     PacketProcessorPtr packet_processor_;
     ShapingManagerPtr shaping_manager_;
     NetInterfacePtr send_interface_;
+    ManagerPtr manager_;
     const UserSessionPacketProcessor::Direction direction_;
     const LoggerPtr logger_;
   };
@@ -110,6 +125,7 @@ namespace dpi
     PacketProcessorPtr packet_processor,
     NetInterfacePtr interface1,
     NetInterfacePtr interface2,
+    ManagerPtr manager,
     unsigned int threads,
     const LoggerPtr& logger)
     : shaping_manager_(
@@ -122,6 +138,7 @@ namespace dpi
           shaping_manager_,
           interface1,
           interface2,
+          manager,
           threads,
           UserSessionPacketProcessor::Direction::D_OUTPUT,
           logger
@@ -134,6 +151,7 @@ namespace dpi
           shaping_manager_,
           interface2,
           interface1,
+          manager,
           threads,
           UserSessionPacketProcessor::Direction::D_INPUT,
           logger

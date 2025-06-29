@@ -179,6 +179,8 @@ int main(int argc, char* argv[])
       )
     );
 
+    gx_update_request.not_found_charging_rule_names.emplace("TESTING-NOT-FOUND-RULE");
+
     dpi::DiameterSession::GxUpdateResponse gx_update_response = session->send_gx_update(
       request, gx_update_request);
     std::cout << "Gx update request: result-code: " << gx_init_response.result_code << std::endl;

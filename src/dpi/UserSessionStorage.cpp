@@ -44,6 +44,8 @@ namespace dpi
       }
     }
 
+    user->add_session(added_session);
+
     return added_session;
   }
 

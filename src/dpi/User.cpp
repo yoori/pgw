@@ -142,7 +142,8 @@ namespace dpi
     return session_rule_config.default_rule;
   }
 
-  void User::clear_expired_sessions(
+  void
+  User::clear_expired_sessions(
     const SessionRuleConfig& session_rule_config,
     const Gears::Time& now)
   {
@@ -150,7 +151,22 @@ namespace dpi
     clear_expired_sessions_i_(session_rule_config, now);
   }
 
-  void User::clear_expired_sessions_i_(
+  std::shared_ptr<UserSession>
+  User::last_session() const
+  {
+    std::unique_lock lock{lock_};
+    return last_session_.lock();
+  }
+
+  void
+  User::add_session(std::shared_ptr<UserSession> user_session)
+  {
+    std::unique_lock lock{lock_};
+    last_session_ = user_session;
+  }
+
+  void
+  User::clear_expired_sessions_i_(
     const SessionRuleConfig& session_rule_config,
     const Gears::Time& now)
   {

@@ -77,8 +77,6 @@ namespace dpi
         }
       }
 
-      std::cout << "user.msisdn = " << user->msisdn() << std::endl;
-
       // Check possible state changes
       if (!user->msisdn().empty())
       {
@@ -118,6 +116,7 @@ namespace dpi
       uint32_t src_ip = flow_traits.src_ip;
       uint32_t dst_ip = flow_traits.dst_ip;
       auto user_session = get_user_session_(src_ip, dst_ip);
+
       if (!user_session)
       {
         log_packet_block_(session_key, flow_traits, "non found session");
@@ -125,6 +124,8 @@ namespace dpi
       }
       else
       {
+        packet_processing_state.user_session = user_session;
+
         UserSession::UseLimitResult use_limit_result =
           user_session->use_limit(session_key, now, packet_size, 0, 0);
 
@@ -137,6 +138,9 @@ namespace dpi
           packet_processing_state.block_packet = true;
           packet_processing_state.limit_reached = true;
         }
+
+        packet_processing_state.revalidate_gx = use_limit_result.revalidate_gx;
+        packet_processing_state.revalidate_gy = use_limit_result.revalidate_gy;
       }
     }
     else
@@ -148,6 +152,7 @@ namespace dpi
       packet_processing_state += local_packet_processing_state;
     }
 
+    /*
     if (packet_processing_state.block_packet)
     {
       std::cout << "MainUserSessionPacketProcessor::process_user_session_packet(): block packet" <<
@@ -157,6 +162,7 @@ namespace dpi
     {
       std::cout << "MainUserSessionPacketProcessor::process_user_session_packet(): pass packet" << std::endl;
     }
+    */
   }
 
   struct NamedSessionKey

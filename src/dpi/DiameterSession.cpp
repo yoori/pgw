@@ -885,6 +885,19 @@ namespace dpi
         false
       ));
     }
+
+    for (const auto& not_found_charging_rule_name : gx_update_request.not_found_charging_rule_names)
+    {
+      packet.addAVP(create_avp(
+        1018, // Charging-Rule-Report
+        Diameter::AVP::Data()
+          .addAVP(create_string_avp(1005, not_found_charging_rule_name, 10415, true)) // Charging-Rule-Name
+          .addAVP(create_uint32_avp(1031, 1, 10415, true)) // Rule-Failure-Code: UNKNOWN_RULE_NAME=1
+        ,
+        10415,
+        true
+      ));
+    }
   }
 
   std::pair<SCTPDiameterSession::RequestKey, ByteArray>

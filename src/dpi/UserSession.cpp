@@ -18,6 +18,21 @@ namespace dpi
       std::to_string(Gears::safe_rand()) + ";0;" + std::to_string(Gears::safe_rand());
   }
 
+  void
+  UserSession::set_charging_rule_names(const std::unordered_set<std::string>& charging_rule_names)
+  {
+    std::unordered_set<std::string> charging_rule_names_val(charging_rule_names);
+    std::unique_lock<std::shared_mutex> guard(charging_rule_lock_);
+    charging_rule_names_.swap(charging_rule_names_val);
+  }
+
+  std::unordered_set<std::string>
+  UserSession::charging_rule_names() const
+  {
+    std::shared_lock<std::shared_mutex> guard(charging_rule_lock_);
+    return charging_rule_names_;
+  }
+
   const std::string&
   UserSession::gx_session_suffix() const
   {
@@ -125,7 +140,11 @@ namespace dpi
     if (limit_it->second.gx_limit.has_value() &&
       prev_used_bytes + used_bytes > *limit_it->second.gx_limit)
     {
-      use_limit_result.revalidate_gx = true;
+      if (prev_used_bytes <= *limit_it->second.gx_limit)
+      {
+        use_limit_result.revalidate_gx = true;
+      }
+
       use_limit_result.block = true;
     }
 
@@ -138,8 +157,28 @@ namespace dpi
         ", gy_limit = " << *limit_it->second.gy_limit <<
         std::endl;
       */
-      use_limit_result.revalidate_gy = true;
+      if (prev_used_bytes <= *limit_it->second.gy_limit)
+      {
+        use_limit_result.revalidate_gy = true;
+      }
+
       use_limit_result.block = true;
+    }
+
+    if (limit_it->second.gx_recheck_time != Gears::Time::ZERO &&
+      last_limits_use_timestamp_ < now &&
+      limit_it->second.gx_recheck_time <= now)
+    {
+      // jump over gx_recheck_time
+      use_limit_result.revalidate_gx = true;
+    }
+
+    if (limit_it->second.gy_recheck_time != Gears::Time::ZERO &&
+      last_limits_use_timestamp_ < now &&
+      limit_it->second.gy_recheck_time <= now)
+    {
+      // jump over gx_recheck_time
+      use_limit_result.revalidate_gy = true;
     }
 
     if (!use_limit_result.block)
@@ -188,6 +227,8 @@ namespace dpi
           used_input_bytes);
       }
     }
+
+    last_limits_use_timestamp_ = now;
 
     return use_limit_result;
   }

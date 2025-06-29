@@ -14,6 +14,8 @@
 
 namespace dpi
 {
+  class UserSession;
+
   struct SessionRuleConfig
   {
     struct SessionTypeRule
@@ -97,6 +99,12 @@ namespace dpi
     bool is_session_blocked_by_equal_key_i_(
       const SessionKey& key, const Gears::Time& now) const;
 
+    void
+    add_session(std::shared_ptr<UserSession> user_session);
+
+    std::shared_ptr<UserSession>
+    last_session() const;
+
   private:
     struct BlockSessionHolder
     {
@@ -134,6 +142,7 @@ namespace dpi
 
   private:
     mutable std::mutex lock_;
+    std::weak_ptr<UserSession> last_session_;
     const std::string msisdn_;
     const std::string imsi_;
     uint32_t ip_;

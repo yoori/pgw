@@ -23,6 +23,8 @@ namespace dpi
       UPDATE = 3
     };
 
+    using ChargingRuleNameSet = std::unordered_set<std::string>;
+
   public:
     Manager(
       dpi::UserStoragePtr user_storage,
@@ -51,13 +53,20 @@ namespace dpi
       dpi::UserSession& user_session,
       bool terminate_radius,
       bool terminate_gx,
-      bool terminate_gy);
+      bool terminate_gy,
+      const std::optional<ChargingRuleNameSet>& not_found_charging_rule_names = std::nullopt);
 
     void
-    update_session(const std::string& session_id);
+    update_session(
+      const std::string& session_id,
+      bool update_gx = true,
+      bool update_gy = true);
 
     void
-    update_session(dpi::UserSession& user_session);
+    update_session(
+      dpi::UserSession& user_session,
+      bool update_gx = true,
+      bool update_gy = true);
 
     dpi::LoggerPtr logger() const;
 
@@ -77,13 +86,11 @@ namespace dpi
     std::string
     get_session_suffix_(const std::string& gx_session_id);
 
-    template<typename GxResponseType>
     void
     fill_gy_request_(
       DiameterSession::GyRequest& gy_request,
       UserSession& user_session,
       const UserSessionTraits& user_session_traits,
-      const GxResponseType& response,
       const dpi::ConstPccConfigPtr& pcc_config);
 
     void
@@ -91,6 +98,14 @@ namespace dpi
       UserSession& user_session,
       const DiameterSession::GyResponse& gy_response,
       const dpi::ConstPccConfigPtr& pcc_config);
+
+    // If result charging rules empty - abort session and return false.
+    bool
+    filter_charging_rules_(
+      UserSession& user_session,
+      ChargingRuleNameSet& result_charging_rule_names,
+      ChargingRuleNameSet& not_found_charging_rule_names,
+      const ChargingRuleNameSet& charging_rule_names);
 
   private:
     const unsigned long GX_APPLICATION_ID_ = 16777238;

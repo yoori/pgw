@@ -83,6 +83,7 @@ namespace dpi
       };
 
       std::vector<UsageMonitoring> usage_monitorings;
+      std::unordered_set<std::string> not_found_charging_rule_names;
 
       std::string to_string() const;
     };

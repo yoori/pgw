@@ -6,6 +6,7 @@
 #include <mutex>
 #include <shared_mutex>
 #include <atomic>
+#include <set>
 
 #include <gears/Time.hpp>
 #include <gears/Hash.hpp>
@@ -86,6 +87,7 @@ namespace dpi
       bool revalidate_gx = false;
       bool revalidate_gy = false;
       bool closed = false;
+      bool revalidate = false; // set to true if revalidate time switched or limit.
     };
 
   public:
@@ -95,11 +97,19 @@ namespace dpi
 
     const UserPtr& user() const;
 
-    void set_limits(
+    void
+    set_charging_rule_names(const std::unordered_set<std::string>& charging_rule_names);
+
+    std::unordered_set<std::string>
+    charging_rule_names() const;
+
+    void
+    set_limits(
       const SetLimitArray& limits,
       const UsedLimitArray& decrease_used = UsedLimitArray());
 
-    UseLimitResult use_limit(
+    UseLimitResult
+    use_limit(
       const SessionKey& session_key,
       const Gears::Time& now,
       unsigned long used_bytes,
@@ -172,6 +182,9 @@ namespace dpi
     std::string gy_session_id_suffix_;
     std::atomic<int> gy_request_id_;
 
+    mutable std::shared_mutex charging_rule_lock_;
+    std::unordered_set<std::string> charging_rule_names_;
+
     mutable std::shared_mutex diameter_lock_;
     bool gx_inited_ = true;
     bool gy_inited_ = true;
@@ -179,7 +192,9 @@ namespace dpi
     mutable std::shared_mutex limits_lock_;
     bool is_closed_ = false;
     LimitMap limits_;
+    Gears::Time last_limits_use_timestamp_;
     UsedLimitHolderMap used_limits_;
+
   };
 
   using UserSessionPtr = std::shared_ptr<UserSession>;

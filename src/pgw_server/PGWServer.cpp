@@ -286,6 +286,7 @@ int main(int argc, char **argv)
     packet_processor,
     client_interface,
     server_interface,
+    manager,
     1,
     processor->logger()
     );
