@@ -55,31 +55,41 @@ namespace dpi
           }
         }
 
-        auto rar_response_packet = generate_rar_response_packet_(session_id);
-        auto diameter_session = diameter_session_.lock();
-        if (diameter_session)
-        {
-          diameter_session->send_packet(rar_response_packet);
-        }
-
+        // Make update/terminate before RAR response
         auto manager = manager_.lock();
+
+        std::cout << "DIAMETER: PROCESS RAR, manager = " << manager.get() << std::endl;
+
         if (manager)
         {
           if (terminate)
           {
-            manager->abort_session(session_id, true, false, true);
+            manager->abort_session(session_id, true, true, true, "RAR terminate");
           }
           else
           {
-            manager->update_session(session_id);
+            manager->update_session(session_id, true, true, "RAR request");
           }
+        }
+
+        auto diameter_session = diameter_session_.lock();
+        if (diameter_session)
+        {
+          auto rar_response_packet = generate_rar_response_packet_(
+            session_id,
+            request.header().hbhIdentifier(),
+            request.header().eteIdentifier());
+          diameter_session->send_packet(rar_response_packet);
         }
       }
       else if (request.header().commandCode() == 274 || request.header().commandCode() == 275)
       {
         std::cout << "[DIAMETER] Send response for ASR/STR request" << std::endl;
 
-        auto asr_response_packet = generate_asr_response_packet_(session_id, request.header().commandCode());
+        auto asr_response_packet = generate_asr_response_packet_(
+          session_id,
+          request.header().commandCode(),
+          request.header().hbhIdentifier());
         auto diameter_session = diameter_session_.lock();
         if (diameter_session)
         {
@@ -89,7 +99,7 @@ namespace dpi
         auto manager = manager_.lock();
         if (manager)
         {
-          manager->abort_session(session_id, true, false, true);
+          manager->abort_session(session_id, true, false, true, "ASR terminate");
         }
       }
     }
@@ -101,7 +111,10 @@ namespace dpi
   }
 
   ByteArray
-  InputDiameterRequestProcessor::generate_rar_response_packet_(const std::string& session_id) const
+  InputDiameterRequestProcessor::generate_rar_response_packet_(
+    const std::string& session_id,
+    uint32_t hbh_identifier,
+    uint32_t ete_identifier) const
   {
     auto packet = Diameter::Packet()
       .setHeader(
@@ -109,8 +122,8 @@ namespace dpi
           .setCommandFlags(Diameter::Packet::Header::Flags())
           .setCommandCode(258)
           .setApplicationId(gx_application_id_)
-          .setHBHIdentifier(0x7ddf9367)
-          .setETEIdentifier(0xc15ecb12)
+          .setHBHIdentifier(hbh_identifier)
+          .setETEIdentifier(ete_identifier)
       );
 
     packet
@@ -142,7 +155,8 @@ namespace dpi
   ByteArray
   InputDiameterRequestProcessor::generate_asr_response_packet_(
     const std::string& session_id,
-    unsigned long command_code) const
+    unsigned long command_code,
+    uint32_t hbh_identifier) const
   {
     auto packet = Diameter::Packet()
       .setHeader(
@@ -150,7 +164,7 @@ namespace dpi
           .setCommandFlags(Diameter::Packet::Header::Flags())
           .setCommandCode(command_code)
           .setApplicationId(gx_application_id_)
-          .setHBHIdentifier(0x7ddf9367)
+          .setHBHIdentifier(hbh_identifier)
           .setETEIdentifier(0xc15ecb12)
       );
 

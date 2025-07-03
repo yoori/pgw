@@ -29,9 +29,10 @@ bool test_no_limits()
     dpi::SessionKey("test", std::string()),
     now,
     10, 0, 0);
-  if (!res.block)
+  
+  if (!res.block || res.revalidate_gx || res.revalidate_gy)
   {
-    std::cerr << TEST_NAME << ": non blocked packet" << std::endl;
+    std::cerr << TEST_NAME << ": unexpected result on step #1: " << res.to_string() << std::endl;
     return false;
   }
 
@@ -55,6 +56,8 @@ bool test_pass_by_limit()
       std::nullopt,
       std::nullopt,
       std::nullopt,
+      std::nullopt,
+      std::nullopt,
       std::nullopt
     )
   );
@@ -64,9 +67,9 @@ bool test_pass_by_limit()
     now,
     10, 0, 0);
 
-  if (!res.block)
+  if (!res.block || res.revalidate_gx || res.revalidate_gy)
   {
-    std::cerr << TEST_NAME << ": non blocked packet" << std::endl;
+    std::cerr << TEST_NAME << ": non blocked packet, " << res.to_string() << std::endl;
     return false;
   }
 
@@ -88,7 +91,9 @@ bool test_block_by_limit()
     dpi::UserSession::SetLimit(
       dpi::SessionKey("test", std::string()),
       std::nullopt,
+      std::nullopt,
       1000,
+      std::nullopt,
       std::nullopt,
       2000
     )
@@ -101,9 +106,17 @@ bool test_block_by_limit()
     now,
     1500, 0, 0);
 
+  //std::cout << "T: " << res.to_string() << std::endl;
+
   if (!res.block)
   {
     std::cerr << TEST_NAME << ": non blocked packet" << std::endl;
+    return false;
+  }
+
+  if (res.revalidate_gx || res.revalidate_gy)
+  {
+    std::cerr << TEST_NAME << ": unexpected result: " << res.to_string() << std::endl;
     return false;
   }
 
@@ -126,7 +139,9 @@ bool test_use_and_block_by_limit()
     dpi::UserSession::SetLimit(
       dpi::SessionKey("test", std::string()),
       std::nullopt,
+      std::nullopt,
       1000,
+      std::nullopt, 
       std::nullopt,
       2000
     )
@@ -141,11 +156,12 @@ bool test_use_and_block_by_limit()
 
   if (res.block)
   {
-    std::cerr << TEST_NAME << ": step1 - expected non blocked packet" << std::endl;
+    std::cerr << TEST_NAME << ": step1 - expected non blocked packet, " <<
+      res.to_string() << std::endl;
     return false;
   }
 
-  auto used_limits = user_session.get_used_limits();
+  auto used_limits = user_session.get_gy_used_limits();
 
   if (used_limits.size() != 1 || used_limits.begin()->used_bytes != 100)
   {
@@ -185,7 +201,9 @@ bool test_gx_flow()
     dpi::UserSession::SetLimit(
       dpi::SessionKey("test", std::string()),
       std::nullopt,
+      std::nullopt,
       1000,
+      std::nullopt,
       std::nullopt,
       2000
     )
@@ -204,7 +222,7 @@ bool test_gx_flow()
     return false;
   }
 
-  auto used_limits = user_session.get_used_limits();
+  auto used_limits = user_session.get_gy_used_limits();
 
   if (used_limits.size() != 1 || used_limits.begin()->used_bytes != 100)
   {
@@ -216,7 +234,7 @@ bool test_gx_flow()
 
   user_session.set_limits(limits, used_limits);
 
-  auto last_used_limits = user_session.get_used_limits();
+  auto last_used_limits = user_session.get_gy_used_limits();
 
   if (!last_used_limits.empty())
   {
@@ -234,7 +252,7 @@ bool test_gx_flow()
 
   user_session.set_limits(limits);
 
-  auto last_used_limits2 = user_session.get_used_limits();
+  auto last_used_limits2 = user_session.get_gy_used_limits();
 
   if (last_used_limits2.size() != 1 || last_used_limits2.begin()->used_bytes != 110)
   {
@@ -265,12 +283,16 @@ bool test_pass_by_generic_limit()
       std::nullopt,
       std::nullopt,
       std::nullopt,
+      std::nullopt,
+      std::nullopt,
       100000
     )
   );
   limits.emplace_back(
     dpi::UserSession::SetLimit(
       dpi::SessionKey("test", std::string()),
+      std::nullopt,
+      std::nullopt,
       std::nullopt,
       std::nullopt,
       std::nullopt,
@@ -287,6 +309,169 @@ bool test_pass_by_generic_limit()
   if (res.block)
   {
     std::cerr << TEST_NAME << ": blocked packet" << std::endl;
+    return false;
+  }
+
+  std::cout << TEST_NAME << ": success" << std::endl;
+  return true;
+}
+
+// revalidate_gx_by_time_test
+bool revalidate_gx_by_time_test()
+{
+  static const char* TEST_NAME = "revalidate gx by time test";
+
+  Gears::Time now = Gears::Time::get_time_of_day();
+
+  dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
+  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+
+  Gears::Time start_time = Gears::Time::get_time_of_day();
+
+  dpi::UserSession::SetLimitArray limits;
+  limits.emplace_back(
+    dpi::UserSession::SetLimit(
+      dpi::SessionKey(),
+      start_time + Gears::Time(10),
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt,
+      100000
+    )
+  );
+  user_session.set_limits(limits);
+
+  dpi::UserSession::UseLimitResult res = user_session.use_limit(
+    dpi::SessionKey("test", std::string()),
+    start_time,
+    10,
+    0,
+    0);
+
+  if (res.revalidate_gx)
+  {
+    std::cerr << TEST_NAME << ": unexpected gx revalidate on step 1" << std::endl;
+    return false;
+  }
+
+  res = user_session.use_limit(
+    dpi::SessionKey("test", std::string()),
+    start_time + Gears::Time(9),
+    10,
+    0,
+    0);
+
+  if (res.revalidate_gx)
+  {
+    std::cerr << TEST_NAME << ": unexpected gx revalidate on step 2" << std::endl;
+    return false;
+  }
+
+  res = user_session.use_limit(
+    dpi::SessionKey("test", std::string()),
+    start_time + Gears::Time(11),
+    10,
+    0,
+    0);
+
+  if (!res.revalidate_gx)
+  {
+    std::cerr << TEST_NAME << ": unexpected gx revalidate on step 3" << std::endl;
+    return false;
+  }
+
+  res = user_session.use_limit(
+    dpi::SessionKey("test", std::string()),
+    start_time + Gears::Time(11),
+    10,
+    0,
+    0);
+
+  if (res.revalidate_gx)
+  {
+    std::cerr << TEST_NAME << ": unexpected gx revalidate on step 4" << std::endl;
+    return false;
+  }
+
+  std::cout << TEST_NAME << ": success" << std::endl;
+  return true;
+}
+
+// revalidate_gx_by_limit_test
+bool revalidate_gx_by_limit_test()
+{
+  static const char* TEST_NAME = "revalidate gx by limit test";
+
+  dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
+  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+
+  Gears::Time start_time = Gears::Time::get_time_of_day();
+
+  dpi::UserSession::SetLimitArray limits;
+  limits.emplace_back(
+    dpi::UserSession::SetLimit(
+      dpi::SessionKey(),
+      std::nullopt,
+      10000,
+      100000,
+      std::nullopt,
+      std::nullopt,
+      std::nullopt
+    )
+  );
+  user_session.set_limits(limits);
+
+  dpi::UserSession::UseLimitResult res = user_session.use_limit(
+    dpi::SessionKey("test", std::string()),
+    start_time,
+    9998,
+    0,
+    0);
+
+  if (res.block || res.revalidate_gx)
+  {
+    std::cerr << TEST_NAME << ": unexpected gx revalidate on step 1, " << res.to_string() << std::endl;
+    return false;
+  }
+
+  res = user_session.use_limit(
+    dpi::SessionKey("test", std::string()),
+    start_time + Gears::Time(9),
+    1000,
+    0,
+    0);
+
+  if (res.block || !res.revalidate_gx)
+  {
+    std::cerr << TEST_NAME << ": unexpected gx revalidate on step 2, " << res.to_string() << std::endl;
+    return false;
+  }
+
+  res = user_session.use_limit(
+    dpi::SessionKey("test", std::string()),
+    start_time + Gears::Time(11),
+    1000,
+    0,
+    0);
+
+  if (res.block || res.revalidate_gx)
+  {
+    std::cerr << TEST_NAME << ": unexpected gx revalidate on step 3, " << res.to_string() << std::endl;
+    return false;
+  }
+
+  // Used 11998
+  res = user_session.use_limit(
+    dpi::SessionKey("test", std::string()),
+    start_time + Gears::Time(11),
+    990000,
+    0,
+    0);
+
+  if (!res.block)
+  {
+    std::cerr << TEST_NAME << ": unexpected gx revalidate on step 4, " << res.to_string() << std::endl;
     return false;
   }
 
@@ -324,6 +509,16 @@ int main()
   }
 
   if (!test_pass_by_generic_limit())
+  {
+    res = false;
+  }
+
+  if (!revalidate_gx_by_time_test())
+  {
+    res = false;
+  }
+
+  if (!revalidate_gx_by_limit_test())
   {
     res = false;
   }

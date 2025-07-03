@@ -160,8 +160,8 @@ namespace dpi
       throw NetworkError("Write failed");
     }
 
-    std::cout << "[DEBUG] From send diameter packet (bytes = " << send_packet.size() <<
-      ")" << std::endl;
+    //std::cout << "[DEBUG] From send diameter packet (bytes = " << send_packet.size() <<
+    //  ")" << std::endl;
   }
 
   void
@@ -169,8 +169,8 @@ namespace dpi
   {
     if (connection_holder_.has_value() && connection_holder_->socket_fd > 0)
     {
-      std::cout << "stream_close: stream_index = " << stream_index <<
-        ", socket_fd = " << connection_holder_->socket_fd << std::endl;
+      //std::cout << "stream_close: stream_index = " << stream_index <<
+      //  ", socket_fd = " << connection_holder_->socket_fd << std::endl;
       //::close(connection_holder_->socket_fd);
 
       ::sctp_sendmsg(
@@ -215,8 +215,8 @@ namespace dpi
       throw NetworkError("Write failed");
     }
 
-    std::cout << "[DEBUG] From send diameter packet (bytes = " << send_packet.size() <<
-      ", stream = " << stream_index << ")" << std::endl;
+    //std::cout << "[DEBUG] From send diameter packet (bytes = " << send_packet.size() <<
+    //  ", stream = " << stream_index << ")" << std::endl;
   }
 
   std::vector<unsigned char>
@@ -250,7 +250,7 @@ namespace dpi
 
       sctp_sndrcvinfo sinfo;
 
-      std::cout << "to sctp_recvmsg: socket_fd = " << socket_fd << std::endl;
+      //std::cout << "to sctp_recvmsg: socket_fd = " << socket_fd << std::endl;
 
       int read_res = ::sctp_recvmsg(
         socket_fd,
@@ -261,7 +261,7 @@ namespace dpi
         &sinfo,
         0);
 
-      std::cout << "from sctp_recvmsg => " << read_res << ", sinfo.sinfo_stream = " << sinfo.sinfo_stream << std::endl;
+      //std::cout << "from sctp_recvmsg => " << read_res << ", sinfo.sinfo_stream = " << sinfo.sinfo_stream << std::endl;
 
       if (read_res < 0)
       {

@@ -57,6 +57,7 @@ namespace dpi
         uint64_t total_octets = 0;
       };
 
+      std::string reason;
       std::vector<UsageRatingGroup> usage_rating_groups;
 
       std::string to_string() const;
@@ -99,11 +100,14 @@ namespace dpi
     struct GxResponse
     {
       unsigned int result_code = 0;
+
+      std::string to_string() const;
     };
 
     struct GxInitResponse: public GxResponse
     {
-      std::unordered_set<std::string> charging_rule_names;
+      std::unordered_set<std::string> install_charging_rule_names;
+      std::unordered_set<std::string> remove_charging_rule_names;
 
       std::string to_string() const;
     };
@@ -131,6 +135,8 @@ namespace dpi
 
       unsigned int result_code = 0;
       std::vector<RatingGroupLimit> rating_group_limits;
+
+      std::string to_string() const;
     };
 
     using RequestProcessor = std::function<void(const Diameter::Packet& packet)>;
@@ -231,6 +237,12 @@ namespace dpi
       const std::vector<uint32_t>& applications,
       const std::vector<std::string>& source_addresses);
 
+    static void
+    get_charging_rules(
+      std::unordered_set<std::string>& install_charging_rule_names,
+      std::unordered_set<std::string>& remove_charging_rule_names,
+      const Diameter::Packet& response);
+
   protected:
     class ReadResponsesTask;
 
@@ -243,6 +255,8 @@ namespace dpi
       bool operator==(const RequestKey& right) const;
 
       unsigned long hash() const;
+
+      std::string to_string() const;
 
       const std::string session_id;
       const unsigned int request_i = 0;
@@ -299,11 +313,12 @@ namespace dpi
       const std::optional<unsigned int>& reporting_reason) const;
 
     ByteArray
-    generate_watchdog_packet_() const;
+    generate_watchdog_packet_(
+      uint32_t hbh_identifier,
+      uint32_t ete_identifier) const;
 
-    std::pair<std::optional<uint32_t>, std::shared_ptr<Diameter::Packet>>
-    send_and_read_response_i_(
-      PacketGenerator packet_generator);
+    std::tuple<std::optional<uint32_t>, std::shared_ptr<Diameter::Packet>, RequestKey>
+    send_and_read_response_i_(PacketGenerator packet_generator);
 
     //static Diameter::Packet read_packet_(BaseConnection::Lock& connection);
 
@@ -341,6 +356,7 @@ namespace dpi
     const DiameterDictionary& diameter_dictionary_;
     BaseConnectionPtr connection_;
     Gears::TaskRunner_var task_runner_;
+    Gears::TaskRunner_var response_process_task_runner_;
 
     const int RETRY_COUNT_ = 1;
     unsigned int gx_application_id_;
@@ -396,6 +412,14 @@ namespace dpi
     return hash_;
   }
 
+  inline std::string
+  SCTPDiameterSession::RequestKey::to_string() const
+  {
+    return std::string("{session_id = ") + session_id +
+      ", request_i = " + std::to_string(request_i) +
+      "}";
+  }
+
   inline void
   SCTPDiameterSession::RequestKey::calc_hash_()
   {
@@ -410,12 +434,12 @@ namespace dpi
   {
     std::string res;
     res += "{";
-    res += "rating_group_id = " + std::to_string(rating_group_id);
-    res += ", max_bps = " + (max_bps.has_value() ? std::to_string(*max_bps) : std::string("null"));
-    res += ", cc_total_octets = " + (
+    res += "\"rating_group_id\": " + std::to_string(rating_group_id);
+    res += ", \"max_bps\": " + (max_bps.has_value() ? std::to_string(*max_bps) : std::string("null"));
+    res += ", \"cc_total_octets\": " + (
       cc_total_octets.has_value() ? std::to_string(*cc_total_octets) : std::string("null"));
-    res += ", validity_time = " + std::to_string(validity_time.tv_sec);
-    res += ", result_code = " + std::to_string(result_code);
+    res += ", \"validity_time\": " + std::to_string(validity_time.tv_sec);
+    res += ", \"result_code\": " + std::to_string(result_code);
     res += "}";
     return res;
   }
@@ -463,15 +487,43 @@ namespace dpi
   }
 
   inline std::string
+  SCTPDiameterSession::GxResponse::to_string() const
+  {
+    std::string res;
+    res += std::string("{\"result_code\": ") + std::to_string(result_code) + "}";
+    return res;
+  }
+
+  inline std::string
   SCTPDiameterSession::GxInitResponse::to_string() const
   {
     std::string res;
-    res += std::string("{charging_rule_names = ");
-    for (auto it = charging_rule_names.begin(); it != charging_rule_names.end(); ++it)
+    res += std::string("{\"result_code\": ") + std::to_string(result_code) +
+      ", \"install_charging_rule_names\": ";
+    for (auto it = install_charging_rule_names.begin(); it != install_charging_rule_names.end(); ++it)
     {
-      res += (it != charging_rule_names.begin() ? ", " : "") + *it;
+      res += (it != install_charging_rule_names.begin() ? ", " : "") + *it;
+    }
+    res += ", \"remove_charging_rule_names\": ";
+    for (auto it = remove_charging_rule_names.begin(); it != remove_charging_rule_names.end(); ++it)
+    {
+      res += (it != remove_charging_rule_names.begin() ? ", " : "") + *it;
     }
     res += "}";
+    return res;
+  }
+
+  inline std::string
+  SCTPDiameterSession::GyResponse::to_string() const
+  {
+    std::string res;
+    res += std::string("{\"result_code\": ") + std::to_string(result_code) +
+      ", \"rating_group_limits\": [";
+    for (auto it = rating_group_limits.begin(); it != rating_group_limits.end(); ++it)
+    {
+      res += (it != rating_group_limits.begin() ? ", " : "") + it->to_string();
+    }
+    res += "]}";
     return res;
   }
 }

@@ -57,15 +57,17 @@ namespace dpi
     const UsedLimitArray& decrease_used)
   {
     /*
-    std::ostringstream ostr;
-    ostr << "UserSession::set_limits(msisdn = " << traits_.msisdn << "):";
-
-    for (const auto& limit: limits)
     {
-      ostr << " " << limit.session_key.to_string() << " => " << limit.to_string();
-    }
+      std::ostringstream ostr;
+      ostr << "UserSession::set_limits(msisdn = " << traits_.msisdn << "):";
 
-    std::cout << ostr.str() << std::endl;
+      for (const auto& limit: limits)
+      {
+        ostr << " " << limit.session_key.to_string() << " => " << limit.to_string();
+      }
+
+      std::cout << ostr.str() << std::endl;
+    }
     */
 
     LimitMap new_limits;
@@ -76,6 +78,7 @@ namespace dpi
 
     std::unique_lock<std::shared_mutex> guard(limits_lock_);
     limits_.swap(new_limits);
+    /*
     for (auto it = decrease_used.begin(); it != decrease_used.end(); ++it)
     {
       auto used_limit_it = used_limits_.find(it->session_key);
@@ -96,6 +99,7 @@ namespace dpi
         }
       }
     }
+    */
   }
 
   UserSession::UseLimitResult
@@ -108,7 +112,7 @@ namespace dpi
   {
     UseLimitResult use_limit_result;
 
-    auto use_it = used_limits_.find(session_key);
+    auto use_it = gy_used_limits_.find(session_key);
     auto limit_it = limits_.find(session_key);
 
     if (limit_it == limits_.end())
@@ -119,15 +123,8 @@ namespace dpi
     }
 
     //std::cout << "use_limit: #2" << session_key.to_string() << std::endl;
-    use_limit_result.revalidate_gx |= (
-      limit_it->second.gx_recheck_time.has_value() &&
-      *(limit_it->second.gx_recheck_time) < now);
-    use_limit_result.revalidate_gy |= (
-      limit_it->second.gy_recheck_time.has_value() &&
-      *(limit_it->second.gy_recheck_time) < now);
-
     const unsigned long prev_used_bytes = (
-      use_it != used_limits_.end() ? use_it->second.used_bytes : 0);
+      use_it != gy_used_limits_.end() ? use_it->second.used_bytes : 0);
 
     // check blocking
     /*
@@ -165,25 +162,44 @@ namespace dpi
       use_limit_result.block = true;
     }
 
-    if (limit_it->second.gx_recheck_time != Gears::Time::ZERO &&
-      last_limits_use_timestamp_ < now &&
-      limit_it->second.gx_recheck_time <= now)
+    if (!use_limit_result.block)
     {
-      // jump over gx_recheck_time
-      use_limit_result.revalidate_gx = true;
-    }
+      if(limit_it->second.gx_recheck_limit.has_value() &&
+        prev_used_bytes + used_bytes > *limit_it->second.gx_recheck_limit &&
+        prev_used_bytes <= *limit_it->second.gx_recheck_limit)
+      {
+        use_limit_result.revalidate_gx = true;
+      }
 
-    if (limit_it->second.gy_recheck_time != Gears::Time::ZERO &&
-      last_limits_use_timestamp_ < now &&
-      limit_it->second.gy_recheck_time <= now)
-    {
-      // jump over gx_recheck_time
-      use_limit_result.revalidate_gy = true;
+      if (limit_it->second.gy_recheck_limit.has_value() &&
+        prev_used_bytes + used_bytes > *limit_it->second.gy_recheck_limit &&
+        prev_used_bytes <= *limit_it->second.gy_recheck_limit)
+      {
+        use_limit_result.revalidate_gy = true;
+      }
+
+      if (limit_it->second.gx_recheck_time.has_value() &&
+        *limit_it->second.gx_recheck_time != Gears::Time::ZERO &&
+        last_limits_use_timestamp_ < now &&
+        *limit_it->second.gx_recheck_time <= now)
+      {
+        // jump over gx_recheck_time
+        use_limit_result.revalidate_gx = true;
+      }
+
+      if (limit_it->second.gy_recheck_time.has_value() &&
+        *limit_it->second.gy_recheck_time != Gears::Time::ZERO &&
+        last_limits_use_timestamp_ < now &&
+        *limit_it->second.gy_recheck_time <= now)
+      {
+        use_limit_result.revalidate_gy = true;
+      }
     }
 
     if (!use_limit_result.block)
     {
-      used_limits_[session_key].used_bytes += used_bytes;
+      gy_used_limits_[session_key].used_bytes += used_bytes;
+      gx_used_limits_[session_key].used_bytes += used_bytes;
     }
 
     return use_limit_result;
@@ -211,7 +227,7 @@ namespace dpi
     else
     {
       use_limit_result = use_limit_i_(
-        SessionKey(),
+        session_key,
         now,
         used_bytes,
         used_output_bytes,
@@ -234,14 +250,38 @@ namespace dpi
   }
 
   UserSession::UsedLimitArray
-  UserSession::get_used_limits() const
+  UserSession::get_gx_used_limits(bool own_stats)
   {
     UsedLimitArray res;
 
     std::shared_lock<std::shared_mutex> guard(limits_lock_);
-    for (auto it = used_limits_.begin(); it != used_limits_.end(); ++it)
+    for (auto it = gx_used_limits_.begin(); it != gx_used_limits_.end(); ++it)
     {
       res.emplace_back(UsedLimit(it->first, it->second.used_bytes));
+    }
+
+    if (own_stats)
+    {
+      gx_used_limits_.clear();
+    }
+
+    return res;
+  }
+
+  UserSession::UsedLimitArray
+  UserSession::get_gy_used_limits(bool own_stats)
+  {
+    UsedLimitArray res;
+
+    std::shared_lock<std::shared_mutex> guard(limits_lock_);
+    for (auto it = gy_used_limits_.begin(); it != gy_used_limits_.end(); ++it)
+    {
+      res.emplace_back(UsedLimit(it->first, it->second.used_bytes));
+    }
+
+    if (own_stats)
+    {
+      gy_used_limits_.clear();
     }
 
     return res;

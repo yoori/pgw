@@ -26,7 +26,7 @@ namespace dpi
     //< RADIUS: Vendor-Specific.3GPP.Access-Network-Charging-Address
     uint32_t charging_id = 0; //< RADIUS: Vendor-Specific.3GPP.Charging-ID
     std::string gprs_negotiated_qos_profile; //< RADIUS
-    std::vector<unsigned char> user_location_info;
+    std::vector<uint8_t> user_location_info;
     std::string nsapi;
     std::string selection_mode;
     std::string charging_characteristics;

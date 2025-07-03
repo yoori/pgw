@@ -22,12 +22,16 @@ namespace dpi
 
   private:
     ByteArray
-    generate_rar_response_packet_(const std::string& session_id) const;
+    generate_rar_response_packet_(
+      const std::string& session_id,
+      uint32_t hbh_identifier,
+      uint32_t ete_identifier) const;
 
     ByteArray
     generate_asr_response_packet_(
       const std::string& session_id,
-      unsigned long command_code) const;
+      unsigned long command_code,
+      uint32_t hbh_identifier) const;
 
   private:
     const std::string origin_host_;

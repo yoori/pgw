@@ -11,8 +11,6 @@
 
 #include "DiameterPacketFiller.hpp"
 #include "DiameterSession.hpp"
-#include "CerrCallback.hpp"
-#include "FunTask.hpp"
 
 namespace dpi
 {
@@ -25,6 +23,24 @@ namespace dpi
       ByteArray ba = avp_data.toOctetString();
       return std::string(reinterpret_cast<const char*>(&ba[0]), ba.size());
     }
+
+    class CerrCallback: public Gears::ActiveObjectCallback
+    {
+    public:
+      virtual void
+      report_error(
+        Severity,
+        const Gears::SubString& description,
+        const char* = 0)
+        noexcept
+      {
+        std::cerr << description.str() << std::endl;
+      }
+
+      virtual
+      ~CerrCallback() noexcept
+      {}
+    };
   }
 
   // SCTPDiameterSession::ReadResponsesTask
@@ -74,12 +90,8 @@ namespace dpi
       origin_state_id_(3801248757)
   {
     Gears::ActiveObjectCallback_var callback(new CerrCallback());
-
     task_runner_ = Gears::TaskRunner_var(new Gears::TaskRunner(callback, 1));
     add_child_object(task_runner_);
-
-    response_process_task_runner_ = Gears::TaskRunner_var(new Gears::TaskRunner(callback, 3));
-    add_child_object(response_process_task_runner_);
 
     task_runner_->enqueue_task(std::make_shared<ReadResponsesTask>(this));
 
@@ -210,10 +222,7 @@ namespace dpi
   }
   */
 
-  std::tuple<
-    std::optional<uint32_t>,
-    std::shared_ptr<Diameter::Packet>,
-    SCTPDiameterSession::RequestKey>
+  std::pair<std::optional<uint32_t>, std::shared_ptr<Diameter::Packet>>
   SCTPDiameterSession::send_and_read_response_i_(
     SCTPDiameterSession::PacketGenerator packet_generator)
   {
@@ -224,11 +233,11 @@ namespace dpi
     }
     */
 
-    //std::cout << "[DIAMETER] send_and_read_response_i_: "
-    //  "connection_ = " << connection_.get() <<
-    //  ", this = " << this <<
-    //  ", RETRY_COUNT_ = " << RETRY_COUNT_ <<
-    //  std::endl;
+    std::cout << "[DIAMETER] send_and_read_response_i_: "
+      "connection_ = " << connection_.get() <<
+      ", this = " << this <<
+      ", RETRY_COUNT_ = " << RETRY_COUNT_ <<
+      std::endl;
 
     for (int retry_i = 0; retry_i < RETRY_COUNT_; ++retry_i)
     {
@@ -238,12 +247,14 @@ namespace dpi
       {
         std::shared_ptr<Diameter::Packet> response;
 
-        //std::cout << "[DIAMETER] To send diameter packet: connection_ = " << connection_.get() <<
-        //  ", this = " << this << std::endl;
+        std::cout << "[DIAMETER] To send diameter packet: connection_ = " << connection_.get() <<
+          ", this = " << this << std::endl;
 
-        auto [request_key, send_packet] = packet_generator();
-        connection_->lock()->send_packet(send_packet);
-        response = wait_response_(request_key);
+        {
+          auto [request_key, send_packet] = packet_generator();
+          connection_->lock()->send_packet(send_packet);
+          response = wait_response_(request_key);
+        }
 
         std::cout << "[DIAMETER] From send diameter packet: connection_ = " << connection_.get() <<
           ", this = " << this << std::endl;
@@ -258,7 +269,7 @@ namespace dpi
           }
         }
 
-        return std::make_tuple(result_code, response, request_key);
+        return std::make_pair(result_code, response);
       }
       catch(const std::exception& ex)
       {
@@ -276,7 +287,7 @@ namespace dpi
       }
     }
 
-    return std::make_tuple(0, nullptr, RequestKey());
+    return std::make_pair(0, nullptr);
   }
 
   void
@@ -287,23 +298,12 @@ namespace dpi
     {
       std::cout << "[DIAMETER] Send response for Watchdog request" << std::endl;
       // RESPONSE WATCHDOG
-      response_process_task_runner_->enqueue_task(std::make_shared<FunTask>(
-        [this, request]()
-        {
-          auto watchdog_packet = generate_watchdog_packet_(
-            request.header().hbhIdentifier(),
-            request.header().eteIdentifier());
-          connection_->lock()->send_packet(watchdog_packet);
-        }
-      ));
+      auto watchdog_packet = generate_watchdog_packet_();
+      connection_->lock()->send_packet(watchdog_packet);
     }
     else
     {
-      response_process_task_runner_->enqueue_task(std::make_shared<FunTask>(
-        [this, request]()
-        {
-          request_processor_(request);
-        }));
+      request_processor_(request);
     }
   }
 
@@ -358,15 +358,12 @@ namespace dpi
   SCTPDiameterSession::GxInitResponse
   SCTPDiameterSession::send_gx_init(const Request& request)
   {
-    auto [result_code, response, request_key] = send_and_read_response_i_(
+    std::cout << "[DIAMETER] To send Gx init" << std::endl;
+
+    auto [result_code, response] = send_and_read_response_i_(
       [this, &request] ()
       {
-        auto [request_key, request_packet] = generate_gx_init_(request);
-        std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: SEND GX INIT (" <<
-          request_key.to_string() << "): " <<
-          request.to_string() <<
-          std::endl;
-        return std::make_pair(request_key, request_packet);
+        return generate_gx_init_(request);
       }
     );
 
@@ -378,11 +375,6 @@ namespace dpi
       init_response.remove_charging_rule_names,
       *response);
 
-    std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: GX INIT RESPONSE (" <<
-      request_key.to_string() << "): " <<
-      request.to_string() << " => " <<
-      init_response.to_string() <<
-      std::endl;
     return init_response;
   }
 
@@ -391,18 +383,13 @@ namespace dpi
     const Request& request,
     const GxUpdateRequest& update_request)
   {
-    //std::cout << "[DIAMETER] To send Gx update for msisdn = " <<
-    //  request.user_session_traits.msisdn << std::endl;
+    std::cout << "[DIAMETER] To send Gx update for msisdn = " <<
+      request.user_session_traits.msisdn << std::endl;
 
-    auto [result_code, response, request_key] = send_and_read_response_i_(
+    auto [result_code, response] = send_and_read_response_i_(
       [this, &request, &update_request] ()
       {
-        auto [request_key, request_packet] = generate_gx_update_(request, update_request);
-        std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: SEND GX UPDATE (" <<
-          request_key.to_string() << "): " <<
-          request.to_string() << ", " <<
-          update_request.to_string() << std::endl;
-        return std::make_pair(request_key, request_packet);
+        return generate_gx_update_(request, update_request);
       }
     );
 
@@ -414,12 +401,6 @@ namespace dpi
       update_response.remove_charging_rule_names,
       *response);
 
-    std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: GX UPDATE RESPONSE (" <<
-      request_key.to_string() << "): " <<
-      request.to_string() << " => " <<
-      update_response.to_string() <<
-      std::endl;
-
     return update_response;
   }
 
@@ -428,27 +409,15 @@ namespace dpi
     const Request& request,
     const GxTerminateRequest& terminate_request)
   {
-    auto [result_code, response, request_key] = send_and_read_response_i_(
+    auto [result_code, response] = send_and_read_response_i_(
       [this, &request, &terminate_request] ()
       {
-        auto [request_key, request_packet] = generate_gx_terminate_(request, terminate_request);
-        std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: SEND GX TERMINATE (" <<
-          request_key.to_string() << "): " <<
-          request.to_string() << ", " <<
-          terminate_request.to_string() << std::endl;
-        return std::make_pair(request_key, request_packet);
+        return generate_gx_terminate_(request, terminate_request);
       }
     );
 
     GxTerminateResponse terminate_response;
     terminate_response.result_code = result_code.has_value() ? *result_code : 0;
-
-    std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: GX TERMINATE RESPONSE (" <<
-      request_key.to_string() << "): " <<
-      request.to_string() << " => " <<
-      terminate_response.to_string() <<
-      std::endl;
-
     return terminate_response;
   }
 
@@ -510,84 +479,48 @@ namespace dpi
   SCTPDiameterSession::GyResponse
   SCTPDiameterSession::send_gy_init(const GyRequest& request)
   {
-    auto [result_code, response, request_key] = send_and_read_response_i_(
+    auto [result_code, response] = send_and_read_response_i_(
       [this, &request] ()
       {
-        auto [request_key, request_packet] = generate_gy_init_(request);
-        std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: SEND GY INIT(" <<
-          request_key.to_string() << "): " <<
-          request.to_string() << std::endl;
-
-        return std::make_pair(request_key, request_packet);;
+        return generate_gy_init_(request);
       }
     );
 
     GyResponse init_response;
     parse_gy_response_(init_response, *response);
     init_response.result_code = result_code.has_value() ? *result_code : 0;
-
-    std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: GY INIT RESPONSE (" <<
-      request_key.to_string() << "): " <<
-      request.to_string() << " => " <<
-      init_response.to_string() <<
-      std::endl;
-
     return init_response;
   }
 
   SCTPDiameterSession::GyResponse
   SCTPDiameterSession::send_gy_update(const GyRequest& request)
   {
-    auto [result_code, response, request_key] = send_and_read_response_i_(
+    auto [result_code, response] = send_and_read_response_i_(
       [this, &request] ()
       {
-        auto [request_key, request_packet] = generate_gy_update_(request);
-        std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: SEND GY UPDATE(" <<
-          request_key.to_string() << "): " <<
-          request.to_string() <<
-          ", reason = " << request.reason <<
-          std::endl;
-        return std::make_pair(request_key, request_packet);
+        return generate_gy_update_(request);
       }
     );
 
     GyResponse init_response;
     parse_gy_response_(init_response, *response);
     init_response.result_code = result_code.has_value() ? *result_code : 0;
-
-    std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: GY UPDATE RESPONSE (" <<
-      request_key.to_string() << "): " <<
-      request.to_string() << " => " <<
-      init_response.to_string() <<
-      std::endl;
-
     return init_response;
   }
 
   SCTPDiameterSession::GyResponse
   SCTPDiameterSession::send_gy_terminate(const GyRequest& request)
   {
-    auto [result_code, response, request_key] = send_and_read_response_i_(
+    auto [result_code, response] = send_and_read_response_i_(
       [this, &request] ()
       {
-        auto [request_key, request_packet] = generate_gy_terminate_(request);
-        std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: SEND GY TERMINATE(" <<
-          request_key.to_string() << "): " <<
-          request.to_string() << std::endl;
-        return std::make_pair(request_key, request_packet);;
+        return generate_gy_terminate_(request);
       }
     );
 
     GyResponse init_response;
     parse_gy_response_(init_response, *response);
     init_response.result_code = result_code.has_value() ? *result_code : 0;
-
-    std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: GY TERMINATE RESPONSE (" <<
-      request_key.to_string() << "): " <<
-      request.to_string() << " => " <<
-      init_response.to_string() <<
-      std::endl;
-
     return init_response;
   }
 
@@ -601,28 +534,28 @@ namespace dpi
         ", this = " << this <<
         std::endl;
 
-      while (task_runner_->active())
-        //< check status of running task runner for correct behavior, when it activated,
-        // but SCTPDiameterSession isn't yet.
+      while (this->active())
       {
+        std::cout << "[DIAMETER] Reading thread: to connect" << std::endl;
+
         try
         {
           connection_->lock()->connect();
         }
         catch(const Gears::Exception& ex)
         {
-          //std::cout << "[DIAMETER] Reading thread: error on connect: " << ex.what() <<
-          //  std::endl;
+          std::cout << "[DIAMETER] Reading thread: error on connect: " << ex.what() <<
+            std::endl;
           ::sleep(1);
           continue;
         }
 
-        //std::cout << "[DIAMETER] Reading thread: from connect" << std::endl;
+        std::cout << "[DIAMETER] Reading thread: from connect" << std::endl;
 
-        //std::cout << "[DIAMETER] Reading thread: to read input message: "
-        //  "connection_ = " << connection_.get() <<
-        //  ", this = " << this <<
-        //  std::endl;
+        std::cout << "[DIAMETER] Reading thread: to read input message: "
+          "connection_ = " << connection_.get() <<
+          ", this = " << this <<
+          std::endl;
         std::vector<unsigned char> head_buf = connection_->read_bytes(4);
         uint32_t head = htonl(*(const uint32_t*)head_buf.data());
         int packet_size = head & 0xFFFFFF;
@@ -676,9 +609,9 @@ namespace dpi
             last_response_ = response;
           }
 
-          //std::cout << "[DIAMETER] Reading thread: notify all: last_response_ = " << last_response_.get() <<
-          //  ", responses_cond_ = " << &responses_cond_ <<
-          //  ", this = " << this << std::endl;
+          std::cout << "[DIAMETER] Reading thread: notify all: last_response_ = " << last_response_.get() <<
+            ", responses_cond_ = " << &responses_cond_ <<
+            ", this = " << this << std::endl;
           responses_cond_.notify_all();
         }
       }
@@ -688,11 +621,6 @@ namespace dpi
       std::cerr << "[DIAMETER] [ERROR] Reading thread: response reading error: " <<
         ex.what() << std::endl;
     }
-
-    std::cout << "[DIAMETER] Reading thread: exit reading loop: "
-      "connection_ = " << connection_.get() <<
-      ", this = " << this <<
-      std::endl;
   }
 
   std::shared_ptr<Diameter::Packet>
@@ -731,8 +659,8 @@ namespace dpi
         std::endl;
       */
 
-      result = std::move(responses_[request_key]);
-      responses_.erase(request_key);
+      result = std::move(this->responses_[request_key]);
+      this->responses_.erase(request_key);
     }
 
     return result;
@@ -786,6 +714,8 @@ namespace dpi
   {
     const RequestKey request_key(get_session_id_(request.session_id_suffix), request.request_id);
 
+    std::cout << "DIAMETER: SEND GX INIT, session_id = " << request_key.session_id << std::endl;
+
     auto packet = Diameter::Packet()
       .setHeader(
         Diameter::Packet::Header()
@@ -796,8 +726,8 @@ namespace dpi
           )
           .setCommandCode(272)
           .setApplicationId(request.application_id)
-          .setHBHIdentifier(Gears::safe_rand())
-          .setETEIdentifier(Gears::safe_rand())
+          .setHBHIdentifier(0x7ddf9367)
+          .setETEIdentifier(0xc15ecb12)
       );
 
     packet
@@ -994,8 +924,12 @@ namespace dpi
     const GxUpdateRequest& update_request)
     const
   {
+    std::cout << "DIAMETER: SEND GX UPDATE: " << update_request.to_string() << std::endl;
+
     auto [request_key, packet] = generate_base_gx_packet_(request);
+
     fill_gx_stat_update_(packet, update_request);
+
     packet.addAVP(create_int32_avp(416, 2)); // CC-Request-Type
 
     return std::make_pair(
@@ -1012,6 +946,8 @@ namespace dpi
   {
     auto [request_key, packet] = generate_base_gx_packet_(request);
 
+    std::cout << "DIAMETER: SEND GX TERMINATE: " << terminate_request.to_string() << std::endl;
+
     fill_gx_stat_update_(packet, terminate_request);
 
     packet
@@ -1027,9 +963,7 @@ namespace dpi
   }
 
   ByteArray
-  SCTPDiameterSession::generate_watchdog_packet_(
-    uint32_t hbh_identifier,
-    uint32_t ete_identifier) const
+  SCTPDiameterSession::generate_watchdog_packet_() const
   {
     auto packet = Diameter::Packet()
       .setHeader(
@@ -1037,8 +971,8 @@ namespace dpi
           .setCommandFlags(Diameter::Packet::Header::Flags())
           .setCommandCode(280)
           .setApplicationId(0)
-          .setHBHIdentifier(hbh_identifier)
-          .setETEIdentifier(ete_identifier)
+          .setHBHIdentifier(0x7ddf9367)
+          .setETEIdentifier(0xc15ecb12)
       );
 
     packet
@@ -1056,6 +990,8 @@ namespace dpi
   std::pair<SCTPDiameterSession::RequestKey, ByteArray>
   SCTPDiameterSession::generate_gy_init_(const GyRequest& request) const
   {
+    std::cout << "DIAMETER: SEND GY INIT: " << request.to_string() << std::endl;
+
     auto [request_key, packet] = generate_base_gy_packet_(request, std::nullopt);
 
     packet.addAVP(create_int32_avp(416, 1, std::nullopt, true)); // CC-Request-Type
@@ -1069,6 +1005,8 @@ namespace dpi
   std::pair<SCTPDiameterSession::RequestKey, ByteArray>
   SCTPDiameterSession::generate_gy_update_(const GyRequest& request) const
   {
+    std::cout << "DIAMETER: SEND GY UPDATE: " << request.to_string() << std::endl;
+
     auto [request_key, packet] = generate_base_gy_packet_(request, std::nullopt);
 
     packet.addAVP(create_int32_avp(416, 2, std::nullopt, true)); // CC-Request-Type
@@ -1082,6 +1020,8 @@ namespace dpi
   std::pair<SCTPDiameterSession::RequestKey, ByteArray>
   SCTPDiameterSession::generate_gy_terminate_(const GyRequest& request) const
   {
+    std::cout << "DIAMETER: SEND GY TERMINATE: " << request.to_string() << std::endl;
+
     auto [request_key, packet] = generate_base_gy_packet_(request, 2);
 
     packet.addAVP(create_int32_avp(295, 1, std::nullopt, true)); // Termination-Cause(295)=DIAMETER_LOGOUT
@@ -1108,8 +1048,8 @@ namespace dpi
           )
           .setCommandCode(272)
           .setApplicationId(request.application_id)
-          .setHBHIdentifier(Gears::safe_rand())
-          .setETEIdentifier(Gears::safe_rand())
+          .setHBHIdentifier(0x7ddf9367)
+          .setETEIdentifier(0xc15ecb12)
       );
 
     const auto session_id = get_session_id_(request.session_id_suffix);
@@ -1214,100 +1154,34 @@ namespace dpi
       );
     }
 
-    auto ps_information_avp_data = Diameter::AVP::Data()
-      .addAVP(create_uint32_avp(2, request.user_session_traits.charging_id, 10415, false)) // 3GPP-Charging-Id(2)
-      .addAVP(create_uint32_avp(3, 0, 10415, false)) // 3GPP-PDP-Type(3)=IPv4
-      .addAVP(create_ipv4_avp(1227, request.user_session_traits.framed_ip_address, 10415, true))
-      //< PDP-Address(1227)=framed_ip_address
-      .addAVP(create_ipv4_avp(1228, request.user_session_traits.sgsn_ip_address, 10415, true))
-      //< SGSN-Address(1228)
-      .addAVP(create_ipv4_avp(847, request.user_session_traits.access_network_charging_ip_address, 10415, true))
-      //< GGSN-Address(847)
-      .addAVP(create_ipv4_avp(846, request.user_session_traits.sgsn_ip_address, 10415, true))
-      //< CG-Address(846) // ???
-      .addAVP(create_string_avp(8, request.user_session_traits.mcc_mnc, 10415, false)) // 3GPP-IMSI-MCC-MNC(8)
-      .addAVP(create_string_avp(9, request.user_session_traits.mcc_mnc, 10415, false)) // 3GPP-GGSN-MCC-MNC(9)
-      .addAVP(create_string_avp(30, request.user_session_traits.called_station_id, std::nullopt, true))
-      //< Called-Station-Id(30)
-      .addAVP(create_string_avp(18, request.user_session_traits.mcc_mnc, 10415, false))
-      //< 3GPP-SGSN-MCC-MNC(18)
-      .addAVP(create_uint16_avp(
-        23,
-        static_cast<uint16_t>(request.user_session_traits.timezone) << 8 | 0, //< Adjustment=0
-        10415,
-        false
-      )) // 3GPP-MS-TimeZone
-      .addAVP(create_uint32_avp(21, request.user_session_traits.rat_type, 10415, false)) // 3GPP-RAT-Type(21)
-      .addAVP(create_uint32_avp(1247, 0, 10415, false)) // PDP-Context-Type(1247)=PRIMARY
-      .addAVP(create_uint32_avp(2050, request.user_session_traits.charging_id, 10415, true))
-      //< PDN-Connection-Charging-ID(2050)
-      .addAVP(create_uint32_avp(2047, 2, 10415, true)) //< Serving-Node-Type(2047)=GTPSGW
-      ;
+    DiameterPacketFiller packet_filler(diameter_dictionary_, 272);
+    packet_filler.add_avp("Service-Information.PS-Information.PDP-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.framed_ip_address));
+    packet_filler.add_avp("Service-Information.PS-Information.SGSN-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
+    packet_filler.add_avp("Service-Information.PS-Information.GGSN-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.access_network_charging_ip_address));
+    packet_filler.add_avp("Service-Information.PS-Information.CG-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
 
-    // .addAVP(create_string_avp(1004, "up_bypass", 10415, true)) // Charging-Rule-Base-Name(1004)=up_bypass
+    packet_filler.add_avp("Service-Information.PS-Information.3GPP-Charging-Id", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.charging_id));
+    packet_filler.add_avp("Service-Information.PS-Information.3GPP-PDP-Type", dpi::Value(std::in_place_type<uint64_t>, 0));
 
-    if (!request.user_session_traits.charging_characteristics.empty())
-    {
-      ps_information_avp_data.addAVP(create_string_avp(
-        13, // 3GPP-Charging-Characteristics(13)
-        request.user_session_traits.charging_characteristics,
-        10415,
-        false));
-    }
-
-    if (!request.user_session_traits.selection_mode.empty())
-    {
-      ps_information_avp_data.addAVP(create_string_avp(
-        12, // 3GPP-Selection-Mode(12)
-        request.user_session_traits.selection_mode,
-        10415,
-        false));
-    }
-
-    if (!request.user_session_traits.nsapi.empty())
-    {
-      ps_information_avp_data.addAVP(create_string_avp(
-        10, // 3GPP-NSAPI(10)
-        request.user_session_traits.nsapi,
-        10415,
-        false));
-    }
-
-    if (!request.user_session_traits.user_location_info.empty())
-    {
-      ps_information_avp_data.addAVP(create_octets_avp(
-        22, // 3GPP-User-Location-Info(22)
-        ByteArray(
-          &request.user_session_traits.user_location_info[0],
-          request.user_session_traits.user_location_info.size()),
-        10415,
-        false));
-    }
-
-    if (!request.user_session_traits.gprs_negotiated_qos_profile.empty())
-    {
-      ps_information_avp_data.addAVP(create_string_avp(
-        5, //< 3GPP-GPRS-Negotiated-QoS-Profile(5)
-        request.user_session_traits.gprs_negotiated_qos_profile,
-        10415,
-        false));
-    }
-
-    packet.addAVP(
-      create_avp(
-        873, // Service-Information(873)
-        Diameter::AVP::Data().addAVP(
-          create_avp(
-            874, // PS-Information(874)
-            ps_information_avp_data,
-            10415,
-            true
-          )
-        ),
-        10415,
-        true
-      )
-    );
+    packet_filler.add_avp("Service-Information.PS-Information.3GPP-RAT-Type",
+      dpi::Value(ByteArrayValue({static_cast<uint8_t>(request.user_session_traits.rat_type)})));
+    packet_filler.add_avp("Service-Information.PS-Information.PDN-Connection-Charging-ID", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.charging_id));
+    packet_filler.add_avp("Service-Information.PS-Information.Serving-Node-Type", dpi::Value(std::in_place_type<uint64_t>, 2));
+    packet_filler.add_avp("Service-Information.PS-Information.PDP-Context-Type", dpi::Value(std::in_place_type<uint64_t>, 0));
+    packet_filler.add_avp("Service-Information.PS-Information.3GPP-MS-TimeZone",
+      dpi::Value(ByteArrayValue({static_cast<uint8_t>(request.user_session_traits.timezone), 0})));
+    packet_filler.add_avp("Service-Information.PS-Information.Called-Station-Id", dpi::Value(request.user_session_traits.called_station_id));
+    packet_filler.add_avp("Service-Information.PS-Information.3GPP-GGSN-MCC-MNC", dpi::Value(request.user_session_traits.mcc_mnc));
+    packet_filler.add_avp("Service-Information.PS-Information.3GPP-SGSN-MCC-MNC", dpi::Value(request.user_session_traits.mcc_mnc));
+    packet_filler.add_avp("Service-Information.PS-Information.3GPP-IMSI-MCC-MNC", dpi::Value(request.user_session_traits.mcc_mnc));
+    packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-Charging-Characteristics", dpi::Value(request.user_session_traits.charging_characteristics));
+    packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-Selection-Mode", dpi::Value(request.user_session_traits.selection_mode));
+    packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-NSAPI", dpi::Value(request.user_session_traits.nsapi));
+    packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-User-Location-Info", dpi::Value(request.user_session_traits.user_location_info));
+    std::cout << "DEBUG GY : request.user_session_traits.gprs_negotiated_qos_profile.size() = " <<
+      request.user_session_traits.gprs_negotiated_qos_profile.size() << std::endl;
+    packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-GPRS-Negotiated-QoS-Profile", dpi::Value(request.user_session_traits.gprs_negotiated_qos_profile));
+    packet_filler.apply(packet);
 
     return std::make_pair(RequestKey(session_id, request_i), packet);
   }
@@ -1328,8 +1202,8 @@ namespace dpi
           )
           .setCommandCode(272)
           .setApplicationId(request.application_id)
-          .setHBHIdentifier(Gears::safe_rand())
-          .setETEIdentifier(Gears::safe_rand())
+          .setHBHIdentifier(0x7ddf9367)
+          .setETEIdentifier(0xc15ecb12)
       );
 
     packet
@@ -1455,8 +1329,8 @@ namespace dpi
           )
           .setCommandCode(257)
           .setApplicationId(0)
-          .setHBHIdentifier(Gears::safe_rand())
-          .setETEIdentifier(Gears::safe_rand())
+          .setHBHIdentifier(0x00000ad1)
+          .setETEIdentifier(0x00000ad1)
        );
 
     if (destination_host.has_value())

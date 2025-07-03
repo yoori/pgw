@@ -11,6 +11,7 @@ namespace dpi
   StreamLogger::log(std::string_view msg)
   {
     out_.write(msg.data(), msg.size());
+    out_ << std::endl;
     out_.flush();
   }
 

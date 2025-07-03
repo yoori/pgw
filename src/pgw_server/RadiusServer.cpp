@@ -256,7 +256,7 @@ namespace dpi
   std::optional<RadProto::Packet>
   RadiusServer::process_packet_(const RadProto::Packet& request)
   {
-    std::cout << "RADIUS INPUT PACKET" << std::endl;
+    //std::cout << "RADIUS INPUT PACKET" << std::endl;
 
     // get basic fields required for logic
     RadProto::PacketReader packet_reader(request, dictionaries_, secret_);
@@ -284,8 +284,11 @@ namespace dpi
         }
       }
 
-      std::cout << "RADIUS PACKET: pass_attributes = " << pass_attributes.size() <<
-        ", framed_ip_address = " << framed_ip_address << std::endl;
+      std::cout << "RADIUS PACKET: acct_status_type = " << *acct_status_type_attr->as_uint() <<
+        ", pass_attributes = " << pass_attributes.size() <<
+        ", framed_ip_address = " << dpi::ipv4_address_to_string(framed_ip_address) <<
+        ", msisdn = " << *calling_station_id_attr->as_string() <<
+        std::endl;
 
       // Check request.type() == RadProto::ACCOUNTING_REQUEST
 

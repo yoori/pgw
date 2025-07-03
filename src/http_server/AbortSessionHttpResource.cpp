@@ -24,7 +24,7 @@ namespace dpi
       if (request_json.contains("session_id"))
       {
         const std::string session_id = request_json["session_id"].as_string();
-        manager_->abort_session(session_id, true, false, true);
+        manager_->abort_session(session_id, true, false, true, "Abort over http endpoint");
         return generate_json_response(request, "");
       }
       else

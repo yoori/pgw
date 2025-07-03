@@ -29,23 +29,29 @@ namespace dpi
 
       Limit(
         const std::optional<Gears::Time>& gx_recheck_time,
+        const std::optional<unsigned long>& gx_recheck_limit,
         const std::optional<unsigned long>& gx_limit,
         const std::optional<Gears::Time>& gy_recheck_time,
+        const std::optional<unsigned long>& gy_recheck_limit,
         const std::optional<unsigned long>& gy_limit);
 
       std::string to_string() const
       {
         return std::string("{") +
           "gx_recheck_time = " + (gx_recheck_time.has_value() ? std::to_string(gx_recheck_time->tv_sec) : std::string("none")) +
+          ", gx_recheck_limit = " + (gx_recheck_limit.has_value() ? std::to_string(*gx_recheck_limit) : std::string("none")) +
           ", gx_limit = " + (gx_limit.has_value() ? std::to_string(*gx_limit) : std::string("none")) +
           ", gy_recheck_time = " + (gy_recheck_time.has_value() ? std::to_string(gy_recheck_time->tv_sec) : std::string("none")) +
+          ", gy_recheck_limit = " + (gy_recheck_limit.has_value() ? std::to_string(*gy_recheck_limit) : std::string("none")) +
           ", gy_limit = " + (gy_limit.has_value() ? std::to_string(*gy_limit) : std::string("none")) +
           "}";
       }
 
       std::optional<Gears::Time> gx_recheck_time;
+      std::optional<unsigned long> gx_recheck_limit;
       std::optional<unsigned long> gx_limit;
       std::optional<Gears::Time> gy_recheck_time;
+      std::optional<unsigned long> gy_recheck_limit;
       std::optional<unsigned long> gy_limit;
     };
 
@@ -56,8 +62,10 @@ namespace dpi
       SetLimit(
         const SessionKey& session_key_val,
         const std::optional<Gears::Time>& gx_recheck_time,
+        const std::optional<unsigned long>& gx_recheck_limit,
         const std::optional<unsigned long>& gx_limit,
         const std::optional<Gears::Time>& gy_recheck_time,
+        const std::optional<unsigned long>& gy_recheck_limit,
         const std::optional<unsigned long>& gy_limit);
 
       SessionKey session_key;
@@ -87,7 +95,9 @@ namespace dpi
       bool revalidate_gx = false;
       bool revalidate_gy = false;
       bool closed = false;
-      bool revalidate = false; // set to true if revalidate time switched or limit.
+      //bool revalidate = false; // set to true if revalidate time switched or limit.
+
+      std::string to_string() const;
     };
 
   public:
@@ -117,7 +127,10 @@ namespace dpi
       unsigned long used_input_bytes);
 
     UsedLimitArray
-    get_used_limits() const;
+    get_gx_used_limits(bool own_stats = true);
+
+    UsedLimitArray
+    get_gy_used_limits(bool own_stats = true);
 
     std::pair<std::string, unsigned long>
     generate_gx_request_id();
@@ -173,6 +186,11 @@ namespace dpi
       unsigned long used_output_bytes,
       unsigned long used_input_bytes);
 
+    void
+    set_limits_i_(
+      LimitMap& to_apply_limits,
+      LimitMap& new_limits);
+
   private:
     UserSessionTraits traits_;
     UserPtr user_;
@@ -193,8 +211,8 @@ namespace dpi
     bool is_closed_ = false;
     LimitMap limits_;
     Gears::Time last_limits_use_timestamp_;
-    UsedLimitHolderMap used_limits_;
-
+    UsedLimitHolderMap gx_used_limits_;
+    UsedLimitHolderMap gy_used_limits_;
   };
 
   using UserSessionPtr = std::shared_ptr<UserSession>;
@@ -202,6 +220,16 @@ namespace dpi
 
 namespace dpi
 {
+  inline std::string
+  UserSession::UseLimitResult::to_string() const
+  {
+    return std::string("{block = ") + std::to_string(block) +
+      ", revalidate_gx = " + std::to_string(revalidate_gx) +
+      ", revalidate_gy = " + std::to_string(revalidate_gy) +
+      ", closed = " + std::to_string(closed) +
+      "}";
+  }
+
   inline std::string
   UserSession::SetLimit::to_string() const
   {
@@ -241,12 +269,16 @@ namespace dpi
   inline
   UserSession::Limit::Limit(
     const std::optional<Gears::Time>& gx_recheck_time_val,
+    const std::optional<unsigned long>& gx_recheck_limit_val,
     const std::optional<unsigned long>& gx_limit_val,
     const std::optional<Gears::Time>& gy_recheck_time_val,
+    const std::optional<unsigned long>& gy_recheck_limit_val,
     const std::optional<unsigned long>& gy_limit_val)
     : gx_recheck_time(gx_recheck_time_val),
+      gx_recheck_limit(gx_recheck_limit_val),
       gx_limit(gx_limit_val),
       gy_recheck_time(gy_recheck_time_val),
+      gy_recheck_limit(gx_recheck_limit_val),
       gy_limit(gy_limit_val)
   {}
 
@@ -259,10 +291,18 @@ namespace dpi
   UserSession::SetLimit::SetLimit(
     const SessionKey& session_key_val,
     const std::optional<Gears::Time>& gx_recheck_time_val,
+    const std::optional<unsigned long>& gx_recheck_limit_val,
     const std::optional<unsigned long>& gx_limit_val,
     const std::optional<Gears::Time>& gy_recheck_time_val,
+    const std::optional<unsigned long>& gy_recheck_limit_val,
     const std::optional<unsigned long>& gy_limit_val)
-    : Limit(gx_recheck_time_val, gx_limit_val, gy_recheck_time_val, gy_limit_val),
+    : Limit(
+        gx_recheck_time_val,
+        gx_recheck_limit_val,
+        gx_limit_val,
+        gy_recheck_time_val,
+        gy_recheck_limit_val,
+        gy_limit_val),
       session_key(session_key_val)
   {}
 }

@@ -557,50 +557,6 @@ namespace dpi
     return unknown_session_key_;
   }
 
-  void
-  PacketProcessor::fill_gx_gy_stats_(
-    dpi::DiameterSession::GxUpdateRequest& gx_request,
-    dpi::DiameterSession::GyRequest& gy_request,
-    const dpi::UserSession& user_session)
-  {
-    if (!pcc_config_provider_)
-    {
-      return;
-    }
-
-    auto pcc_config = pcc_config_provider_->get_config();
-
-    if (!pcc_config)
-    {
-      return;
-    }
-
-    auto used_limits = user_session.get_used_limits();
-    for (const auto& used_limit : used_limits)
-    {
-      auto session_rule_it = pcc_config->session_keys.find(used_limit.session_key);
-      if (session_rule_it != pcc_config->session_keys.end())
-      {
-        const dpi::PccConfig::SessionKeyRule& session_key_rule = session_rule_it->second;
-
-        for (const auto& rg_id : session_key_rule.rating_groups)
-        {
-          gy_request.usage_rating_groups.emplace_back(
-            dpi::DiameterSession::GyRequest::UsageRatingGroup(rg_id, used_limit.used_bytes));
-        }
-
-        for (const auto& mk_id : session_key_rule.monitoring_keys)
-        {
-          gx_request.usage_monitorings.emplace_back(
-            dpi::DiameterSession::GxUpdateRequest::UsageMonitoring(
-              mk_id,
-              used_limit.used_bytes
-            ));
-        }
-      }
-    }
-  }
-
   PacketProcessingState
   PacketProcessor::process_packet_(
     u_int16_t proto,

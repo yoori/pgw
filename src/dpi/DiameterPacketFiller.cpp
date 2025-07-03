@@ -19,6 +19,12 @@ namespace dpi
     }
 
     Diameter::AVP::Data
+    fill_octets_avp_data(const uint8_t* buf, int size)
+    {
+      return Diameter::AVP::Data().setOctetString(ByteArray(buf, size));
+    }
+
+    Diameter::AVP::Data
     fill_uint32_avp_data(uint32_t value)
     {
       return Diameter::AVP::Data().setUnsigned32(value);
@@ -100,6 +106,27 @@ namespace dpi
           }
 
           avp_data_ = fill_int64_avp_data(val);
+          return;
+        }
+
+        if (avp_dict_.base_type == DiameterDictionary::AVPValueType::AVP_TYPE_OCTETSTRING &&
+          avp_dict_.custom_type == "Address")
+        {
+          if (val > std::numeric_limits<uint32_t>::max())
+          {
+            throw DiameterPacketFiller::IncompatibleType(
+              std::string("Can't fill address by value: ") + std::to_string(val));
+          }
+
+          const uint8_t addr_buf[] = {
+            0,
+            0x1,
+            static_cast<uint8_t>(val & 0xFF),
+            static_cast<uint8_t>((val >> 8) & 0xFF),
+            static_cast<uint8_t>((val >> 16) & 0xFF),
+            static_cast<uint8_t>((val >> 24) & 0xFF)
+          };
+          avp_data_ = fill_octets_avp_data(addr_buf, sizeof(addr_buf));
           return;
         }
 
@@ -192,6 +219,41 @@ namespace dpi
       Diameter::AVP::Data& avp_data_;
       const DiameterDictionary::AVP& avp_dict_;
     };
+
+    class AVPNonEmptyVisitor
+    {
+    public:
+      AVPNonEmptyVisitor(bool& non_empty)
+        : non_empty_(non_empty)
+      {}
+
+      void
+      operator()(uint64_t)
+      {
+        non_empty_ = true;
+      }
+
+      void
+      operator()(int64_t)
+      {
+        non_empty_ = true;
+      }
+
+      void
+      operator()(const std::string& val)
+      {
+        non_empty_ = !val.empty();
+      }
+
+      void
+      operator()(const ByteArrayValue& val)
+      {
+        non_empty_ = !val.empty();
+      }
+
+    private:
+      bool& non_empty_;
+    };
   };
 
   DiameterPacketFiller::DiameterPacketFiller(
@@ -201,6 +263,18 @@ namespace dpi
       request_code_(request_code),
       root_node_(std::make_shared<AVPNode>())
   {}
+
+  void
+  DiameterPacketFiller::add_non_empty_avp(const std::string& path, const Value& value)
+  {
+    bool non_empty = true;
+    std::visit(AVPNonEmptyVisitor(non_empty), value);
+    if (non_empty)
+    {
+      std::cout << "DiameterPacketFiller::add_non_empty_avp: ADD NON EMPTY " << path << std::endl;
+      add_avp(path, value);
+    }
+  }
 
   void
   DiameterPacketFiller::add_avp(const std::string& path, const Value& value)
@@ -260,11 +334,11 @@ namespace dpi
   {
     if (!avp_node.child_avps.empty())
     {
-      for (const auto& [avp_code, avp_node] : avp_node.child_avps)
+      for (const auto& [internal_avp_code, internal_avp_node] : avp_node.child_avps)
       {
-        Diameter::AVP::Data avp_data;
-        apply_to_(avp_data, *avp_node);
-        avp_data.addAVP(create_avp_(*avp_node->avp_dict, avp_data));
+        Diameter::AVP::Data internal_avp_data;
+        apply_to_(internal_avp_data, *internal_avp_node);
+        avp_data.addAVP(create_avp_(*internal_avp_node->avp_dict, internal_avp_data));
       }
     }
     else

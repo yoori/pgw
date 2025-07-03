@@ -21,6 +21,9 @@ namespace dpi
     add_avp(const std::string& path, const Value& value);
 
     void
+    add_non_empty_avp(const std::string& path, const Value& value);
+
+    void
     apply(Diameter::Packet& packet);
 
   private:

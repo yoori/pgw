@@ -71,10 +71,15 @@ namespace dpi
         packet_processing_state.revalidate_gx || packet_processing_state.revalidate_gy) &&
         manager_)
       {
+        std::cout << "UPDATE GX/GY: revalidate_gx = " << packet_processing_state.revalidate_gx <<
+          ", revalidate_gy = " << packet_processing_state.revalidate_gy <<
+          std::endl;
+
         manager_->update_session(
           *packet_processing_state.user_session,
           packet_processing_state.revalidate_gx,
-          packet_processing_state.revalidate_gy);
+          packet_processing_state.revalidate_gy,
+          "Recheck limits reached");
       }
 
       if (!packet_processing_state.block_packet)

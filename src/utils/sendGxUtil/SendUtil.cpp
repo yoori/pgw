@@ -117,28 +117,7 @@ int main(int argc, char* argv[])
 
     session->activate_object();
 
-    /*
-    auto gy_connection = std::make_shared<dpi::SCTPStreamConnection>(
-      sctp_connection,
-      2);
-
-    std::shared_ptr<dpi::DiameterSession> gy_session = std::make_shared<dpi::DiameterSession>(
-      logger,
-      gy_connection,
-      *opt_origin_host,
-      *opt_origin_realm,
-      !opt_destination_host->empty() ? std::optional<std::string>(*opt_destination_host) : std::nullopt,
-      !opt_destination_realm->empty() ? std::optional<std::string>(*opt_destination_realm) : std::nullopt,
-      4, //< DCCA = 4
-      "Diameter Credit Control Application",
-      *opt_source_addresses
-      );
-
-    gy_session->activate_object();
-    */
-
     const unsigned long GX_APPLICATION_ID = 16777238;
-    const unsigned long GY_APPLICATION_ID = 4;
     const std::string GX_SESSION_ID_SUFFIX = ";1;0;1";
     unsigned int gx_request_i = 0;
 
@@ -161,9 +140,9 @@ int main(int argc, char* argv[])
 
     dpi::DiameterSession::GxInitResponse gx_init_response = session->send_gx_init(request);
     std::cout << "Gx init request: result-code: " << gx_init_response.result_code << ", charging_rule_names = [";
-    for (auto it = gx_init_response.charging_rule_names.begin(); it != gx_init_response.charging_rule_names.end(); ++it)
+    for (auto it = gx_init_response.install_charging_rule_names.begin(); it != gx_init_response.install_charging_rule_names.end(); ++it)
     {
-      std::cout << (it != gx_init_response.charging_rule_names.begin() ? " ": "") << *it;
+      std::cout << (it != gx_init_response.install_charging_rule_names.begin() ? " ": "") << *it;
     }
     std::cout << "]" << std::endl;
 
@@ -199,6 +178,7 @@ int main(int argc, char* argv[])
     std::cout << "Gx terminate request: result-code: " << gx_terminate_response.result_code << std::endl;
 
     std::cout << "====== SEND GY ======" << std::endl;
+    const unsigned long GY_APPLICATION_ID = 4;
     const std::string GY_SESSION_ID_SUFFIX = ";2;0;1";
     unsigned int gy_request_i = 0;
 
@@ -232,7 +212,7 @@ int main(int argc, char* argv[])
       request.usage_rating_groups.emplace_back(dpi::DiameterSession::GyRequest::UsageRatingGroup(61)); //
 
       dpi::DiameterSession::GyResponse gy_init_response = session->send_gy_init(request);
-      std::cout << "Gy init request: result-code = " << gx_init_response.result_code <<
+      std::cout << "Gy init request: result-code = " << gy_init_response.result_code <<
         "  rating_group_limits:" << std::endl;
       for (const auto& rating_group : gy_init_response.rating_group_limits)
       {

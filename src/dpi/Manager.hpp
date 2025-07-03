@@ -1,6 +1,7 @@
 #pragma once
 
 #include <gears/Exception.hpp>
+#include <gears/TaskRunner.hpp>
 
 #include <dpi/UserStorage.hpp>
 #include <dpi/UserSessionStorage.hpp>
@@ -11,7 +12,7 @@
 
 namespace dpi
 {
-  class Manager
+  class Manager: public Gears::CompositeActiveObject
   {
   public:
     DECLARE_EXCEPTION(Invalid, Gears::DescriptiveException);
@@ -46,7 +47,8 @@ namespace dpi
       const std::string& session_id,
       bool terminate_radius,
       bool terminate_gx,
-      bool terminate_gy);
+      bool terminate_gy,
+      const std::string& reason);
 
     void
     abort_session(
@@ -54,19 +56,29 @@ namespace dpi
       bool terminate_radius,
       bool terminate_gx,
       bool terminate_gy,
+      const std::string& reason,
       const std::optional<ChargingRuleNameSet>& not_found_charging_rule_names = std::nullopt);
 
-    void
+    bool
     update_session(
       const std::string& session_id,
-      bool update_gx = true,
-      bool update_gy = true);
+      bool update_gx,
+      bool update_gy,
+      const std::string& reason);
 
-    void
+    bool
     update_session(
       dpi::UserSession& user_session,
-      bool update_gx = true,
-      bool update_gy = true);
+      bool update_gx,
+      bool update_gy,
+      const std::string& reason);
+
+    void
+    update_session_async(
+      const dpi::UserSessionPtr& user_session,
+      bool update_gx,
+      bool update_gy,
+      const std::string& reason);
 
     dpi::LoggerPtr logger() const;
 
@@ -78,10 +90,14 @@ namespace dpi
       bool init);
 
     void
-    fill_gx_gy_stats_(
+    fill_gx_stats_(
       dpi::DiameterSession::GxUpdateRequest& gx_request,
+      dpi::UserSession& user_session);
+
+    void
+    fill_gy_stats_(
       dpi::DiameterSession::GyRequest& gy_request,
-      const dpi::UserSession& user_session);
+      dpi::UserSession& user_session);
 
     std::string
     get_session_suffix_(const std::string& gx_session_id);
@@ -90,8 +106,7 @@ namespace dpi
     fill_gy_request_(
       DiameterSession::GyRequest& gy_request,
       UserSession& user_session,
-      const UserSessionTraits& user_session_traits,
-      const dpi::ConstPccConfigPtr& pcc_config);
+      bool fill_zero_usage_groups);
 
     void
     fill_limits_by_gy_response_(
@@ -118,6 +133,8 @@ namespace dpi
     dpi::DiameterSessionPtr gx_diameter_session_;
     dpi::DiameterSessionPtr gy_diameter_session_;
     dpi::PccConfigProviderPtr pcc_config_provider_;
+    
+    Gears::TaskRunner_var task_runner_;
   };
 
   using ManagerPtr = std::shared_ptr<Manager>;
