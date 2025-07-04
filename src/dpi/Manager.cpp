@@ -13,6 +13,7 @@
 #include <dpi/UserSessionTraits.hpp>
 
 #include "CerrCallback.hpp"
+#include "FunTask.hpp"
 #include "Manager.hpp"
 
 namespace dpi
@@ -712,7 +713,12 @@ namespace dpi
     bool update_gy,
     const std::string& reason)
   {
-    
+    task_runner_->enqueue_task(std::make_shared<FunTask>(
+      [this, user_session, update_gx, update_gy, reason]()
+      {
+        update_session(*user_session, update_gx, update_gy, reason);
+      }
+    ));
   }
 
   bool
@@ -751,6 +757,12 @@ namespace dpi
         request.session_id_suffix = gx_session_id_suffix;
         request.request_id = gx_request_id;
         request.user_session_traits = user_session.traits();
+
+        // TODO: lock diameter exchange for session
+        if (user_session.is_closed())
+        {
+          return false;
+        }
 
         dpi::DiameterSession::GxUpdateResponse response = gx_diameter_session_->send_gx_update(
           request,
@@ -821,6 +833,12 @@ namespace dpi
         DiameterSession::GyRequest gy_update_request; // To fix : use locally
         fill_gy_request_(gy_update_request, user_session, true);
         gy_update_request.reason = reason;
+
+        // TODO: lock diameter exchange for session
+        if (user_session.is_closed())
+        {
+          return false;
+        }
 
         dpi::DiameterSession::GyResponse gy_response = gy_diameter_session_->send_gy_update(
           gy_update_request);

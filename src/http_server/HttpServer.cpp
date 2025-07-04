@@ -11,6 +11,7 @@
 #include "SetEventActionHttpResource.hpp"
 #include "UserSetShapingHttpResource.hpp"
 #include "AbortSessionHttpResource.hpp"
+#include "UpdateSessionHttpResource.hpp"
 
 namespace dpi
 {
@@ -34,6 +35,7 @@ namespace dpi
         set_event_action_http_resource_(std::make_shared<SetEventActionHttpResource>(event_processor)),
         user_set_shaping_http_resource_(std::make_shared<UserSetShapingHttpResource>(user_storage)),
         abort_session_http_resource_(std::make_shared<AbortSessionHttpResource>(manager)),
+        update_session_http_resource_(std::make_shared<UpdateSessionHttpResource>(manager)),
         ws(httpserver::create_webserver(port)
           .max_threads(max_threads)
           .put_processed_data_to_content()
@@ -49,6 +51,7 @@ namespace dpi
       ws.register_resource("/api/set_event_action", set_event_action_http_resource_.get());
       ws.register_resource("/api/set_user_shaping", user_set_shaping_http_resource_.get());
       ws.register_resource("/api/abort_session", abort_session_http_resource_.get());
+      ws.register_resource("/api/update_session", update_session_http_resource_.get());
     }
 
   private:
@@ -59,6 +62,7 @@ namespace dpi
     const std::shared_ptr<httpserver::http_resource> set_event_action_http_resource_;
     const std::shared_ptr<httpserver::http_resource> user_set_shaping_http_resource_;
     const std::shared_ptr<httpserver::http_resource> abort_session_http_resource_;
+    const std::shared_ptr<httpserver::http_resource> update_session_http_resource_;
 
   public:
     httpserver::webserver ws;

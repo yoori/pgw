@@ -21,7 +21,8 @@ namespace dpi
 
     UserSessionPtr add_user_session(
       const UserSessionTraits& user_session_traits,
-      const UserPtr& user);
+      const UserPtr& user,
+      bool replace = false);
 
     // remove session from storage
     UserSessionPtr remove_user_session(uint32_t ip);

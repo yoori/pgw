@@ -24,6 +24,7 @@ int main(int argc, char* argv[])
   Gears::AppUtils::StringOption opt_origin_realm("localhost");
   Gears::AppUtils::StringOption opt_destination_host;
   Gears::AppUtils::StringOption opt_destination_realm;
+  Gears::AppUtils::CheckOption opt_use_filler;
 
   Gears::AppUtils::OptionsSet<std::vector<std::string>> opt_local_servers;
   Gears::AppUtils::Option<unsigned int> opt_local_port(0);
@@ -46,6 +47,7 @@ int main(int argc, char* argv[])
 
   args.add(Gears::AppUtils::equal_name("source-address"), opt_source_addresses);
   args.add(Gears::AppUtils::equal_name("dict"), opt_dict);
+  args.add(Gears::AppUtils::equal_name("use-filler"), opt_use_filler);
 
   args.parse(argc - 1, argv + 1);
 
@@ -112,11 +114,13 @@ int main(int argc, char* argv[])
       16777238, //< Gx
       "PGW", //"3GPP Gx",
       [](const Diameter::Packet&) {},
-      *opt_source_addresses
+      *opt_source_addresses,
+      opt_use_filler.enabled()
       );
 
     session->activate_object();
 
+    /*
     const unsigned long GX_APPLICATION_ID = 16777238;
     const std::string GX_SESSION_ID_SUFFIX = ";1;0;1";
     unsigned int gx_request_i = 0;
@@ -176,6 +180,7 @@ int main(int argc, char* argv[])
     dpi::DiameterSession::GxTerminateResponse gx_terminate_response = session->send_gx_terminate(
       request, gx_terminate_request);
     std::cout << "Gx terminate request: result-code: " << gx_terminate_response.result_code << std::endl;
+    */
 
     std::cout << "====== SEND GY ======" << std::endl;
     const unsigned long GY_APPLICATION_ID = 4;

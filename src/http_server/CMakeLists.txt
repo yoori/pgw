@@ -8,6 +8,7 @@ add_library(http_server
   SetEventActionHttpResource.cpp
   UserSetShapingHttpResource.cpp
   AbortSessionHttpResource.cpp
+  UpdateSessionHttpResource.cpp
   )
 
 target_link_libraries(http_server

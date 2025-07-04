@@ -190,7 +190,8 @@ namespace dpi
       unsigned long auth_application_id,
       std::string product_name,
       RequestProcessor request_processor = [](const Diameter::Packet&) {},
-      const std::vector<std::string>& source_addresses = std::vector<std::string>()
+      const std::vector<std::string>& source_addresses = std::vector<std::string>(),
+      bool use_diameter_filler = false
       );
 
     virtual ~SCTPDiameterSession();
@@ -352,6 +353,7 @@ namespace dpi
     get_session_id_(const std::string& session_id_suffix) const;
 
   private:
+    const bool USE_FILLER_ = false;
     dpi::LoggerPtr logger_;
     const DiameterDictionary& diameter_dictionary_;
     BaseConnectionPtr connection_;
@@ -378,6 +380,7 @@ namespace dpi
     // responses (other thread fill it)
     std::mutex responses_lock_;
     std::condition_variable responses_cond_;
+    Gears::GnuHashSet<RequestKey> wait_responses_;
     Gears::HashTable<RequestKey, std::shared_ptr<Diameter::Packet>> responses_;
     std::shared_ptr<Diameter::Packet> last_response_;
   };

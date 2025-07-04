@@ -5,16 +5,16 @@
 #include <dpi/NetworkUtils.hpp>
 
 #include "Utils.hpp"
-#include "AbortSessionHttpResource.hpp"
+#include "UpdateSessionHttpResource.hpp"
 
 namespace dpi
 {
-  AbortSessionHttpResource::AbortSessionHttpResource(ManagerPtr manager)
+  UpdateSessionHttpResource::UpdateSessionHttpResource(ManagerPtr manager)
     : manager_(std::move(manager))
   {}
 
   std::shared_ptr<httpserver::http_response>
-  AbortSessionHttpResource::render(const httpserver::http_request& request)
+  UpdateSessionHttpResource::render(const httpserver::http_request& request)
   {
     if (request.get_method() == "POST")
     {
@@ -23,10 +23,10 @@ namespace dpi
 
       if (request_json.contains("session_id"))
       {
-        bool abort_gx = !request_json.contains("gx") || request_json["gx"].as_bool();
-        bool abort_gy = !request_json.contains("gy") || request_json["gy"].as_bool();
+        bool update_gx = !request_json.contains("gx") || request_json["gx"].as_bool();
+        bool update_gy = !request_json.contains("gy") || request_json["gy"].as_bool();
         const std::string session_id = request_json["session_id"].as_string();
-        manager_->abort_session(session_id, true, abort_gx, abort_gy, "Abort over http endpoint");
+        manager_->update_session(session_id, update_gx, update_gy, "Update over http endpoint");
         return generate_json_response(request, "");
       }
       else

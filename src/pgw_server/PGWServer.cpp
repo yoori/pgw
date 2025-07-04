@@ -187,6 +187,8 @@ int main(int argc, char **argv)
     pcc_config_provider
   );
 
+  all_active_objects->add_child_object(manager);
+
   if (gx_diameter_session)
   {
     auto input_diameter_request_processor = std::make_shared<dpi::InputDiameterRequestProcessor>(

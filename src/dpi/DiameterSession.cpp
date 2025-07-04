@@ -58,9 +58,11 @@ namespace dpi
     unsigned long auth_application_id,
     std::string product_name,
     RequestProcessor request_processor,
-    const std::vector<std::string>& source_addresses // source addresses for diameter packet
+    const std::vector<std::string>& source_addresses, // source addresses for diameter packet
+    bool use_diameter_filler
     )
-    : logger_(std::move(logger)),
+    : USE_FILLER_(use_diameter_filler),
+      logger_(std::move(logger)),
       diameter_dictionary_(diameter_dictionary),
       connection_(connection),
       origin_host_(std::move(origin_host)),
@@ -594,99 +596,119 @@ namespace dpi
   void
   SCTPDiameterSession::responses_reading_()
   {
-    try
+    while (task_runner_->active())
     {
-      std::cout << "[DIAMETER] Reading thread: start reading loop: "
-        "connection_ = " << connection_.get() <<
-        ", this = " << this <<
-        std::endl;
-
-      while (task_runner_->active())
-        //< check status of running task runner for correct behavior, when it activated,
-        // but SCTPDiameterSession isn't yet.
+      try
       {
-        try
-        {
-          connection_->lock()->connect();
-        }
-        catch(const Gears::Exception& ex)
-        {
-          //std::cout << "[DIAMETER] Reading thread: error on connect: " << ex.what() <<
-          //  std::endl;
-          ::sleep(1);
-          continue;
-        }
-
-        //std::cout << "[DIAMETER] Reading thread: from connect" << std::endl;
-
-        //std::cout << "[DIAMETER] Reading thread: to read input message: "
-        //  "connection_ = " << connection_.get() <<
-        //  ", this = " << this <<
-        //  std::endl;
-        std::vector<unsigned char> head_buf = connection_->read_bytes(4);
-        uint32_t head = htonl(*(const uint32_t*)head_buf.data());
-        int packet_size = head & 0xFFFFFF;
-        std::vector<unsigned char> read_buf = connection_->read_bytes(packet_size - 4);
-        head_buf.insert(head_buf.end(), read_buf.begin(), read_buf.end());
-
-        std::cout << "[DIAMETER] Reading thread: got input message: "
+        std::cout << "[DIAMETER] Reading thread: start reading loop: "
           "connection_ = " << connection_.get() <<
           ", this = " << this <<
           std::endl;
 
-        std::shared_ptr<Diameter::Packet> response =
-          std::make_shared<Diameter::Packet>((ByteArray(&head_buf[0], head_buf.size())));
-
-        if (response->header().commandFlags().isSet(Diameter::Packet::Header::Flags::Bits::Request))
+        while (task_runner_->active())
+          //< check status of running task runner for correct behavior, when it activated,
+          // but SCTPDiameterSession isn't yet.
         {
-          process_input_request_(*response);
-        }
-        else
-        {
-          std::string session_id;
-          std::optional<uint32_t> request_i;
-
-          // find CC-Request-Number(415)
-          for (int i = 0; i < response->numberOfAVPs(); ++i)
+          try
           {
-            const auto& avp = response->avp(i);
-            if (avp.header().avpCode() == 263)
-            {
-              session_id = get_avp_string_value(avp);
-            }
-            else if (avp.header().avpCode() == 415)
-            {
-              request_i = avp.data().toInteger32();
-            }
+            connection_->lock()->connect(); // TODO: call hook !!!
+          }
+          catch(const Gears::Exception& ex)
+          {
+            //std::cout << "[DIAMETER] Reading thread: error on connect: " << ex.what() <<
+            //  std::endl;
+            ::sleep(1);
+            continue;
           }
 
-          std::cout << "[DIAMETER] Reading thread: got RESPONSE #" <<
-            (request_i.has_value() ? std::to_string(*request_i) : std::string("null")) <<
-            "(" + session_id + ")"
+          //std::cout << "[DIAMETER] Reading thread: from connect" << std::endl;
+
+          //std::cout << "[DIAMETER] Reading thread: to read input message: "
+          //  "connection_ = " << connection_.get() <<
+          //  ", this = " << this <<
+          //  std::endl;
+          std::vector<unsigned char> head_buf = connection_->read_bytes(4);
+          uint32_t head = htonl(*(const uint32_t*)head_buf.data());
+          int packet_size = head & 0xFFFFFF;
+          std::vector<unsigned char> read_buf = connection_->read_bytes(packet_size - 4);
+          head_buf.insert(head_buf.end(), read_buf.begin(), read_buf.end());
+
+          std::cout << "[DIAMETER] Reading thread: got input message: "
+            "connection_ = " << connection_.get() <<
             ", this = " << this <<
             std::endl;
 
+          std::shared_ptr<Diameter::Packet> response =
+            std::make_shared<Diameter::Packet>((ByteArray(&head_buf[0], head_buf.size())));
+
+          if (response->header().commandFlags().isSet(Diameter::Packet::Header::Flags::Bits::Request))
           {
-            std::unique_lock<std::mutex> lock(responses_lock_);
-
-            if (request_i.has_value())
-            {
-              responses_.emplace(RequestKey(session_id, *request_i), response);
-            }
-            last_response_ = response;
+            process_input_request_(*response);
           }
+          else
+          {
+            std::string session_id;
+            std::optional<uint32_t> request_i;
 
-          //std::cout << "[DIAMETER] Reading thread: notify all: last_response_ = " << last_response_.get() <<
-          //  ", responses_cond_ = " << &responses_cond_ <<
-          //  ", this = " << this << std::endl;
-          responses_cond_.notify_all();
+            // find CC-Request-Number(415)
+            for (int i = 0; i < response->numberOfAVPs(); ++i)
+            {
+              const auto& avp = response->avp(i);
+              if (avp.header().avpCode() == 263)
+              {
+                session_id = get_avp_string_value(avp);
+              }
+              else if (avp.header().avpCode() == 415)
+              {
+                request_i = avp.data().toInteger32();
+              }
+            }
+
+            std::cout << "[DIAMETER] Reading thread: got RESPONSE #" <<
+              (request_i.has_value() ? std::to_string(*request_i) : std::string("null")) <<
+              "(" + session_id + ")"
+              ", this = " << this <<
+              std::endl;
+
+            {
+              std::unique_lock<std::mutex> lock(responses_lock_);
+
+              if (request_i.has_value())
+              {
+                responses_.emplace(RequestKey(session_id, *request_i), response);
+              }
+              last_response_ = response;
+            }
+
+            //std::cout << "[DIAMETER] Reading thread: notify all: last_response_ = " << last_response_.get() <<
+            //  ", responses_cond_ = " << &responses_cond_ <<
+            //  ", this = " << this << std::endl;
+            responses_cond_.notify_all();
+          }
+        }
+
+        break;
+      }
+      catch(const Gears::Exception& ex)
+      {
+        std::cerr << "[DIAMETER] [ERROR] Reading thread: response reading error: " <<
+          ex.what() << std::endl;
+      }
+
+      // on exception sleep(1) and try reconnect
+      connection_->lock()->close();
+
+      // drop all waiting tasks
+      {
+        std::unique_lock<std::mutex> lock(responses_lock_);
+
+        for (const auto& response_key : wait_responses_)
+        {
+          responses_.emplace(response_key, nullptr);
         }
       }
-    }
-    catch(const Gears::Exception& ex)
-    {
-      std::cerr << "[DIAMETER] [ERROR] Reading thread: response reading error: " <<
-        ex.what() << std::endl;
+
+      ::sleep(1);
     }
 
     std::cout << "[DIAMETER] Reading thread: exit reading loop: "
@@ -702,6 +724,8 @@ namespace dpi
 
     {
       std::unique_lock<std::mutex> lock(responses_lock_);
+
+      wait_responses_.insert(request_key);
 
       /*
       std::cout << "[DIAMETER] Waiting thread: wait_response_ step #0: " << (
@@ -725,6 +749,8 @@ namespace dpi
         }
       );
 
+      wait_responses_.erase(request_key);
+
       /*
       std::cout << "[DIAMETER] Waiting thread: wait_response_ step #1" <<
         ", this = " << this <<
@@ -733,6 +759,12 @@ namespace dpi
 
       result = std::move(responses_[request_key]);
       responses_.erase(request_key);
+    }
+
+    if (!result)
+    {
+      // connection error
+      throw DiameterError("Connection closed");
     }
 
     return result;
@@ -981,6 +1013,7 @@ namespace dpi
         Diameter::AVP::Data()
           .addAVP(create_string_avp(1005, not_found_charging_rule_name, 10415, true)) // Charging-Rule-Name
           .addAVP(create_uint32_avp(1031, 1, 10415, true)) // Rule-Failure-Code: UNKNOWN_RULE_NAME=1
+          .addAVP(create_uint32_avp(1019, 1, 10415, true)) // PCC-Rule-Status=INACTIVE
         ,
         10415,
         true
@@ -1214,100 +1247,134 @@ namespace dpi
       );
     }
 
-    auto ps_information_avp_data = Diameter::AVP::Data()
-      .addAVP(create_uint32_avp(2, request.user_session_traits.charging_id, 10415, false)) // 3GPP-Charging-Id(2)
-      .addAVP(create_uint32_avp(3, 0, 10415, false)) // 3GPP-PDP-Type(3)=IPv4
-      .addAVP(create_ipv4_avp(1227, request.user_session_traits.framed_ip_address, 10415, true))
-      //< PDP-Address(1227)=framed_ip_address
-      .addAVP(create_ipv4_avp(1228, request.user_session_traits.sgsn_ip_address, 10415, true))
-      //< SGSN-Address(1228)
-      .addAVP(create_ipv4_avp(847, request.user_session_traits.access_network_charging_ip_address, 10415, true))
-      //< GGSN-Address(847)
-      .addAVP(create_ipv4_avp(846, request.user_session_traits.sgsn_ip_address, 10415, true))
-      //< CG-Address(846) // ???
-      .addAVP(create_string_avp(8, request.user_session_traits.mcc_mnc, 10415, false)) // 3GPP-IMSI-MCC-MNC(8)
-      .addAVP(create_string_avp(9, request.user_session_traits.mcc_mnc, 10415, false)) // 3GPP-GGSN-MCC-MNC(9)
-      .addAVP(create_string_avp(30, request.user_session_traits.called_station_id, std::nullopt, true))
-      //< Called-Station-Id(30)
-      .addAVP(create_string_avp(18, request.user_session_traits.mcc_mnc, 10415, false))
-      //< 3GPP-SGSN-MCC-MNC(18)
-      .addAVP(create_uint16_avp(
-        23,
-        static_cast<uint16_t>(request.user_session_traits.timezone) << 8 | 0, //< Adjustment=0
-        10415,
-        false
-      )) // 3GPP-MS-TimeZone
-      .addAVP(create_uint32_avp(21, request.user_session_traits.rat_type, 10415, false)) // 3GPP-RAT-Type(21)
-      .addAVP(create_uint32_avp(1247, 0, 10415, false)) // PDP-Context-Type(1247)=PRIMARY
-      .addAVP(create_uint32_avp(2050, request.user_session_traits.charging_id, 10415, true))
-      //< PDN-Connection-Charging-ID(2050)
-      .addAVP(create_uint32_avp(2047, 2, 10415, true)) //< Serving-Node-Type(2047)=GTPSGW
-      ;
-
-    // .addAVP(create_string_avp(1004, "up_bypass", 10415, true)) // Charging-Rule-Base-Name(1004)=up_bypass
-
-    if (!request.user_session_traits.charging_characteristics.empty())
+    if (!USE_FILLER_)
     {
-      ps_information_avp_data.addAVP(create_string_avp(
-        13, // 3GPP-Charging-Characteristics(13)
-        request.user_session_traits.charging_characteristics,
-        10415,
-        false));
-    }
+      auto ps_information_avp_data = Diameter::AVP::Data()
+        .addAVP(create_uint32_avp(2, request.user_session_traits.charging_id, 10415, false)) // 3GPP-Charging-Id(2)
+        .addAVP(create_uint32_avp(3, 0, 10415, false)) // 3GPP-PDP-Type(3)=IPv4
+        .addAVP(create_ipv4_avp(1227, request.user_session_traits.framed_ip_address, 10415, true))
+        //< PDP-Address(1227)=framed_ip_address
+        .addAVP(create_ipv4_avp(1228, request.user_session_traits.sgsn_ip_address, 10415, true))
+        //< SGSN-Address(1228)
+        .addAVP(create_ipv4_avp(847, request.user_session_traits.access_network_charging_ip_address, 10415, true))
+        //< GGSN-Address(847)
+        .addAVP(create_ipv4_avp(846, request.user_session_traits.sgsn_ip_address, 10415, true))
+        //< CG-Address(846) // ???
+        .addAVP(create_string_avp(8, request.user_session_traits.mcc_mnc, 10415, false)) // 3GPP-IMSI-MCC-MNC(8)
+        .addAVP(create_string_avp(9, request.user_session_traits.mcc_mnc, 10415, false)) // 3GPP-GGSN-MCC-MNC(9)
+        .addAVP(create_string_avp(30, request.user_session_traits.called_station_id, std::nullopt, true))
+        //< Called-Station-Id(30)
+        .addAVP(create_string_avp(18, request.user_session_traits.mcc_mnc, 10415, false))
+        //< 3GPP-SGSN-MCC-MNC(18)
+        .addAVP(create_uint16_avp(
+          23,
+          static_cast<uint16_t>(request.user_session_traits.timezone) << 8 | 0, //< Adjustment=0
+          10415,
+          false
+        )) // 3GPP-MS-TimeZone
+        .addAVP(create_uint32_avp(21, request.user_session_traits.rat_type, 10415, false)) // 3GPP-RAT-Type(21)
+        .addAVP(create_uint32_avp(1247, 0, 10415, false)) // PDP-Context-Type(1247)=PRIMARY
+        .addAVP(create_uint32_avp(2050, request.user_session_traits.charging_id, 10415, true))
+        //< PDN-Connection-Charging-ID(2050)
+        .addAVP(create_uint32_avp(2047, 2, 10415, true)) //< Serving-Node-Type(2047)=GTPSGW
+        ;
 
-    if (!request.user_session_traits.selection_mode.empty())
+      // .addAVP(create_string_avp(1004, "up_bypass", 10415, true)) // Charging-Rule-Base-Name(1004)=up_bypass
+
+      if (!request.user_session_traits.charging_characteristics.empty())
+      {
+        ps_information_avp_data.addAVP(create_string_avp(
+          13, // 3GPP-Charging-Characteristics(13)
+          request.user_session_traits.charging_characteristics,
+          10415,
+          false));
+      }
+
+      if (!request.user_session_traits.selection_mode.empty())
+      {
+        ps_information_avp_data.addAVP(create_string_avp(
+          12, // 3GPP-Selection-Mode(12)
+          request.user_session_traits.selection_mode,
+          10415,
+          false));
+      }
+
+      if (!request.user_session_traits.nsapi.empty())
+      {
+        ps_information_avp_data.addAVP(create_string_avp(
+          10, // 3GPP-NSAPI(10)
+          request.user_session_traits.nsapi,
+          10415,
+          false));
+      }
+
+      if (!request.user_session_traits.user_location_info.empty())
+      {
+        ps_information_avp_data.addAVP(create_octets_avp(
+          22, // 3GPP-User-Location-Info(22)
+          ByteArray(
+            &request.user_session_traits.user_location_info[0],
+            request.user_session_traits.user_location_info.size()),
+          10415,
+          false));
+      }
+
+      if (!request.user_session_traits.gprs_negotiated_qos_profile.empty())
+      {
+        ps_information_avp_data.addAVP(create_string_avp(
+          5, //< 3GPP-GPRS-Negotiated-QoS-Profile(5)
+          request.user_session_traits.gprs_negotiated_qos_profile,
+          10415,
+          false));
+      }
+
+      packet.addAVP(
+        create_avp(
+          873, // Service-Information(873)
+          Diameter::AVP::Data().addAVP(
+            create_avp(
+              874, // PS-Information(874)
+              ps_information_avp_data,
+              10415,
+              true
+            )
+          ),
+          10415,
+          true
+        )
+      );
+    }
+    else
     {
-      ps_information_avp_data.addAVP(create_string_avp(
-        12, // 3GPP-Selection-Mode(12)
-        request.user_session_traits.selection_mode,
-        10415,
-        false));
-    }
+      DiameterPacketFiller packet_filler(diameter_dictionary_, 272);
+      packet_filler.add_avp("Service-Information.PS-Information.PDP-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.framed_ip_address));
+      packet_filler.add_avp("Service-Information.PS-Information.SGSN-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
+      packet_filler.add_avp("Service-Information.PS-Information.GGSN-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.access_network_charging_ip_address));
+      packet_filler.add_avp("Service-Information.PS-Information.CG-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
 
-    if (!request.user_session_traits.nsapi.empty())
-    {
-      ps_information_avp_data.addAVP(create_string_avp(
-        10, // 3GPP-NSAPI(10)
-        request.user_session_traits.nsapi,
-        10415,
-        false));
-    }
+      packet_filler.add_avp("Service-Information.PS-Information.3GPP-Charging-Id", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.charging_id));
+      packet_filler.add_avp("Service-Information.PS-Information.3GPP-PDP-Type", dpi::Value(std::in_place_type<uint64_t>, 0));
 
-    if (!request.user_session_traits.user_location_info.empty())
-    {
-      ps_information_avp_data.addAVP(create_octets_avp(
-        22, // 3GPP-User-Location-Info(22)
-        ByteArray(
-          &request.user_session_traits.user_location_info[0],
-          request.user_session_traits.user_location_info.size()),
-        10415,
-        false));
+      packet_filler.add_avp("Service-Information.PS-Information.3GPP-RAT-Type",
+        dpi::Value(ByteArrayValue({static_cast<uint8_t>(request.user_session_traits.rat_type)})));
+      packet_filler.add_avp("Service-Information.PS-Information.PDN-Connection-Charging-ID", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.charging_id));
+      packet_filler.add_avp("Service-Information.PS-Information.Serving-Node-Type", dpi::Value(std::in_place_type<uint64_t>, 2));
+      packet_filler.add_avp("Service-Information.PS-Information.PDP-Context-Type", dpi::Value(std::in_place_type<uint64_t>, 0));
+      packet_filler.add_avp("Service-Information.PS-Information.3GPP-MS-TimeZone",
+        dpi::Value(ByteArrayValue({static_cast<uint8_t>(request.user_session_traits.timezone), 0})));
+      packet_filler.add_avp("Service-Information.PS-Information.Called-Station-Id", dpi::Value(request.user_session_traits.called_station_id));
+      packet_filler.add_avp("Service-Information.PS-Information.3GPP-GGSN-MCC-MNC", dpi::Value(request.user_session_traits.mcc_mnc));
+      packet_filler.add_avp("Service-Information.PS-Information.3GPP-SGSN-MCC-MNC", dpi::Value(request.user_session_traits.mcc_mnc));
+      packet_filler.add_avp("Service-Information.PS-Information.3GPP-IMSI-MCC-MNC", dpi::Value(request.user_session_traits.mcc_mnc));
+      packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-Charging-Characteristics", dpi::Value(request.user_session_traits.charging_characteristics));
+      packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-Selection-Mode", dpi::Value(request.user_session_traits.selection_mode));
+      packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-NSAPI", dpi::Value(request.user_session_traits.nsapi));
+      packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-User-Location-Info", dpi::Value(request.user_session_traits.user_location_info));
+      std::cout << "DEBUG GY : request.user_session_traits.gprs_negotiated_qos_profile.size() = " <<
+        request.user_session_traits.gprs_negotiated_qos_profile.size() << std::endl;
+      packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-GPRS-Negotiated-QoS-Profile", dpi::Value(request.user_session_traits.gprs_negotiated_qos_profile));
+      packet_filler.apply(packet);
     }
-
-    if (!request.user_session_traits.gprs_negotiated_qos_profile.empty())
-    {
-      ps_information_avp_data.addAVP(create_string_avp(
-        5, //< 3GPP-GPRS-Negotiated-QoS-Profile(5)
-        request.user_session_traits.gprs_negotiated_qos_profile,
-        10415,
-        false));
-    }
-
-    packet.addAVP(
-      create_avp(
-        873, // Service-Information(873)
-        Diameter::AVP::Data().addAVP(
-          create_avp(
-            874, // PS-Information(874)
-            ps_information_avp_data,
-            10415,
-            true
-          )
-        ),
-        10415,
-        true
-      )
-    );
 
     return std::make_pair(RequestKey(session_id, request_i), packet);
   }

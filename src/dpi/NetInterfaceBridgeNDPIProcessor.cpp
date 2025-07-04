@@ -75,8 +75,8 @@ namespace dpi
           ", revalidate_gy = " << packet_processing_state.revalidate_gy <<
           std::endl;
 
-        manager_->update_session(
-          *packet_processing_state.user_session,
+        manager_->update_session_async(
+          packet_processing_state.user_session,
           packet_processing_state.revalidate_gx,
           packet_processing_state.revalidate_gy,
           "Recheck limits reached");
