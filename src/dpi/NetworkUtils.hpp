@@ -2,6 +2,7 @@
 
 #include <string>
 #include <cstdint>
+#include <vector>
 
 #include <gears/Exception.hpp>
 
@@ -14,4 +15,6 @@ namespace dpi
   uint32_t string_to_ipv4_address(std::string_view ipv4_str);
 
   uint32_t string_to_reversed_ipv4_address(std::string_view ipv4_str);
+
+  std::string string_to_hex(const std::vector<uint8_t>& buf);
 }

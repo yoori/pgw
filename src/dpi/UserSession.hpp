@@ -15,6 +15,7 @@
 #include "UserSessionTraits.hpp"
 #include "SessionKey.hpp"
 #include "User.hpp"
+#include "UserSessionPropertyContainer.hpp"
 
 namespace dpi
 {
@@ -101,9 +102,18 @@ namespace dpi
     };
 
   public:
-    UserSession(const UserSessionTraits& traits, UserPtr user);
+    UserSession(
+      const UserSessionTraits& traits,
+      ConstUserSessionPropertyContainerPtr properties,
+      UserPtr user);
 
-    const UserSessionTraits& traits() const;
+    ConstUserSessionTraitsPtr traits() const;
+
+    void set_traits(const UserSessionTraits& traits);
+
+    ConstUserSessionPropertyContainerPtr properties() const;
+
+    void set_properties(const UserSessionPropertyValueMap& properties);
 
     const UserPtr& user() const;
 
@@ -192,13 +202,18 @@ namespace dpi
       LimitMap& new_limits);
 
   private:
-    UserSessionTraits traits_;
     UserPtr user_;
 
     std::string gx_session_id_suffix_;
     std::atomic<int> gx_request_id_;
     std::string gy_session_id_suffix_;
     std::atomic<int> gy_request_id_;
+
+    mutable std::shared_mutex properties_lock_;
+    ConstUserSessionPropertyContainerPtr properties_;
+
+    mutable std::shared_mutex traits_lock_;
+    ConstUserSessionTraitsPtr traits_;
 
     mutable std::shared_mutex charging_rule_lock_;
     std::unordered_set<std::string> charging_rule_names_;
@@ -248,9 +263,10 @@ namespace dpi
     return user_;
   }
 
-  inline const UserSessionTraits&
+  inline ConstUserSessionTraitsPtr
   UserSession::traits() const
   {
+    std::shared_lock<std::shared_mutex> guard(traits_lock_);
     return traits_;
   }
 

@@ -15,6 +15,7 @@ namespace dpi
   UserSessionPtr
   UserSessionStorage::add_user_session(
     const UserSessionTraits& user_session_traits,
+    const ConstUserSessionPropertyContainerPtr& properties,
     const UserPtr& user)
   {
     UserSessionPtr added_session;
@@ -34,7 +35,7 @@ namespace dpi
       }
       else
       {
-        added_session = std::make_shared<UserSession>(user_session_traits, user);
+        added_session = std::make_shared<UserSession>(user_session_traits, properties, user);
         user_sessions_by_ip_.emplace(
           user_session_traits.framed_ip_address,
           added_session);

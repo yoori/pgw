@@ -6,6 +6,7 @@
 #include <set>
 
 #include "DiameterSession.hpp"
+#include "DiameterPassAttribute.hpp"
 
 namespace dpi
 {
@@ -34,22 +35,10 @@ namespace dpi
       std::string dictionary;
     };
 
-    struct RadiusAttributeSource
-    {
-      std::string name;
-      std::string vendor;
-    };
-
     struct Diameter
     {
-      struct PassAttribute
-      {
-        std::string avp_path;
-        RadiusAttributeSource source;
-      };
-
       std::optional<DiameterUrl> diameter_url;
-      std::vector<PassAttribute> pass_attributes;
+      std::vector<DiameterPassAttribute> pass_attributes;
     };
 
     std::string pcap_file;

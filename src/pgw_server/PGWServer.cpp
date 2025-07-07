@@ -36,7 +36,7 @@ void sigproc(int)
 namespace dpi
 {
   ConstAttributeKeyPtrSet
-  resolve_attribute_keys(const std::vector<Config::Diameter::PassAttribute>& pass_attributes)
+  resolve_attribute_keys(const std::vector<DiameterPassAttribute>& pass_attributes)
   {
     ConstAttributeKeyPtrSet result;
     for (const auto& pass_attribute : pass_attributes)
@@ -139,7 +139,11 @@ int main(int argc, char **argv)
           std::optional<std::string>(),
         config.gx->diameter_url->destination_realm,
         16777238, //< Gx
-        "3GPP Gx"
+        "3GPP Gx",
+        [](const Diameter::Packet& packet) {},
+        std::vector<std::string>(),
+        std::vector<dpi::DiameterPassAttribute>(),
+        std::vector<dpi::DiameterPassAttribute>()
       );
 
       all_active_objects->add_child_object(gx_sctp_diameter_session);

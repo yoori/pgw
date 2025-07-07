@@ -294,7 +294,10 @@ namespace dpi
 
       UserSessionTraits user_session_traits;
       user_session_traits.framed_ip_address = src_ip;
-      user_session = user_session_storage_->add_user_session(user_session_traits, user);
+      user_session = user_session_storage_->add_user_session(
+        user_session_traits,
+        ConstUserSessionPropertyContainerPtr(),
+        user);
     }
 
     std::ostringstream ostr;

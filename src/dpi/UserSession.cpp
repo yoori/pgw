@@ -6,8 +6,12 @@
 
 namespace dpi
 {
-  UserSession::UserSession(const UserSessionTraits& traits, UserPtr user)
-    : traits_(traits),
+  UserSession::UserSession(
+    const UserSessionTraits& traits,
+    ConstUserSessionPropertyContainerPtr properties,
+    UserPtr user)
+    : traits_(std::make_shared<const UserSessionTraits>(traits)),
+      properties_(std::move(properties)),
       user_(std::move(user)),
       gx_request_id_(0),
       gy_request_id_(0)
@@ -16,6 +20,35 @@ namespace dpi
       std::to_string(Gears::safe_rand()) + ";0;" + std::to_string(Gears::safe_rand());
     gy_session_id_suffix_ = std::string(";") +
       std::to_string(Gears::safe_rand()) + ";0;" + std::to_string(Gears::safe_rand());
+  }
+
+  ConstUserSessionPropertyContainerPtr
+  UserSession::properties() const
+  {
+    std::unique_lock<std::shared_mutex> guard(properties_lock_);
+    return properties_;
+  }
+
+  void
+  UserSession::set_properties(const UserSessionPropertyValueMap& properties)
+  {
+    std::shared_ptr<UserSessionPropertyContainer> new_properties;
+
+    std::unique_lock<std::shared_mutex> guard(properties_lock_);
+    new_properties = std::make_shared<UserSessionPropertyContainer>(*properties_);
+    for (const auto& [name, value] : properties)
+    {
+      new_properties->values[name] = value;
+    }
+    properties_.swap(new_properties);
+  }
+
+  void
+  UserSession::set_traits(const UserSessionTraits& traits)
+  {
+    ConstUserSessionTraitsPtr new_traits = std::make_shared<const UserSessionTraits>(traits);
+    std::unique_lock<std::shared_mutex> guard(traits_lock_);
+    traits_.swap(new_traits);
   }
 
   void

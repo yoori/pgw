@@ -103,6 +103,86 @@ int main(int argc, char* argv[])
     */
     auto gx_connection = sctp_connection;
 
+    std::vector<dpi::DiameterPassAttribute> gx_pass_attributes;
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.PDP-Address",
+      dpi::RadiusAttributeSource("Framed-IP-Address")
+    ));
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.SGSN-Address",
+      dpi::RadiusAttributeSource("SGSN-Address", "3GPP")
+    ));
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.GGSN-Address",
+      dpi::RadiusAttributeSource("CG-Address", "3GPP")
+    ));
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.3GPP-Charging-Id",
+      dpi::RadiusAttributeSource("Charging-ID", "3GPP")
+    ));
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.3GPP-PDP-Type",
+      dpi::RadiusAttributeSource("3GPP-PDP-Type", "3GPP")
+    ));
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.3GPP-RAT-Type",
+      dpi::RadiusAttributeSource("RAT-Type", "3GPP")
+    ));
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.PDN-Connection-Charging-ID",
+      dpi::RadiusAttributeSource("Charging-ID", "3GPP")
+    ));
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.Serving-Node-Type",
+      dpi::RadiusAttributeSource("Service-Type")
+    ));
+    /*
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.PDP-Context-Type",
+      0 // to fix
+    ));
+    */
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.3GPP-MS-TimeZone",
+      dpi::RadiusAttributeSource("MS-TimeZone", "3GPP") // to use adapter
+    ));
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.Called-Station-Id",
+      dpi::RadiusAttributeSource("Called-Station-Id")
+    ));
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.3GPP-GGSN-MCC-MNC",
+      dpi::RadiusAttributeSource("3GPP-GGSN-MCC-MNC", "3GPP")
+    ));
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.3GPP-SGSN-MCC-MNC",
+      dpi::RadiusAttributeSource("3GPP-SGSN-MCC-MNC", "3GPP")
+    ));
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.3GPP-IMSI-MCC-MNC",
+      dpi::RadiusAttributeSource("3GPP-IMSI-MCC-MNC", "3GPP")
+    ));
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.3GPP-Charging-Characteristics",
+      dpi::RadiusAttributeSource("Charging-Characteristics", "3GPP")
+    ));
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.3GPP-Selection-Mode",
+      dpi::RadiusAttributeSource("Selection-Mode", "3GPP")
+    ));
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.3GPP-NSAPI",
+      dpi::RadiusAttributeSource("NSAPI", "3GPP")
+    ));
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.3GPP-User-Location-Info",
+      dpi::RadiusAttributeSource("User-Location-Info", "3GPP")
+    ));
+    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+      "Service-Information.PS-Information.3GPP-GPRS-Negotiated-QoS-Profile",
+      dpi::RadiusAttributeSource("GPRS-Negotiated-QoS-profile", "3GPP")
+    ));
+
     std::shared_ptr<dpi::SCTPDiameterSession> session = std::make_shared<dpi::SCTPDiameterSession>(
       logger,
       dictionary,
@@ -115,7 +195,8 @@ int main(int argc, char* argv[])
       "PGW", //"3GPP Gx",
       [](const Diameter::Packet&) {},
       *opt_source_addresses,
-      opt_use_filler.enabled()
+      gx_pass_attributes,
+      std::vector<dpi::DiameterPassAttribute>()
       );
 
     session->activate_object();
@@ -202,7 +283,7 @@ int main(int argc, char* argv[])
       request.user_session_traits.called_station_id = "ltpcef.test";
       request.user_session_traits.framed_ip_address = ipv4(10, 243, 64, 1);
       request.user_session_traits.nas_ip_address = ipv4(10, 77, 21, 116);
-      request.user_session_traits.rat_type = 1004;
+      request.user_session_traits.rat_type = 6;
       request.user_session_traits.mcc_mnc = "25020";
       request.user_session_traits.timezone = 33;
       request.user_session_traits.sgsn_ip_address = ipv4(185, 77, 17, 121);

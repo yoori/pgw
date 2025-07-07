@@ -60,15 +60,26 @@ namespace dpi
 
         std::cout << "DIAMETER: PROCESS RAR, manager = " << manager.get() << std::endl;
 
+        unsigned int result_code = 5012; //< DIAMETER_UNABLE_TO_COMPLY
+
         if (manager)
         {
-          if (terminate)
+          result_code = 2001;
+
+          try
           {
-            manager->abort_session(session_id, true, true, true, "RAR terminate");
+            if (terminate)
+            {
+              manager->abort_session(session_id, true, true, true, "RAR terminate");
+            }
+            else
+            {
+              manager->update_session(session_id, true, true, "RAR request");
+            }
           }
-          else
+          catch (const Manager::UnknownSession&)
           {
-            manager->update_session(session_id, true, true, "RAR request");
+            result_code = 5002; //< DIAMETER_UNKNOWN_SESSION_ID
           }
         }
 
@@ -78,7 +89,8 @@ namespace dpi
           auto rar_response_packet = generate_rar_response_packet_(
             session_id,
             request.header().hbhIdentifier(),
-            request.header().eteIdentifier());
+            request.header().eteIdentifier(),
+            result_code);
           diameter_session->send_packet(rar_response_packet);
         }
       }
@@ -86,20 +98,35 @@ namespace dpi
       {
         std::cout << "[DIAMETER] Send response for ASR/STR request" << std::endl;
 
+        auto manager = manager_.lock();
+
+        std::cout << "DIAMETER: PROCESS RAR, manager = " << manager.get() << std::endl;
+
+        unsigned int result_code = 5012; //< DIAMETER_UNABLE_TO_COMPLY
+
+        if (manager)
+        {
+          result_code = 2001;
+
+          try
+          {
+            manager->abort_session(session_id, true, true, true, "ASR terminate");
+          }
+          catch (const Manager::UnknownSession&)
+          {
+            result_code = 5002; //< DIAMETER_UNKNOWN_SESSION_ID
+          }
+        }
+
         auto asr_response_packet = generate_asr_response_packet_(
           session_id,
           request.header().commandCode(),
-          request.header().hbhIdentifier());
+          request.header().hbhIdentifier(),
+          result_code);
         auto diameter_session = diameter_session_.lock();
         if (diameter_session)
         {
           diameter_session->send_packet(asr_response_packet);
-        }
-
-        auto manager = manager_.lock();
-        if (manager)
-        {
-          manager->abort_session(session_id, true, false, true, "ASR terminate");
         }
       }
     }
@@ -114,7 +141,8 @@ namespace dpi
   InputDiameterRequestProcessor::generate_rar_response_packet_(
     const std::string& session_id,
     uint32_t hbh_identifier,
-    uint32_t ete_identifier) const
+    uint32_t ete_identifier,
+    unsigned int result_code) const
   {
     auto packet = Diameter::Packet()
       .setHeader(
@@ -130,7 +158,7 @@ namespace dpi
       .addAVP(create_string_avp(263, session_id, std::nullopt, true)) // Session-Id(263)
       .addAVP(create_string_avp(264, origin_host_, std::nullopt, true)) // Origin-Host(264)
       .addAVP(create_string_avp(296, origin_realm_, std::nullopt, true)) // Origin-Realm(296)
-      .addAVP(create_uint32_avp(268, 2001, std::nullopt, true)) // Result-Code(268)
+      .addAVP(create_uint32_avp(268, result_code, std::nullopt, true)) // Result-Code(268)
       /*
       .addAVP(create_ipv4_avp(
         501,
@@ -156,7 +184,8 @@ namespace dpi
   InputDiameterRequestProcessor::generate_asr_response_packet_(
     const std::string& session_id,
     unsigned long command_code,
-    uint32_t hbh_identifier) const
+    uint32_t hbh_identifier,
+    unsigned int result_code) const
   {
     auto packet = Diameter::Packet()
       .setHeader(

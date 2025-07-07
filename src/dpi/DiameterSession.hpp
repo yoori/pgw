@@ -5,6 +5,7 @@
 #include <unordered_set>
 #include <mutex>
 #include <condition_variable>
+#include <vector>
 
 #include <gears/Exception.hpp>
 #include <gears/TaskRunner.hpp>
@@ -20,6 +21,7 @@
 #include "SCTPConnection.hpp"
 #include "UserSessionTraits.hpp"
 #include "DiameterDictionary.hpp"
+#include "DiameterPassAttribute.hpp"
 
 namespace dpi
 {
@@ -189,9 +191,10 @@ namespace dpi
       std::optional<std::string> destination_realm,
       unsigned long auth_application_id,
       std::string product_name,
-      RequestProcessor request_processor = [](const Diameter::Packet&) {},
-      const std::vector<std::string>& source_addresses = std::vector<std::string>(),
-      bool use_diameter_filler = false
+      RequestProcessor request_processor,
+      const std::vector<std::string>& source_addresses,
+      std::vector<DiameterPassAttribute> gx_pass_attributes,
+      std::vector<DiameterPassAttribute> gy_pass_attributes
       );
 
     virtual ~SCTPDiameterSession();
@@ -366,6 +369,9 @@ namespace dpi
     const std::string product_name_;
     std::vector<uint32_t> source_addresses_;
     RequestProcessor request_processor_;
+    std::vector<DiameterPassAttribute> gx_pass_attributes_;
+    std::vector<DiameterPassAttribute> gy_pass_attributes_;
+
     const uint32_t origin_state_id_;
 
     std::string origin_host_;

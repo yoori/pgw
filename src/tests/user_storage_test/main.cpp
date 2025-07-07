@@ -14,7 +14,7 @@ int main()
   dpi::UserSessionTraits user_session_traits;
   user_session_traits.framed_ip_address = 1;
 
-  auto user_session = user_session_storage->add_user_session(user_session_traits, user);
+  auto user_session = user_session_storage->add_user_session(user_session_traits, nullptr, user);
   auto user_session_by_gx_session_suffix = user_session_storage->get_user_session_by_gx_session_suffix(
     user_session->gx_session_suffix());
 

@@ -59,7 +59,8 @@ namespace dpi
     std::string product_name,
     RequestProcessor request_processor,
     const std::vector<std::string>& source_addresses, // source addresses for diameter packet
-    bool use_diameter_filler
+    std::vector<DiameterPassAttribute> gx_pass_attributes,
+    std::vector<DiameterPassAttribute> gy_pass_attributes
     )
     : USE_FILLER_(use_diameter_filler),
       logger_(std::move(logger)),
@@ -73,6 +74,8 @@ namespace dpi
       gy_application_id_(4),
       product_name_(product_name),
       request_processor_(request_processor),
+      gx_pass_attributes_(std::move(gx_pass_attributes)),
+      gy_pass_attributes_(std::move(gy_pass_attributes)),
       origin_state_id_(3801248757)
   {
     Gears::ActiveObjectCallback_var callback(new CerrCallback());
@@ -1247,6 +1250,7 @@ namespace dpi
       );
     }
 
+    /*
     if (!USE_FILLER_)
     {
       auto ps_information_avp_data = Diameter::AVP::Data()
@@ -1346,35 +1350,41 @@ namespace dpi
     }
     else
     {
-      DiameterPacketFiller packet_filler(diameter_dictionary_, 272);
-      packet_filler.add_avp("Service-Information.PS-Information.PDP-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.framed_ip_address));
-      packet_filler.add_avp("Service-Information.PS-Information.SGSN-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
-      packet_filler.add_avp("Service-Information.PS-Information.GGSN-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.access_network_charging_ip_address));
-      packet_filler.add_avp("Service-Information.PS-Information.CG-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
-
-      packet_filler.add_avp("Service-Information.PS-Information.3GPP-Charging-Id", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.charging_id));
-      packet_filler.add_avp("Service-Information.PS-Information.3GPP-PDP-Type", dpi::Value(std::in_place_type<uint64_t>, 0));
-
-      packet_filler.add_avp("Service-Information.PS-Information.3GPP-RAT-Type",
-        dpi::Value(ByteArrayValue({static_cast<uint8_t>(request.user_session_traits.rat_type)})));
-      packet_filler.add_avp("Service-Information.PS-Information.PDN-Connection-Charging-ID", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.charging_id));
-      packet_filler.add_avp("Service-Information.PS-Information.Serving-Node-Type", dpi::Value(std::in_place_type<uint64_t>, 2));
-      packet_filler.add_avp("Service-Information.PS-Information.PDP-Context-Type", dpi::Value(std::in_place_type<uint64_t>, 0));
-      packet_filler.add_avp("Service-Information.PS-Information.3GPP-MS-TimeZone",
-        dpi::Value(ByteArrayValue({static_cast<uint8_t>(request.user_session_traits.timezone), 0})));
-      packet_filler.add_avp("Service-Information.PS-Information.Called-Station-Id", dpi::Value(request.user_session_traits.called_station_id));
-      packet_filler.add_avp("Service-Information.PS-Information.3GPP-GGSN-MCC-MNC", dpi::Value(request.user_session_traits.mcc_mnc));
-      packet_filler.add_avp("Service-Information.PS-Information.3GPP-SGSN-MCC-MNC", dpi::Value(request.user_session_traits.mcc_mnc));
-      packet_filler.add_avp("Service-Information.PS-Information.3GPP-IMSI-MCC-MNC", dpi::Value(request.user_session_traits.mcc_mnc));
-      packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-Charging-Characteristics", dpi::Value(request.user_session_traits.charging_characteristics));
-      packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-Selection-Mode", dpi::Value(request.user_session_traits.selection_mode));
-      packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-NSAPI", dpi::Value(request.user_session_traits.nsapi));
-      packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-User-Location-Info", dpi::Value(request.user_session_traits.user_location_info));
-      std::cout << "DEBUG GY : request.user_session_traits.gprs_negotiated_qos_profile.size() = " <<
-        request.user_session_traits.gprs_negotiated_qos_profile.size() << std::endl;
-      packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-GPRS-Negotiated-QoS-Profile", dpi::Value(request.user_session_traits.gprs_negotiated_qos_profile));
-      packet_filler.apply(packet);
     }
+    */
+
+    DiameterPacketFiller packet_filler(diameter_dictionary_, 272);
+    packet_filler.add_avp("Service-Information.PS-Information.PDP-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.framed_ip_address));
+    packet_filler.add_avp("Service-Information.PS-Information.SGSN-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
+    packet_filler.add_avp("Service-Information.PS-Information.GGSN-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.access_network_charging_ip_address));
+    packet_filler.add_avp("Service-Information.PS-Information.CG-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
+
+    packet_filler.add_avp("Service-Information.PS-Information.3GPP-Charging-Id", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.charging_id));
+    packet_filler.add_avp("Service-Information.PS-Information.3GPP-PDP-Type", dpi::Value(std::in_place_type<uint64_t>, 0));
+
+    packet_filler.add_avp("Service-Information.PS-Information.3GPP-RAT-Type",
+      dpi::Value(ByteArrayValue({static_cast<uint8_t>(request.user_session_traits.rat_type)}))); // adapter
+    packet_filler.add_avp("Service-Information.PS-Information.PDN-Connection-Charging-ID", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.charging_id));
+    packet_filler.add_avp("Service-Information.PS-Information.Serving-Node-Type", dpi::Value(std::in_place_type<uint64_t>, 2));
+    packet_filler.add_avp("Service-Information.PS-Information.PDP-Context-Type", dpi::Value(std::in_place_type<uint64_t>, 0));
+    packet_filler.add_avp("Service-Information.PS-Information.3GPP-MS-TimeZone",
+      dpi::Value(ByteArrayValue({static_cast<uint8_t>(request.user_session_traits.timezone), 0}))); // adapter
+    packet_filler.add_avp("Service-Information.PS-Information.Called-Station-Id", dpi::Value(request.user_session_traits.called_station_id));
+    packet_filler.add_avp("Service-Information.PS-Information.3GPP-GGSN-MCC-MNC", dpi::Value(request.user_session_traits.mcc_mnc));
+    packet_filler.add_avp("Service-Information.PS-Information.3GPP-SGSN-MCC-MNC", dpi::Value(request.user_session_traits.mcc_mnc));
+    packet_filler.add_avp("Service-Information.PS-Information.3GPP-IMSI-MCC-MNC", dpi::Value(request.user_session_traits.mcc_mnc));
+    packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-Charging-Characteristics",
+      dpi::Value(request.user_session_traits.charging_characteristics));
+    packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-Selection-Mode",
+      dpi::Value(request.user_session_traits.selection_mode));
+    packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-NSAPI", dpi::Value(request.user_session_traits.nsapi));
+    packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-User-Location-Info",
+      dpi::Value(request.user_session_traits.user_location_info));
+    std::cout << "DEBUG GY : request.user_session_traits.gprs_negotiated_qos_profile.size() = " <<
+      request.user_session_traits.gprs_negotiated_qos_profile.size() << std::endl;
+    packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-GPRS-Negotiated-QoS-Profile",
+      dpi::Value(request.user_session_traits.gprs_negotiated_qos_profile));
+    packet_filler.apply(packet);
 
     return std::make_pair(RequestKey(session_id, request_i), packet);
   }

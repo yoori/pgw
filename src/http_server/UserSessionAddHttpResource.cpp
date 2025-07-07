@@ -39,6 +39,7 @@ namespace dpi
         UserPtr user = user_storage_->add_user(msisdn);
         UserSessionPtr user_session = user_session_storage_->add_user_session(
           user_session_traits,
+          nullptr,
           user
         );
 

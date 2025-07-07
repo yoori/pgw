@@ -76,7 +76,7 @@ namespace dpi
       { 
         for (const auto& pass_attribute_json : diameter_obj["pass_attributes"].array_range())
         {
-          Config::Diameter::PassAttribute pass_attribute;
+          DiameterPassAttribute pass_attribute;
           pass_attribute.avp_path = pass_attribute_json["avp_path"].as_string();
           pass_attribute.source.name = pass_attribute_json["radius"]["name"].as_string();
           pass_attribute.source.vendor = pass_attribute_json["radius"].contains("vendor") ?

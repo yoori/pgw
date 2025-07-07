@@ -83,7 +83,7 @@ namespace dpi
       }
 
       // DEBUG >>>>
-      if (user_session.traits().msisdn == "79662660021")
+      if (user_session.traits()->msisdn == "79662660021")
       {
         std::set<std::string> debug_charging_rule_names;
         debug_charging_rule_names.emplace("MVNO_SBT_UNLIM");
@@ -106,7 +106,7 @@ namespace dpi
     gy_request.application_id = GY_APPLICATION_ID_;
     gy_request.session_id_suffix = gy_session_id_suffix;
     gy_request.request_id = gy_request_id;
-    gy_request.user_session_traits = user_session.traits();
+    gy_request.user_session_traits = *user_session.traits();
 
     std::unordered_map<unsigned long, RGUse> send_rating_groups;
     for (const auto& rg_id : rating_groups)
@@ -351,7 +351,7 @@ namespace dpi
         request.application_id = GX_APPLICATION_ID_;
         request.session_id_suffix = gx_session_id_suffix;
         request.request_id = gx_request_id;
-        request.user_session_traits = user_session.traits();
+        request.user_session_traits = *user_session.traits();
 
         dpi::DiameterSession::GxUpdateRequest gx_update_request;
         gx_update_request.not_found_charging_rule_names = not_found_charging_rule_names;
@@ -489,6 +489,7 @@ namespace dpi
 
           user_session = user_session_storage_->add_user_session(
             user_session_traits,
+            ConstUserSessionPropertyContainerPtr(),
             user
           );
 
@@ -520,7 +521,17 @@ namespace dpi
         else if (acct_status_type == AcctStatusType::UPDATE)
         {
           // update Gy on radius Interim-Update
-          result = update_session(*user_session, false, true, "radius Interim-Update");
+          if (!(user_session_traits == *user_session->traits()))
+          {
+            std::cout << "Manager::process_request(): update with traits changes: " << std::endl <<
+              "  old: " << user_session->traits()->to_string() << std::endl <<
+              "  new: " << user_session_traits.to_string() << std::endl;
+            result = update_session(
+              *user_session,
+              true, //< update Gx on traits changes ?
+              true,
+              "radius Interim-Update with changes");
+          }
         }
       }
       else if(acct_status_type == AcctStatusType::STOP)
@@ -594,6 +605,8 @@ namespace dpi
       logger_->log(
         std::string("[ERROR] can't find session by suffix '") +
         session_suffix + "' on terminate");
+
+      throw UnknownSession(std::string("Unknown session: ") + gx_session_id);
     }
   }
 
@@ -606,7 +619,7 @@ namespace dpi
     const std::string& reason,
     const std::optional<ChargingRuleNameSet>& not_found_charging_rule_names)
   {
-    std::cout << "Manager::abort_session(): msisdn = " << user_session.traits().msisdn <<
+    std::cout << "Manager::abort_session(): msisdn = " << user_session.traits()->msisdn <<
       ", terminate_radius = " << terminate_radius <<
       ", terminate_gx = " << terminate_gx <<
       ", terminate_gy = " << terminate_gy <<
@@ -632,7 +645,7 @@ namespace dpi
         request.application_id = GX_APPLICATION_ID_;
         request.session_id_suffix = gx_session_suffix;
         request.request_id = gx_request_id;
-        request.user_session_traits = user_session.traits();
+        request.user_session_traits = *user_session.traits();
         fill_gx_stats_(gx_terminate_request, user_session);
 
         std::cout << "========= REQUEST" << std::endl <<
@@ -701,6 +714,8 @@ namespace dpi
       logger_->log(
         std::string("[ERROR] can't find session by suffix '") +
         session_suffix + "' on update");
+
+      throw UnknownSession(std::string("Unknown session: ") + gx_session_id);
     }
 
     return false;
@@ -729,7 +744,7 @@ namespace dpi
     const std::string& reason)
   {
     std::cout << "Manager::update_session(): "
-      "msisdn = " << user_session.traits().msisdn <<
+      "msisdn = " << user_session.traits()->msisdn <<
       ", update_gx = " << update_gx <<
       ", update_gy = " << update_gy <<
       std::endl;
@@ -756,7 +771,13 @@ namespace dpi
         request.application_id = GX_APPLICATION_ID_;
         request.session_id_suffix = gx_session_id_suffix;
         request.request_id = gx_request_id;
-        request.user_session_traits = user_session.traits();
+        request.user_session_traits = *user_session.traits();
+
+        // TODO: lock diameter exchange for session
+        if (user_session.is_closed())
+        {
+          return false;
+        }
 
         // TODO: lock diameter exchange for session
         if (user_session.is_closed())

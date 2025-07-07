@@ -12,7 +12,9 @@ namespace dpi
   class DiameterPacketFiller
   {
   public:
-    DECLARE_EXCEPTION(IncompatibleType, Gears::DescriptiveException);
+    DECLARE_EXCEPTION(Exception, Gears::DescriptiveException);
+    DECLARE_EXCEPTION(IncompatibleType, Exception);
+    DECLARE_EXCEPTION(NoAVP, Exception);
 
   public:
     DiameterPacketFiller(const DiameterDictionary& diameter_dictionary, unsigned int request_code);

@@ -16,6 +16,7 @@ namespace dpi
   {
   public:
     DECLARE_EXCEPTION(Invalid, Gears::DescriptiveException);
+    DECLARE_EXCEPTION(UnknownSession, Gears::DescriptiveException);
 
     enum class AcctStatusType: int
     {
@@ -48,8 +49,11 @@ namespace dpi
       bool terminate_radius,
       bool terminate_gx,
       bool terminate_gy,
-      const std::string& reason);
+      const std::string& reason)
+      // throw UnknownSession
+      ;
 
+    // return result code for RAR for example
     void
     abort_session(
       dpi::UserSession& user_session,
@@ -64,8 +68,11 @@ namespace dpi
       const std::string& session_id,
       bool update_gx,
       bool update_gy,
-      const std::string& reason);
+      const std::string& reason)
+      // throw UnknownSession
+      ;
 
+    // return false if session closed
     bool
     update_session(
       dpi::UserSession& user_session,

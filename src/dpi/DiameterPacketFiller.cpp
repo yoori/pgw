@@ -314,6 +314,10 @@ namespace dpi
       avp_node->avp_data = create_avp_data_(value, **last_it);
       cur_avp_node->child_avps.emplace((*last_it)->avp_code, avp_node);
     }
+    else
+    {
+      throw NoAVP(std::string("Can't find AVP by path: ") + path);
+    }
   }
 
   void

@@ -24,7 +24,7 @@ bool test_no_limits()
   Gears::Time now = Gears::Time::get_time_of_day();
 
   dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+  dpi::UserSession user_session(dpi::UserSessionTraits(), nullptr, user);
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
@@ -47,7 +47,7 @@ bool test_pass_by_limit()
   Gears::Time now = Gears::Time::get_time_of_day();
 
   dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+  dpi::UserSession user_session(dpi::UserSessionTraits(), nullptr, user);
 
   dpi::UserSession::SetLimitArray limits;
   limits.emplace_back(
@@ -84,7 +84,7 @@ bool test_block_by_limit()
   Gears::Time now = Gears::Time::get_time_of_day();
 
   dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+  dpi::UserSession user_session(dpi::UserSessionTraits(), nullptr, user);
 
   dpi::UserSession::SetLimitArray limits;
   limits.emplace_back(
@@ -132,7 +132,7 @@ bool test_use_and_block_by_limit()
   Gears::Time now = Gears::Time::get_time_of_day();
 
   dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+  dpi::UserSession user_session(dpi::UserSessionTraits(), nullptr, user);
 
   dpi::UserSession::SetLimitArray limits;
   limits.emplace_back(
@@ -194,7 +194,7 @@ bool test_gx_flow()
   Gears::Time now = Gears::Time::get_time_of_day();
 
   dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+  dpi::UserSession user_session(dpi::UserSessionTraits(), nullptr, user);
 
   dpi::UserSession::SetLimitArray limits;
   limits.emplace_back(
@@ -274,7 +274,7 @@ bool test_pass_by_generic_limit()
   Gears::Time now = Gears::Time::get_time_of_day();
 
   dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+  dpi::UserSession user_session(dpi::UserSessionTraits(), nullptr, user);
 
   dpi::UserSession::SetLimitArray limits;
   limits.emplace_back(
@@ -324,7 +324,7 @@ bool revalidate_gx_by_time_test()
   Gears::Time now = Gears::Time::get_time_of_day();
 
   dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+  dpi::UserSession user_session(dpi::UserSessionTraits(), nullptr, user);
 
   Gears::Time start_time = Gears::Time::get_time_of_day();
 
@@ -404,7 +404,7 @@ bool revalidate_gx_by_limit_test()
   static const char* TEST_NAME = "revalidate gx by limit test";
 
   dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+  dpi::UserSession user_session(dpi::UserSessionTraits(), nullptr, user);
 
   Gears::Time start_time = Gears::Time::get_time_of_day();
 
