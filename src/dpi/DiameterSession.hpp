@@ -356,7 +356,6 @@ namespace dpi
     get_session_id_(const std::string& session_id_suffix) const;
 
   private:
-    const bool USE_FILLER_ = false;
     dpi::LoggerPtr logger_;
     const DiameterDictionary& diameter_dictionary_;
     BaseConnectionPtr connection_;

@@ -13,6 +13,7 @@
 #include "DiameterSession.hpp"
 #include "CerrCallback.hpp"
 #include "FunTask.hpp"
+#include "DiameterFieldAdapters.hpp"
 
 namespace dpi
 {
@@ -62,8 +63,7 @@ namespace dpi
     std::vector<DiameterPassAttribute> gx_pass_attributes,
     std::vector<DiameterPassAttribute> gy_pass_attributes
     )
-    : USE_FILLER_(use_diameter_filler),
-      logger_(std::move(logger)),
+    : logger_(std::move(logger)),
       diameter_dictionary_(diameter_dictionary),
       connection_(connection),
       origin_host_(std::move(origin_host)),
@@ -885,7 +885,6 @@ namespace dpi
         10415,
         true))
         //< Access-Network-Charging-Address
-      .addAVP(create_ipv4_4bytes_avp(8, request.user_session_traits.framed_ip_address, std::nullopt, true)) // Framed-IP-Address
       .addAVP(create_int32_avp(1009, 1, 10415, true)) // Online
       .addAVP(create_int32_avp(1008, 1, 10415, true)) // Offline
       .addAVP(create_avp( //< Access-Network-Charging-Identifier-Gx(1022)
@@ -901,18 +900,7 @@ namespace dpi
         10415,
         true
         ))
-      .addAVP(create_ipv4_4bytes_avp(6, request.user_session_traits.sgsn_ip_address, 10415, false))
-      //< 3GPP-SGSN-Address(6)
-      .addAVP(create_ipv4_avp(1050, request.user_session_traits.sgsn_ip_address, 10415, false))
-      //< AN-GW-Address(1050)=3GPP-SGSN-Address
       .addAVP(create_uint32_avp(1024, 1, 10415, true)) // Network-Request-Support
-      .addAVP(create_string_avp(18, request.user_session_traits.mcc_mnc, 10415, false)) // 3GPP-SGSN-MCC-MNC(18)
-      .addAVP(create_uint16_avp(
-        23,
-        static_cast<uint16_t>(request.user_session_traits.timezone) << 8 | 0, //< Adjustment=0
-        10415,
-        false
-      )) // 3GPP-MS-TimeZone
       // Subscription-Id with IMSI
       .addAVP(create_avp( // Subscription-Id
         443,
@@ -942,23 +930,6 @@ namespace dpi
       //.addAVP(create_int32_avp()) // Access-Network-Charging-Address
       ;
 
-    DiameterPacketFiller packet_filler(diameter_dictionary_, 272);
-    packet_filler.add_avp("RAT-Type", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.rat_type));
-    packet_filler.apply(packet);
-
-    if (!request.user_session_traits.user_location_info.empty())
-    {
-      packet.addAVP(create_octets_avp(
-        22,
-        ByteArray(
-          &request.user_session_traits.user_location_info[0],
-          request.user_session_traits.user_location_info.size()),
-        10415,
-        false
-      ));
-      //< 3GPP-User-Location-Info
-    }
-    
     if (!request.user_session_traits.imei.empty())
     {
       packet.addAVP(
@@ -977,6 +948,30 @@ namespace dpi
         )
       );
     }
+
+    DiameterPacketFiller packet_filler(diameter_dictionary_, 272);
+    packet_filler.add_avp("RAT-Type", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.rat_type));
+    packet_filler.add_non_empty_avp("3GPP-User-Location-Info",
+      dpi::Value(request.user_session_traits.user_location_info));
+    packet_filler.add_non_empty_avp("3GPP-SGSN-MCC-MNC", request.user_session_traits.mcc_mnc);
+    packet_filler.add_avp("SGSN-Address",
+      DiameterFieldAdapterDictionary::instance().get_adapter("ipv4-as-4bytes")->adapt(
+        dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address)
+      )
+    );
+    packet_filler.add_avp("AN-GW-Address",
+      dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
+    packet_filler.add_avp("Framed-IP-Address",
+      DiameterFieldAdapterDictionary::instance().get_adapter("ipv4-as-4bytes")->adapt(
+        dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.framed_ip_address)
+      )
+    );
+    packet_filler.add_avp("3GPP-MS-TimeZone",
+      DiameterFieldAdapterDictionary::instance().get_adapter("timezone-as-2bytes")->adapt(
+        dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.timezone)
+      )
+    );
+    packet_filler.apply(packet);
 
     packet.addAVP(create_int32_avp(416, 1, std::nullopt, true)); // CC-Request-Type
 
@@ -1250,112 +1245,11 @@ namespace dpi
       );
     }
 
-    /*
-    if (!USE_FILLER_)
-    {
-      auto ps_information_avp_data = Diameter::AVP::Data()
-        .addAVP(create_uint32_avp(2, request.user_session_traits.charging_id, 10415, false)) // 3GPP-Charging-Id(2)
-        .addAVP(create_uint32_avp(3, 0, 10415, false)) // 3GPP-PDP-Type(3)=IPv4
-        .addAVP(create_ipv4_avp(1227, request.user_session_traits.framed_ip_address, 10415, true))
-        //< PDP-Address(1227)=framed_ip_address
-        .addAVP(create_ipv4_avp(1228, request.user_session_traits.sgsn_ip_address, 10415, true))
-        //< SGSN-Address(1228)
-        .addAVP(create_ipv4_avp(847, request.user_session_traits.access_network_charging_ip_address, 10415, true))
-        //< GGSN-Address(847)
-        .addAVP(create_ipv4_avp(846, request.user_session_traits.sgsn_ip_address, 10415, true))
-        //< CG-Address(846) // ???
-        .addAVP(create_string_avp(8, request.user_session_traits.mcc_mnc, 10415, false)) // 3GPP-IMSI-MCC-MNC(8)
-        .addAVP(create_string_avp(9, request.user_session_traits.mcc_mnc, 10415, false)) // 3GPP-GGSN-MCC-MNC(9)
-        .addAVP(create_string_avp(30, request.user_session_traits.called_station_id, std::nullopt, true))
-        //< Called-Station-Id(30)
-        .addAVP(create_string_avp(18, request.user_session_traits.mcc_mnc, 10415, false))
-        //< 3GPP-SGSN-MCC-MNC(18)
-        .addAVP(create_uint16_avp(
-          23,
-          static_cast<uint16_t>(request.user_session_traits.timezone) << 8 | 0, //< Adjustment=0
-          10415,
-          false
-        )) // 3GPP-MS-TimeZone
-        .addAVP(create_uint32_avp(21, request.user_session_traits.rat_type, 10415, false)) // 3GPP-RAT-Type(21)
-        .addAVP(create_uint32_avp(1247, 0, 10415, false)) // PDP-Context-Type(1247)=PRIMARY
-        .addAVP(create_uint32_avp(2050, request.user_session_traits.charging_id, 10415, true))
-        //< PDN-Connection-Charging-ID(2050)
-        .addAVP(create_uint32_avp(2047, 2, 10415, true)) //< Serving-Node-Type(2047)=GTPSGW
-        ;
-
-      // .addAVP(create_string_avp(1004, "up_bypass", 10415, true)) // Charging-Rule-Base-Name(1004)=up_bypass
-
-      if (!request.user_session_traits.charging_characteristics.empty())
-      {
-        ps_information_avp_data.addAVP(create_string_avp(
-          13, // 3GPP-Charging-Characteristics(13)
-          request.user_session_traits.charging_characteristics,
-          10415,
-          false));
-      }
-
-      if (!request.user_session_traits.selection_mode.empty())
-      {
-        ps_information_avp_data.addAVP(create_string_avp(
-          12, // 3GPP-Selection-Mode(12)
-          request.user_session_traits.selection_mode,
-          10415,
-          false));
-      }
-
-      if (!request.user_session_traits.nsapi.empty())
-      {
-        ps_information_avp_data.addAVP(create_string_avp(
-          10, // 3GPP-NSAPI(10)
-          request.user_session_traits.nsapi,
-          10415,
-          false));
-      }
-
-      if (!request.user_session_traits.user_location_info.empty())
-      {
-        ps_information_avp_data.addAVP(create_octets_avp(
-          22, // 3GPP-User-Location-Info(22)
-          ByteArray(
-            &request.user_session_traits.user_location_info[0],
-            request.user_session_traits.user_location_info.size()),
-          10415,
-          false));
-      }
-
-      if (!request.user_session_traits.gprs_negotiated_qos_profile.empty())
-      {
-        ps_information_avp_data.addAVP(create_string_avp(
-          5, //< 3GPP-GPRS-Negotiated-QoS-Profile(5)
-          request.user_session_traits.gprs_negotiated_qos_profile,
-          10415,
-          false));
-      }
-
-      packet.addAVP(
-        create_avp(
-          873, // Service-Information(873)
-          Diameter::AVP::Data().addAVP(
-            create_avp(
-              874, // PS-Information(874)
-              ps_information_avp_data,
-              10415,
-              true
-            )
-          ),
-          10415,
-          true
-        )
-      );
-    }
-    else
-    {
-    }
-    */
-
     DiameterPacketFiller packet_filler(diameter_dictionary_, 272);
     packet_filler.add_avp("Service-Information.PS-Information.PDP-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.framed_ip_address));
-    packet_filler.add_avp("Service-Information.PS-Information.SGSN-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
+    packet_filler.add_avp(
+      "Service-Information.PS-Information.SGSN-Address",
+      dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
     packet_filler.add_avp("Service-Information.PS-Information.GGSN-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.access_network_charging_ip_address));
     packet_filler.add_avp("Service-Information.PS-Information.CG-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
 
