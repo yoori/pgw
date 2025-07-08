@@ -16421,7 +16421,17 @@
                     "vendor": 0
                 }, 
                 {
-                    "base_type": "grouped", 
+                    "base_type": "grouped",
+                    "childs": [
+                        {
+                            "base_type": "octetstring",
+                            "code": 503,
+                            "flags": 192,
+                            "min": -1,
+                            "name": "Access-Network-Charging-Identifier-Value",
+                            "vendor": 10415
+                        }
+                    ],
                     "code": 1022, 
                     "flags": 192, 
                     "min": -1, 

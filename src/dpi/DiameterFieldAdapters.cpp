@@ -66,7 +66,7 @@ namespace dpi
       }
 
     private:
-      Value result_;
+      Value& result_;
     };
 
     class TimezoneAs2BytesFillVisitor
@@ -128,7 +128,74 @@ namespace dpi
       }
 
     private:
-      Value result_;
+      Value& result_;
+    };
+
+    class IntAs4BytesFillVisitor
+    {
+    public:
+      IntAs4BytesFillVisitor(Value& result)
+        : result_(result)
+      {}
+
+      void
+      operator()(const std::string& val)
+      {
+        try
+        {
+          result_ = int_to_buf_(std::stoi(val));
+        }
+        catch (const std::invalid_argument&)
+        {
+          throw DiameterPacketFiller::IncompatibleType(
+            std::string("Can't fill 4 bytes by value: ") + val);
+        }
+      }
+
+      void
+      operator()(int64_t val)
+      {
+        if (val < 0 || val > std::numeric_limits<uint32_t>::max())
+        {
+          throw DiameterPacketFiller::IncompatibleType(
+            std::string("Can't fill 4 bytes by value: ") + std::to_string(val));
+        }
+
+        result_ = int_to_buf_(val);
+      }
+
+      void
+      operator()(uint64_t val)
+      {
+        if (val > std::numeric_limits<uint32_t>::max())
+        {
+          throw DiameterPacketFiller::IncompatibleType(
+            std::string("Can't fill 4 bytes by value: ") + std::to_string(val));
+        }
+
+        result_ = int_to_buf_(val);
+      }
+
+      void
+      operator()(const ByteArrayValue& val)
+      {
+        result_ = val;
+      }
+
+    private:
+      Value int_to_buf_(uint32_t val)
+      {
+        const uint8_t buf[] = {
+          static_cast<uint8_t>((val >> 24) & 0xFF),
+          static_cast<uint8_t>((val >> 16) & 0xFF),
+          static_cast<uint8_t>((val >> 8) & 0xFF),
+          static_cast<uint8_t>(val & 0xFF)
+        };
+        return Value(ByteArrayValue(buf, buf + sizeof(buf)));
+      }
+
+    private:
+      Value& result_;
     };
   };
 
@@ -145,8 +212,22 @@ namespace dpi
   public:
     virtual Value adapt(const Value& value) const
     {
+      std::cout << "IPv4As4BytesDiameterFieldAdapter::adapt" << std::endl;
+
       Value result;
       IPv4As4BytesFillVisitor visitor(result);
+      std::visit(visitor, value);
+      return result;
+    }
+  };
+
+  class IntAs4BytesDiameterFieldAdapter: public DiameterFieldAdapter
+  {
+  public:
+    virtual Value adapt(const Value& value) const
+    {
+      Value result;
+      IntAs4BytesFillVisitor visitor(result);
       std::visit(visitor, value);
       return result;
     }
@@ -169,6 +250,7 @@ namespace dpi
   {
     adapters_.emplace("ipv4-as-4bytes", std::make_shared<IPv4As4BytesDiameterFieldAdapter>());
     adapters_.emplace("timezone-as-2bytes", std::make_shared<TimezoneAs2BytesDiameterFieldAdapter>());
+    adapters_.emplace("int-as-4bytes", std::make_shared<IntAs4BytesDiameterFieldAdapter>());
   }
 
   DiameterFieldAdapterPtr

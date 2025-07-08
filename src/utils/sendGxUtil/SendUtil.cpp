@@ -201,7 +201,6 @@ int main(int argc, char* argv[])
 
     session->activate_object();
 
-    /*
     const unsigned long GX_APPLICATION_ID = 16777238;
     const std::string GX_SESSION_ID_SUFFIX = ";1;0;1";
     unsigned int gx_request_i = 0;
@@ -222,6 +221,13 @@ int main(int argc, char* argv[])
     request.user_session_traits.sgsn_ip_address = ipv4(185, 77, 17, 121);
     request.user_session_traits.access_network_charging_ip_address = ipv4(185, 174, 131, 53);
     request.user_session_traits.charging_id = 0x4188491;
+    const unsigned char USER_LOCATION_INFO[] = {
+      0x82, 0x52, 0xf0, 0x02, 0x6c, 0x9a, 0x52, 0xf0, 0x02, 0x0b, 0xcd, 0xc0, 0x23
+    };
+    request.user_session_traits.user_location_info.assign(
+      USER_LOCATION_INFO,
+      USER_LOCATION_INFO + sizeof(USER_LOCATION_INFO)
+    );
 
     dpi::DiameterSession::GxInitResponse gx_init_response = session->send_gx_init(request);
     std::cout << "Gx init request: result-code: " << gx_init_response.result_code << ", charging_rule_names = [";
@@ -261,7 +267,6 @@ int main(int argc, char* argv[])
     dpi::DiameterSession::GxTerminateResponse gx_terminate_response = session->send_gx_terminate(
       request, gx_terminate_request);
     std::cout << "Gx terminate request: result-code: " << gx_terminate_response.result_code << std::endl;
-    */
 
     std::cout << "====== SEND GY ======" << std::endl;
     const unsigned long GY_APPLICATION_ID = 4;
@@ -269,9 +274,9 @@ int main(int argc, char* argv[])
     unsigned int gy_request_i = 0;
 
     {
-      const unsigned char USER_LOCATION_INFO[] = {
-        0x82, 0x52, 0xf0, 0x02, 0x6c, 0x9a, 0x52, 0xf0, 0x02, 0x0b, 0xcd, 0xc0, 0x23
-      };
+      //const unsigned char USER_LOCATION_INFO[] = {
+      //  0x82, 0x52, 0xf0, 0x02, 0x6c, 0x9a, 0x52, 0xf0, 0x02, 0x0b, 0xcd, 0xc0, 0x23
+      //};
 
       dpi::DiameterSession::GyRequest request;
       request.application_id = GY_APPLICATION_ID;

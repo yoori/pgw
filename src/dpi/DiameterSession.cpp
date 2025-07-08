@@ -878,28 +878,8 @@ namespace dpi
             )),
         10415,
         false))
-      .addAVP(create_string_avp(30, request.user_session_traits.called_station_id, std::nullopt, true)) // Called-Station-Id
-      .addAVP(create_ipv4_avp(
-        501,
-        request.user_session_traits.access_network_charging_ip_address,
-        10415,
-        true))
-        //< Access-Network-Charging-Address
       .addAVP(create_int32_avp(1009, 1, 10415, true)) // Online
       .addAVP(create_int32_avp(1008, 1, 10415, true)) // Offline
-      .addAVP(create_avp( //< Access-Network-Charging-Identifier-Gx(1022)
-        1022,
-        Diameter::AVP::Data()
-        .addAVP(create_octets_avp(
-          503, //< Access-Network-Charging-Identifier-Value(503)
-          uint32_to_buf_(request.user_session_traits.charging_id),
-          10415,
-          true
-        ))
-        ,
-        10415,
-        true
-        ))
       .addAVP(create_uint32_avp(1024, 1, 10415, true)) // Network-Request-Support
       // Subscription-Id with IMSI
       .addAVP(create_avp( // Subscription-Id
@@ -927,7 +907,6 @@ namespace dpi
         10415,
         false))
       .addAVP(create_uint32_avp(1027, 5, 10415, true)) // IP-CAN-Type
-      //.addAVP(create_int32_avp()) // Access-Network-Charging-Address
       ;
 
     if (!request.user_session_traits.imei.empty())
@@ -954,13 +933,15 @@ namespace dpi
     packet_filler.add_non_empty_avp("3GPP-User-Location-Info",
       dpi::Value(request.user_session_traits.user_location_info));
     packet_filler.add_non_empty_avp("3GPP-SGSN-MCC-MNC", request.user_session_traits.mcc_mnc);
-    packet_filler.add_avp("SGSN-Address",
+    packet_filler.add_avp("3GPP-SGSN-Address",
       DiameterFieldAdapterDictionary::instance().get_adapter("ipv4-as-4bytes")->adapt(
         dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address)
       )
     );
     packet_filler.add_avp("AN-GW-Address",
       dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
+    packet_filler.add_avp("Access-Network-Charging-Address",
+      dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.access_network_charging_ip_address));
     packet_filler.add_avp("Framed-IP-Address",
       DiameterFieldAdapterDictionary::instance().get_adapter("ipv4-as-4bytes")->adapt(
         dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.framed_ip_address)
@@ -971,6 +952,12 @@ namespace dpi
         dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.timezone)
       )
     );
+    packet_filler.add_avp("Access-Network-Charging-Identifier-Gx.Access-Network-Charging-Identifier-Value",
+      DiameterFieldAdapterDictionary::instance().get_adapter("int-as-4bytes")->adapt(
+        dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.charging_id)
+      )
+    );
+    packet_filler.add_avp("Called-Station-Id", request.user_session_traits.called_station_id);
     packet_filler.apply(packet);
 
     packet.addAVP(create_int32_avp(416, 1, std::nullopt, true)); // CC-Request-Type
