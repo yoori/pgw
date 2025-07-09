@@ -99,7 +99,7 @@ namespace dpi
     const std::string& secret,
     const std::string& dictionary_file_path,
     dpi::ProcessorPtr processor,
-    const ConstAttributeKeyPtrSet& attribute_keys)
+    RadiusUserSessionPropertyExtractorPtr radius_user_session_property_extractor)
     : radius_(
         io_service,
         secret,
@@ -110,24 +110,10 @@ namespace dpi
         }),
       dictionaries_(dictionary_file_path),
       secret_(secret),
-      processor_(std::move(processor))
+      processor_(std::move(processor)),
+      radius_user_session_property_extractor_(std::move(radius_user_session_property_extractor))
   {
     dictionaries_.resolve(); // TODO: make this in Dictionaries c-tor, but use other class for included dictionaries
-
-    for (const auto& attribute_key : attribute_keys)
-    {
-      ResolveAttribute resolve_attribute;
-      resolve_attribute.attribute_key = attribute_key;
-      auto resolve_attribute_key = dictionaries_.get_attribute_key(
-        attribute_key->name,
-        attribute_key->vendor);
-
-      if (resolve_attribute_key.has_value())
-      {
-        resolve_attribute.resolve_attribute_key = *resolve_attribute_key;
-        pass_attribute_keys_.emplace_back(std::move(resolve_attribute));
-      }
-    }
 
     std::cout << "To start receive" << std::endl;
   }
@@ -271,21 +257,11 @@ namespace dpi
       calling_station_id_attr &&
       (framed_ip_address = *framed_ip_address_attr->as_uint()) != 0)
     {
-      std::unordered_map<ConstAttributeKeyPtr, Value> pass_attributes;
-
-      for (const auto& pass_attribute : pass_attribute_keys_)
-      {
-        auto attr = packet_reader.get_attribute(pass_attribute.resolve_attribute_key);
-        if (attr)
-        {
-          pass_attributes.emplace(
-            pass_attribute.attribute_key,
-            attribute_to_value_(*attr));
-        }
-      }
+      UserSessionPropertyContainerPtr user_session_property_container =
+        radius_user_session_property_extractor_->extract(request);
 
       std::cout << "RADIUS PACKET: acct_status_type = " << *acct_status_type_attr->as_uint() <<
-        ", pass_attributes = " << pass_attributes.size() <<
+        ", pass_attributes = " << user_session_property_container->values.size() <<
         ", framed_ip_address = " << dpi::ipv4_address_to_string(framed_ip_address) <<
         ", msisdn = " << *calling_station_id_attr->as_string() <<
         std::endl;
@@ -338,38 +314,12 @@ namespace dpi
         }
       }
 
-      //std::cout << print_octets_attr(packet_reader, "User-Location-Info", "3GPP") << std::endl;
-      /*
-      bool res = processor_->process_request(
-        static_cast<dpi::Manager::AcctStatusType>(*(acct_status_type_attr->as_uint())),
-        calling_station_id_attr ? *(calling_station_id_attr->as_string()) : std::string(),
-        called_station_id_attr ? *(called_station_id_attr->as_string()) : std::string(),
-        imsi_attr ? *(imsi_attr->as_string()) : std::string(), // imsi
-        imei_attr ? *(imei_attr->as_string()) : std::string(), // imei
-        framed_ip_address_attr ? *(framed_ip_address_attr->as_uint()) : 0, // framed_ip_address
-        nas_ip_address_attr ? *(nas_ip_address_attr->as_uint()) : 0, // nas_ip_address
-        rat_type_attr ? *(rat_type_attr->as_uint()) : 0, // rat_type
-        mcc_mnc_attr ? *(mcc_mnc_attr->as_string()) : std::string(), // mcc_mnc
-        tz, // tz
-        sgsn_address_attr ? *(sgsn_address_attr->as_uint()) : 0, // sgsn_ip_address
-        cg_address_attr ? *(cg_address_attr->as_uint()) : 0, // access_network_charging_ip_address
-        charging_id_attr ? *(charging_id_attr->as_uint()) : 0, // charging_id
-        (gprs_negotiated_qos_profile_attr ?
-          *(gprs_negotiated_qos_profile_attr->as_string()) : std::string()).c_str(), // gprs_negotiated_qos_profile
-        user_location_info_attr ?
-          user_location_info_attr->as_octets() : RadProto::ByteArray(), // user_location_info
-        nsapi_attr ? *(nsapi_attr->as_string()) : std::string(), // nsapi
-        selection_mode_attr ? *(selection_mode_attr->as_string()) : std::string(), // selection_mode
-        charging_characteristics_attr ?
-          *(charging_characteristics_attr->as_string()) : std::string() // charging_characteristics
-      );
-      */
+      user_session_traits.user_session_property_container = user_session_property_container;
 
       bool res = processor_->process_request(
         static_cast<dpi::Manager::AcctStatusType>(*(acct_status_type_attr->as_uint())),
         calling_station_id_attr ? *(calling_station_id_attr->as_string()) : std::string(),
         framed_ip_address_attr ? *(framed_ip_address_attr->as_uint()) : 0, // framed_ip_address
-        pass_attributes,
         user_session_traits
       );
 

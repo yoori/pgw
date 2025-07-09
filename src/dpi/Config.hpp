@@ -7,6 +7,7 @@
 
 #include "DiameterSession.hpp"
 #include "DiameterPassAttribute.hpp"
+#include "Attribute.hpp"
 
 namespace dpi
 {
@@ -28,11 +29,19 @@ namespace dpi
 
   struct Config
   {
+    struct RediusProperty
+    {
+      std::string target_property_name;
+      std::string name;
+      std::string vendor;
+    };
+
     struct Radius
     {
       unsigned int listen_port = 0;
       std::string secret;
       std::string dictionary;
+      std::vector<RediusProperty> radius_properties;
     };
 
     struct Diameter

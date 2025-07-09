@@ -17,6 +17,193 @@ uint32_t ipv4(unsigned char b1, unsigned char b2, unsigned char b3, unsigned cha
   return b4 << 24 | b3 << 16 | b2 << 8 | b1;
 }
 
+dpi::UserSessionPropertyContainerPtr fill_user_session_property_container()
+{
+  dpi::UserSessionPropertyContainerPtr user_session_property_container =
+    std::make_shared<dpi::UserSessionPropertyContainer>();
+  user_session_property_container->values.emplace(
+    "Framed-IP-Address",
+    dpi::Value(std::in_place_type<uint64_t>, ipv4(10, 243, 64, 1)));
+  user_session_property_container->values.emplace(
+    "SGSN-Address",
+    dpi::Value(std::in_place_type<uint64_t>, ipv4(185, 77, 17, 121)));
+  user_session_property_container->values.emplace(
+    "CG-Address",
+    dpi::Value(std::in_place_type<uint64_t>, ipv4(185, 174, 131, 53)));
+  user_session_property_container->values.emplace(
+    "CG-Address",
+    dpi::Value(std::in_place_type<uint64_t>, ipv4(185, 174, 131, 53)));
+  user_session_property_container->values.emplace(
+    "Charging-ID",
+    dpi::Value(std::in_place_type<uint64_t>, 0x4188491));
+  user_session_property_container->values.emplace(
+    "PDP-Type",
+    dpi::Value(std::in_place_type<uint64_t>, 0)); //< Constant
+  user_session_property_container->values.emplace(
+    "RAT-Type",
+    dpi::Value(std::in_place_type<uint64_t>, 1004));
+  user_session_property_container->values.emplace(
+    "Service-Type",
+    dpi::Value(std::in_place_type<uint64_t>, 2)); //< Constant
+  user_session_property_container->values.emplace(
+    "MS-TimeZone",
+    dpi::Value(std::in_place_type<uint64_t>, 0));
+  user_session_property_container->values.emplace(
+    "SGSN-MCC-MNC",
+    std::string("25020"));
+  /*
+  user_session_property_container->values.emplace(
+    "Charging-Characteristics",
+    std::string());
+  user_session_property_container->values.emplace(
+    "Selection-Mode",
+    std::string());
+  user_session_property_container->values.emplace(
+    "NSAPI",
+    std::string());
+  */
+  const unsigned char USER_LOCATION_INFO[] = {
+    0x82, 0x52, 0xf0, 0x02, 0x6c, 0x9a, 0x52, 0xf0, 0x02, 0x0b, 0xcd, 0xc0, 0x23
+  };
+  user_session_property_container->values.emplace(
+    "User-Location-Info",
+    dpi::ByteArrayValue(USER_LOCATION_INFO, USER_LOCATION_INFO + sizeof(USER_LOCATION_INFO)));
+  user_session_property_container->values.emplace(
+    "GPRS-Negotiated-QoS-profile",
+    std::string("08-48080000c350000249f0"));
+
+  return user_session_property_container;
+}
+
+std::vector<dpi::DiameterPassAttribute> fill_gx_pass_attributes()
+{
+  std::vector<dpi::DiameterPassAttribute> pass_attributes;
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "RAT-Type",
+    "RAT-Type"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "3GPP-User-Location-Info",
+    "User-Location-Info"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "3GPP-SGSN-MCC-MNC",
+    "SGSN-MCC-MNC"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "3GPP-SGSN-Address",
+    "SGSN-MCC-MNC",
+    "ipv4-as-4bytes"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "AN-GW-Address",
+    "SGSN-Address"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "AN-GW-Address",
+    "SGSN-Address"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Access-Network-Charging-Address",
+    "CG-Address"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Framed-IP-Address",
+    "Framed-IP-Address",
+    "ipv4-as-4bytes"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "3GPP-MS-TimeZone",
+    "MS-TimeZone",
+    "timezone-as-2bytes"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Access-Network-Charging-Identifier-Gx.Access-Network-Charging-Identifier-Value",
+    "Charging-Id"
+  ));
+
+  return pass_attributes;
+}
+
+std::vector<dpi::DiameterPassAttribute> fill_gy_pass_attributes()
+{
+  std::vector<dpi::DiameterPassAttribute> pass_attributes;
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.PDP-Address",
+    "Framed-IP-Address"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.SGSN-Address",
+    "SGSN-Address"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.GGSN-Address",
+    "CG-Address"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.3GPP-Charging-Id",
+    "Charging-ID"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.3GPP-PDP-Type",
+    "PDP-Type"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.3GPP-RAT-Type",
+    "RAT-Type"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.PDN-Connection-Charging-ID",
+    "Charging-ID"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.Serving-Node-Type",
+    "Service-Type"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.3GPP-MS-TimeZone",
+    "MS-TimeZone",
+    "timezone-as-2bytes"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.Called-Station-Id",
+    "Called-Station-Id"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.3GPP-GGSN-MCC-MNC",
+    "SGSN-MCC-MNC"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.3GPP-SGSN-MCC-MNC",
+    "SGSN-MCC-MNC"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.3GPP-IMSI-MCC-MNC",
+    "SGSN-MCC-MNC"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.3GPP-Charging-Characteristics",
+    "Charging-Characteristics"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.3GPP-Selection-Mode",
+    "Selection-Mode"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.3GPP-NSAPI",
+    "NSAPI"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.3GPP-User-Location-Info",
+    "User-Location-Info"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.3GPP-GPRS-Negotiated-QoS-Profile",
+    "GPRS-Negotiated-QoS-profile"
+  ));
+  return pass_attributes;
+}
+
 int main(int argc, char* argv[])
 {
   Gears::AppUtils::Args args;
@@ -103,85 +290,10 @@ int main(int argc, char* argv[])
     */
     auto gx_connection = sctp_connection;
 
+    dpi::UserSessionPropertyContainerPtr user_session_property_container =
+      fill_user_session_property_container();
+
     std::vector<dpi::DiameterPassAttribute> gx_pass_attributes;
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.PDP-Address",
-      dpi::RadiusAttributeSource("Framed-IP-Address")
-    ));
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.SGSN-Address",
-      dpi::RadiusAttributeSource("SGSN-Address", "3GPP")
-    ));
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.GGSN-Address",
-      dpi::RadiusAttributeSource("CG-Address", "3GPP")
-    ));
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.3GPP-Charging-Id",
-      dpi::RadiusAttributeSource("Charging-ID", "3GPP")
-    ));
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.3GPP-PDP-Type",
-      dpi::RadiusAttributeSource("3GPP-PDP-Type", "3GPP")
-    ));
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.3GPP-RAT-Type",
-      dpi::RadiusAttributeSource("RAT-Type", "3GPP")
-    ));
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.PDN-Connection-Charging-ID",
-      dpi::RadiusAttributeSource("Charging-ID", "3GPP")
-    ));
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.Serving-Node-Type",
-      dpi::RadiusAttributeSource("Service-Type")
-    ));
-    /*
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.PDP-Context-Type",
-      0 // to fix
-    ));
-    */
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.3GPP-MS-TimeZone",
-      dpi::RadiusAttributeSource("MS-TimeZone", "3GPP") // to use adapter
-    ));
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.Called-Station-Id",
-      dpi::RadiusAttributeSource("Called-Station-Id")
-    ));
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.3GPP-GGSN-MCC-MNC",
-      dpi::RadiusAttributeSource("3GPP-GGSN-MCC-MNC", "3GPP")
-    ));
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.3GPP-SGSN-MCC-MNC",
-      dpi::RadiusAttributeSource("3GPP-SGSN-MCC-MNC", "3GPP")
-    ));
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.3GPP-IMSI-MCC-MNC",
-      dpi::RadiusAttributeSource("3GPP-IMSI-MCC-MNC", "3GPP")
-    ));
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.3GPP-Charging-Characteristics",
-      dpi::RadiusAttributeSource("Charging-Characteristics", "3GPP")
-    ));
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.3GPP-Selection-Mode",
-      dpi::RadiusAttributeSource("Selection-Mode", "3GPP")
-    ));
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.3GPP-NSAPI",
-      dpi::RadiusAttributeSource("NSAPI", "3GPP")
-    ));
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.3GPP-User-Location-Info",
-      dpi::RadiusAttributeSource("User-Location-Info", "3GPP")
-    ));
-    gx_pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-      "Service-Information.PS-Information.3GPP-GPRS-Negotiated-QoS-Profile",
-      dpi::RadiusAttributeSource("GPRS-Negotiated-QoS-profile", "3GPP")
-    ));
 
     std::shared_ptr<dpi::SCTPDiameterSession> session = std::make_shared<dpi::SCTPDiameterSession>(
       logger,
@@ -195,8 +307,8 @@ int main(int argc, char* argv[])
       "PGW", //"3GPP Gx",
       [](const Diameter::Packet&) {},
       *opt_source_addresses,
-      gx_pass_attributes,
-      std::vector<dpi::DiameterPassAttribute>()
+      fill_gx_pass_attributes(),
+      fill_gy_pass_attributes()
       );
 
     session->activate_object();
@@ -244,13 +356,13 @@ int main(int argc, char* argv[])
     gx_update_request.usage_monitorings.emplace_back(
       dpi::DiameterSession::GxUpdateRequest::UsageMonitoring(
         64, //< Internet: MK64
-        1000 //< bytes
+        dpi::OctetStats(1000, 0, 0) //< bytes
       )
     );
     gx_update_request.usage_monitorings.emplace_back(
       dpi::DiameterSession::GxUpdateRequest::UsageMonitoring(
         161, //< Telegram: MK161
-        1000 //< bytes
+        dpi::OctetStats(1000, 0, 0) //< bytes
       )
     );
 

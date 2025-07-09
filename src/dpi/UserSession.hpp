@@ -16,6 +16,7 @@
 #include "SessionKey.hpp"
 #include "User.hpp"
 #include "UserSessionPropertyContainer.hpp"
+#include "OctetStats.hpp"
 
 namespace dpi
 {
@@ -76,16 +77,13 @@ namespace dpi
 
     using SetLimitArray = std::vector<SetLimit>;
 
-    struct UsedLimit
+    struct UsedLimit: public OctetStats
     {
       UsedLimit() {};
 
-      UsedLimit(const SessionKey& session_key_val, unsigned long used_bytes_val);
+      UsedLimit(const SessionKey& session_key_val, const OctetStats& used_bytes_val);
 
       SessionKey session_key;
-      unsigned long used_bytes = 0;
-      unsigned long used_output_bytes = 0;
-      unsigned long used_input_bytes = 0;
     };
 
     using UsedLimitArray = std::vector<UsedLimit>;
@@ -132,9 +130,7 @@ namespace dpi
     use_limit(
       const SessionKey& session_key,
       const Gears::Time& now,
-      unsigned long used_bytes,
-      unsigned long used_output_bytes,
-      unsigned long used_input_bytes);
+      const OctetStats& octet_stats);
 
     UsedLimitArray
     get_gx_used_limits(bool own_stats = true);
@@ -180,21 +176,14 @@ namespace dpi
 
     using LimitMap = Gears::HashTable<SessionKey, Limit>;
 
-    struct UsedLimitHolder
-    {
-      unsigned long used_bytes = 0;
-    };
-
-    using UsedLimitHolderMap = Gears::HashTable<SessionKey, UsedLimitHolder>;
+    using UsedLimitHolderMap = Gears::HashTable<SessionKey, OctetStats>;
 
   private:
     UseLimitResult
     use_limit_i_(
       const SessionKey& session_key,
       const Gears::Time& now,
-      unsigned long used_bytes,
-      unsigned long used_output_bytes,
-      unsigned long used_input_bytes);
+      const OctetStats& used_octets);
 
     void
     set_limits_i_(
@@ -272,9 +261,10 @@ namespace dpi
 
   inline
   UserSession::UsedLimit::UsedLimit(
-    const SessionKey& session_key_val, unsigned long used_bytes_val)
+    const SessionKey& session_key_val,
+    const OctetStats& octet_stats)
     : session_key(session_key_val),
-      used_bytes(used_bytes_val)
+      OctetStats(octet_stats)
   {}
 
   // UserSession::Limit

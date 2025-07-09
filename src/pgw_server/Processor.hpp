@@ -35,32 +35,8 @@ namespace dpi
       dpi::Manager::AcctStatusType acct_status_type,
       std::string_view calling_station_id,
       uint32_t framed_ip_address,
-      const std::unordered_map<ConstAttributeKeyPtr, Value>& pass_attributes,
       const UserSessionTraits& user_session_traits
       );
-
-    /*
-    bool process_request(
-      dpi::Manager::AcctStatusType acct_status_type,
-      std::string_view called_station_id,
-      std::string_view calling_station_id,
-      std::string_view imsi,
-      std::string_view imei,
-      uint32_t framed_ip_address,
-      uint32_t nas_ip_address,
-      uint8_t rat_type,
-      std::string_view mcc_mnc,
-      uint8_t tz,
-      uint32_t sgsn_address,
-      uint32_t access_network_charging_address,
-      uint32_t charging_id,
-      const char* gprs_negotiated_qos_profile,
-      const std::vector<unsigned char>& user_location_info,
-      std::string_view nsapi,
-      std::string_view selection_mode,
-      std::string_view charging_characteristics
-    );
-    */
 
     dpi::LoggerPtr logger() const;
 

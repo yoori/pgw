@@ -45,11 +45,6 @@ namespace dpi
     UserSession& user_session,
     bool fill_zero_usage_groups)
   {
-    struct RGUse
-    {
-      unsigned long used_bytes = 0;
-    };
-
     if (!pcc_config_provider_)
     {
       return;
@@ -108,10 +103,10 @@ namespace dpi
     gy_request.request_id = gy_request_id;
     gy_request.user_session_traits = *user_session.traits();
 
-    std::unordered_map<unsigned long, RGUse> send_rating_groups;
+    std::unordered_map<unsigned long, OctetStats> send_rating_groups;
     for (const auto& rg_id : rating_groups)
     {
-      send_rating_groups.emplace(rg_id, RGUse{0});
+      send_rating_groups.emplace(rg_id, OctetStats());
     }
 
     auto used_limits = user_session.get_gy_used_limits();
@@ -124,7 +119,7 @@ namespace dpi
 
         for (const auto& rg_id : session_key_rule.rating_groups)
         {
-          send_rating_groups[rg_id].used_bytes += used_limit.used_bytes;
+          send_rating_groups[rg_id] += used_limit;
         }
       }
     }
@@ -132,7 +127,7 @@ namespace dpi
     for (const auto& [rg_id, rg_use] : send_rating_groups)
     {
       gy_request.usage_rating_groups.emplace_back(
-        dpi::DiameterSession::GyRequest::UsageRatingGroup(rg_id, rg_use.used_bytes));
+        dpi::DiameterSession::GyRequest::UsageRatingGroup(rg_id, rg_use));
     }
   }
 
@@ -408,7 +403,7 @@ namespace dpi
           gx_request.usage_monitorings.emplace_back(
             dpi::DiameterSession::GxUpdateRequest::UsageMonitoring(
               mk_id,
-              used_limit.used_bytes
+              used_limit
             ));
         }
       }
@@ -443,7 +438,7 @@ namespace dpi
         for (const auto& rg_id : session_key_rule.rating_groups)
         {
           gy_request.usage_rating_groups.emplace_back(
-            dpi::DiameterSession::GyRequest::UsageRatingGroup(rg_id, used_limit.used_bytes));
+            dpi::DiameterSession::GyRequest::UsageRatingGroup(rg_id, used_limit));
         }
       }
     }
@@ -475,17 +470,18 @@ namespace dpi
       if (acct_status_type == AcctStatusType::START ||
         acct_status_type == AcctStatusType::UPDATE)
       {
-        std::cout << "Manager::process_request(): start/update: " <<
-          "msisdn = " << user_session_traits.msisdn <<
-          std::endl;
+        //std::cout << "Manager::process_request(): start/update: " <<
+        //  "msisdn = " << user_session_traits.msisdn <<
+        //  std::endl;
 
         user_session = user_session_storage_->get_user_session_by_ip(
           user_session_traits.framed_ip_address);
 
         if (!user_session)
         {
-          //std::cout << "YYY Manager::process_request(1): msisdn = " << user_session_traits.msisdn <<
-          //  ", imsi = " << user_session_traits.imsi << std::endl;
+          // fill base user session properties by radius request
+          ConstUserSessionPropertyContainerPtr user_session_properties; // TO FIX
+            
 
           user_session = user_session_storage_->add_user_session(
             user_session_traits,

@@ -22,6 +22,7 @@
 #include "UserSessionTraits.hpp"
 #include "DiameterDictionary.hpp"
 #include "DiameterPassAttribute.hpp"
+#include "OctetStats.hpp"
 
 namespace dpi
 {
@@ -46,17 +47,18 @@ namespace dpi
 
     struct GyRequest: public Request
     {
-      struct UsageRatingGroup
+      struct UsageRatingGroup: public OctetStats
       {
         UsageRatingGroup() {}
 
-        UsageRatingGroup(unsigned long rating_group_id_val, uint64_t total_octets_val = 0)
-          : rating_group_id(rating_group_id_val),
-            total_octets(total_octets_val)
+        UsageRatingGroup(
+          unsigned long rating_group_id_val,
+          const OctetStats& octet_stats = OctetStats())
+          : OctetStats(octet_stats),
+            rating_group_id(rating_group_id_val)
         {}
 
         unsigned long rating_group_id = 0;
-        uint64_t total_octets = 0;
       };
 
       std::string reason;
@@ -67,22 +69,21 @@ namespace dpi
 
     struct GxUpdateRequest
     {
-      struct UsageMonitoring
+      struct UsageMonitoring: public OctetStats
       {
         UsageMonitoring() {}
 
         UsageMonitoring(
           unsigned long monitoring_key_val,
-          uint64_t total_octets_val,
+          const OctetStats& octet_stats = OctetStats(),
           unsigned long usage_monitoring_level_val = 1 //< PCC_RULE_LEVEL
           )
-          : monitoring_key(monitoring_key_val),
-            total_octets(total_octets_val),
+          : OctetStats(octet_stats),
+            monitoring_key(monitoring_key_val),
             usage_monitoring_level(usage_monitoring_level_val)
         {}
 
         unsigned long monitoring_key = 0;
-        uint64_t total_octets = 0;
         unsigned long usage_monitoring_level = 1;
       };
 
@@ -368,6 +369,7 @@ namespace dpi
     const std::string product_name_;
     std::vector<uint32_t> source_addresses_;
     RequestProcessor request_processor_;
+
     std::vector<DiameterPassAttribute> gx_pass_attributes_;
     std::vector<DiameterPassAttribute> gy_pass_attributes_;
 

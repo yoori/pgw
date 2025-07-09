@@ -9,6 +9,7 @@
 #include <radproto/dictionaries.h>
 
 #include <dpi/Value.hpp>
+#include <dpi/RadiusUserSessionPropertyExtractor.hpp>
 
 #include "Processor.hpp"
 
@@ -23,7 +24,7 @@ namespace dpi
       const std::string& secret,
       const std::string& dictionary_file_path,
       ProcessorPtr processor,
-      const ConstAttributeKeyPtrSet& attribute_keys);
+      RadiusUserSessionPropertyExtractorPtr radius_user_session_property_extractor);
 
   private:
     void handle_receive_(
@@ -54,5 +55,6 @@ namespace dpi
     const std::string secret_;
     const dpi::ProcessorPtr processor_;
     ResolveAttributeArray pass_attribute_keys_;
+    const RadiusUserSessionPropertyExtractorPtr radius_user_session_property_extractor_;
   };
 }

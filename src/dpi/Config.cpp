@@ -78,10 +78,11 @@ namespace dpi
         {
           DiameterPassAttribute pass_attribute;
           pass_attribute.avp_path = pass_attribute_json["avp_path"].as_string();
-          pass_attribute.source.name = pass_attribute_json["radius"]["name"].as_string();
-          pass_attribute.source.vendor = pass_attribute_json["radius"].contains("vendor") ?
-            pass_attribute_json["radius"]["vendor"].as_string() :
-            std::string();
+          pass_attribute.property_name = pass_attribute_json["property_name"].as_string();
+          if (pass_attribute_json.contains("adapter"))
+          {
+            pass_attribute.adapter = pass_attribute_json["adapter"].as_string();
+          }
 
           result_diameter_config.pass_attributes.emplace_back(pass_attribute);
         }
@@ -158,6 +159,22 @@ namespace dpi
       if (radius_obj.contains("dictionary"))
       {
         result.radius->dictionary = radius_obj["dictionary"].as_string();
+      }
+
+      if (radius_obj.contains("properties"))
+      {
+        for (const auto radius_property : radius_obj["properties"].array_range())
+        {
+          Config::RediusProperty redius_property;
+          redius_property.target_property_name = radius_property["target_property_name"].as_string();
+          redius_property.name = radius_property["name"].as_string();
+          if (radius_property.contains("vendor"))
+          {
+            redius_property.vendor = radius_property["vendor"].as_string();
+          }
+
+          result.radius->radius_properties.emplace_back(std::move(redius_property));
+        }
       }
     }
 

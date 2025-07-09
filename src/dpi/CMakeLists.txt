@@ -38,12 +38,16 @@ add_library(dpi
   IOServiceActiveObject.cpp
 
   DiameterFieldAdapters.cpp
+  RadiusUserSessionPropertyExtractor.cpp
+  UserSessionPropertyContainer.cpp
+  JsonUtils.cpp
   )
 
 target_link_libraries(dpi
   PRIVATE
     sctp
   PUBLIC
+    radproto
     nDPI
     Gears
     libhttpserver

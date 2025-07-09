@@ -928,6 +928,7 @@ namespace dpi
       );
     }
 
+    /*
     DiameterPacketFiller packet_filler(diameter_dictionary_, 272);
     packet_filler.add_avp("RAT-Type", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.rat_type));
     packet_filler.add_non_empty_avp("3GPP-User-Location-Info",
@@ -947,6 +948,7 @@ namespace dpi
         dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.framed_ip_address)
       )
     );
+
     packet_filler.add_avp("3GPP-MS-TimeZone",
       DiameterFieldAdapterDictionary::instance().get_adapter("timezone-as-2bytes")->adapt(
         dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.timezone)
@@ -959,6 +961,26 @@ namespace dpi
     );
     packet_filler.add_avp("Called-Station-Id", request.user_session_traits.called_station_id);
     packet_filler.apply(packet);
+    */
+
+    if (request.user_session_traits.user_session_property_container)
+    {
+      DiameterPacketFiller packet_filler(diameter_dictionary_, 272);
+      for (const auto& pass_attribute : gx_pass_attributes_)
+      {
+        auto property_it = request.user_session_traits.user_session_property_container->values.find(
+          pass_attribute.property_name);
+        if (property_it != request.user_session_traits.user_session_property_container->values.end())
+        {
+          packet_filler.add_avp(
+            pass_attribute.avp_path,
+            DiameterFieldAdapterDictionary::instance().get_adapter(pass_attribute.adapter)->adapt(
+              property_it->second)
+          );
+        }
+      }
+      packet_filler.apply(packet);
+    }
 
     packet.addAVP(create_int32_avp(416, 1, std::nullopt, true)); // CC-Request-Type
 
@@ -1232,12 +1254,16 @@ namespace dpi
       );
     }
 
-    DiameterPacketFiller packet_filler(diameter_dictionary_, 272);
-    packet_filler.add_avp("Service-Information.PS-Information.PDP-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.framed_ip_address));
+    /*
+    packet_filler.add_avp(
+      "Service-Information.PS-Information.PDP-Address",
+      dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.framed_ip_address));
     packet_filler.add_avp(
       "Service-Information.PS-Information.SGSN-Address",
       dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
-    packet_filler.add_avp("Service-Information.PS-Information.GGSN-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.access_network_charging_ip_address));
+    packet_filler.add_avp(
+      "Service-Information.PS-Information.GGSN-Address",
+      dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.access_network_charging_ip_address));
     packet_filler.add_avp("Service-Information.PS-Information.CG-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
 
     packet_filler.add_avp("Service-Information.PS-Information.3GPP-Charging-Id", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.charging_id));
@@ -1265,7 +1291,25 @@ namespace dpi
       request.user_session_traits.gprs_negotiated_qos_profile.size() << std::endl;
     packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-GPRS-Negotiated-QoS-Profile",
       dpi::Value(request.user_session_traits.gprs_negotiated_qos_profile));
-    packet_filler.apply(packet);
+    */
+    if (request.user_session_traits.user_session_property_container)
+    {
+      DiameterPacketFiller packet_filler(diameter_dictionary_, 272);
+      for (const auto& pass_attribute : gy_pass_attributes_)
+      {
+        auto property_it = request.user_session_traits.user_session_property_container->values.find(
+          pass_attribute.property_name);
+        if (property_it != request.user_session_traits.user_session_property_container->values.end())
+        {
+          packet_filler.add_avp(
+            pass_attribute.avp_path,
+            DiameterFieldAdapterDictionary::instance().get_adapter(pass_attribute.adapter)->adapt(
+              property_it->second)
+          );
+        }
+      }
+      packet_filler.apply(packet);
+    }
 
     return std::make_pair(RequestKey(session_id, request_i), packet);
   }

@@ -111,37 +111,13 @@ namespace dpi
 
     std::unique_lock<std::shared_mutex> guard(limits_lock_);
     limits_.swap(new_limits);
-    /*
-    for (auto it = decrease_used.begin(); it != decrease_used.end(); ++it)
-    {
-      auto used_limit_it = used_limits_.find(it->session_key);
-      if (used_limit_it != used_limits_.end())
-      {
-        if (used_limit_it->second.used_bytes >= it->used_bytes)
-        {
-          used_limit_it->second.used_bytes = used_limit_it->second.used_bytes - it->used_bytes;
-        }
-        else
-        {
-          used_limit_it->second.used_bytes = 0;
-        }
-
-        if (used_limit_it->second.used_bytes == 0)
-        {
-          used_limits_.erase(used_limit_it);
-        }
-      }
-    }
-    */
   }
 
   UserSession::UseLimitResult
   UserSession::use_limit_i_(
     const SessionKey& session_key,
     const Gears::Time& now,
-    unsigned long used_bytes,
-    unsigned long used_output_bytes,
-    unsigned long used_input_bytes)
+    const OctetStats& used_octets)
   {
     UseLimitResult use_limit_result;
 
@@ -157,7 +133,7 @@ namespace dpi
 
     //std::cout << "use_limit: #2" << session_key.to_string() << std::endl;
     const unsigned long prev_used_bytes = (
-      use_it != gy_used_limits_.end() ? use_it->second.used_bytes : 0);
+      use_it != gy_used_limits_.end() ? use_it->second.total_octets : 0);
 
     // check blocking
     /*
@@ -168,7 +144,7 @@ namespace dpi
     */
 
     if (limit_it->second.gx_limit.has_value() &&
-      prev_used_bytes + used_bytes > *limit_it->second.gx_limit)
+      prev_used_bytes + used_octets.total_octets > *limit_it->second.gx_limit)
     {
       if (prev_used_bytes <= *limit_it->second.gx_limit)
       {
@@ -179,7 +155,7 @@ namespace dpi
     }
 
     if (limit_it->second.gy_limit.has_value() &&
-      prev_used_bytes + used_bytes > *limit_it->second.gy_limit)
+      prev_used_bytes + used_octets.total_octets > *limit_it->second.gy_limit)
     {
       /*
       std::cout << "use_limit: #3, prev_used_bytes = " << prev_used_bytes <<
@@ -198,14 +174,14 @@ namespace dpi
     if (!use_limit_result.block)
     {
       if(limit_it->second.gx_recheck_limit.has_value() &&
-        prev_used_bytes + used_bytes > *limit_it->second.gx_recheck_limit &&
+        prev_used_bytes + used_octets.total_octets > *limit_it->second.gx_recheck_limit &&
         prev_used_bytes <= *limit_it->second.gx_recheck_limit)
       {
         use_limit_result.revalidate_gx = true;
       }
 
       if (limit_it->second.gy_recheck_limit.has_value() &&
-        prev_used_bytes + used_bytes > *limit_it->second.gy_recheck_limit &&
+        prev_used_bytes + used_octets.total_octets > *limit_it->second.gy_recheck_limit &&
         prev_used_bytes <= *limit_it->second.gy_recheck_limit)
       {
         use_limit_result.revalidate_gy = true;
@@ -231,8 +207,8 @@ namespace dpi
 
     if (!use_limit_result.block)
     {
-      gy_used_limits_[session_key].used_bytes += used_bytes;
-      gx_used_limits_[session_key].used_bytes += used_bytes;
+      gy_used_limits_[session_key] += used_octets;
+      gx_used_limits_[session_key] += used_octets;
     }
 
     return use_limit_result;
@@ -242,9 +218,7 @@ namespace dpi
   UserSession::use_limit(
     const SessionKey& session_key,
     const Gears::Time& now,
-    unsigned long used_bytes,
-    unsigned long used_output_bytes,
-    unsigned long used_input_bytes)
+    const OctetStats& used_octets)
   {
     //std::cout << "use_limit: used_bytes = " << used_bytes << std::endl;
 
@@ -262,18 +236,14 @@ namespace dpi
       use_limit_result = use_limit_i_(
         session_key,
         now,
-        used_bytes,
-        used_output_bytes,
-        used_input_bytes);
+        used_octets);
 
       if (use_limit_result.block)
       {
         use_limit_result = use_limit_i_(
           SessionKey(),
           now,
-          used_bytes,
-          used_output_bytes,
-          used_input_bytes);
+          used_octets);
       }
     }
 
@@ -290,7 +260,7 @@ namespace dpi
     std::shared_lock<std::shared_mutex> guard(limits_lock_);
     for (auto it = gx_used_limits_.begin(); it != gx_used_limits_.end(); ++it)
     {
-      res.emplace_back(UsedLimit(it->first, it->second.used_bytes));
+      res.emplace_back(UsedLimit(it->first, it->second));
     }
 
     if (own_stats)
@@ -309,7 +279,7 @@ namespace dpi
     std::shared_lock<std::shared_mutex> guard(limits_lock_);
     for (auto it = gy_used_limits_.begin(); it != gy_used_limits_.end(); ++it)
     {
-      res.emplace_back(UsedLimit(it->first, it->second.used_bytes));
+      res.emplace_back(UsedLimit(it->first, it->second));
     }
 
     if (own_stats)

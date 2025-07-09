@@ -38,7 +38,7 @@ namespace dpi
     const Gears::Time& now,
     const UserPtr& user,
     const FlowTraits& flow_traits,
-    Direction /*direction*/,
+    Direction direction,
     const SessionKey& session_key,
     uint64_t packet_size,
     const void* packet)
@@ -126,8 +126,15 @@ namespace dpi
       {
         packet_processing_state.user_session = user_session;
 
-        UserSession::UseLimitResult use_limit_result =
-          user_session->use_limit(session_key, now, packet_size, 0, 0);
+        UserSession::UseLimitResult use_limit_result = user_session->use_limit(
+          session_key,
+          now,
+          OctetStats(
+            packet_size,
+            direction == UserSessionPacketProcessor::Direction::D_OUTPUT ? packet_size : 0,
+            direction == UserSessionPacketProcessor::Direction::D_INPUT ? packet_size : 0
+          )
+        );
 
         if (use_limit_result.block)
         {
@@ -177,11 +184,13 @@ namespace dpi
     const FlowTraits& flow_traits,
     const char* block_reason)
   {
+    /*
     std::cout << "Process packet: block packet " << session_key.to_string() <<
       " - " << block_reason << ", flow traits: " <<
       ipv4_address_to_string(flow_traits.src_ip) << " => " <<
       ipv4_address_to_string(flow_traits.dst_ip) <<
       std::endl;
+    */
   }
 
   bool MainUserSessionPacketProcessor::check_user_state_(

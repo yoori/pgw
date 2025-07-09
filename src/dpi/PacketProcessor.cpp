@@ -630,44 +630,6 @@ namespace dpi
 
     //std::cout << "Process packet " << processing_state.session_key.to_string() << ": " << packet_size << std::endl;
 
-    if (user &&
-      !processing_state.block_packet &&
-      !processing_state.shaped &&
-      gx_diameter_session_ &&
-      pcc_config
-      )
-    {
-      //const DiameterTrafficTypeProvider::DiameterTrafficTypeArray& diameter_traffic_types =
-      //  diameter_traffic_type_provider_.get_diameter_traffic_type(processing_state.session_key);
-
-      auto session_key_rule_it = pcc_config->session_keys.find(processing_state.session_key);
-
-      if (session_key_rule_it != pcc_config->session_keys.end() &&
-        !session_key_rule_it->second.monitoring_keys.empty())
-      {
-        const PccConfig::SessionKeyRule& session_key_rule = session_key_rule_it->second;
-
-        DiameterSession::GxUpdateRequest gx_update_request;
-        for (auto it = session_key_rule.monitoring_keys.begin();
-           it != session_key_rule.monitoring_keys.end(); ++it)
-        {
-          gx_update_request.usage_monitorings.emplace_back(
-            DiameterSession::GxUpdateRequest::UsageMonitoring(*it, packet_size)
-          );
-        }
-
-        /*
-        if (!gx_update_request.usage_monitorings.empty())
-        {
-          DiameterSession::Request gx_request;
-          gx_request.msisdn = user->msisdn();
-          gx_request.imsi = user->imsi();
-          gx_diameter_session_->send_gx_update(gx_request, gx_update_request);
-        }
-        */
-      }
-    }
-
     return processing_state;
   }
 

@@ -71,64 +71,24 @@ namespace dpi
     }
   }
 
-  /*
-  bool Processor::process_request(
-    dpi::Manager::AcctStatusType acct_status_type,
-    std::string_view calling_station_id, //< msisdn
-    std::string_view called_station_id, //< msisdn
-    std::string_view imsi,
-    std::string_view imei,
-    uint32_t framed_ip_address,
-    uint32_t nas_ip_address,
-    uint8_t rat_type,
-    std::string_view mcc_mnc,
-    uint8_t tz,
-    uint32_t sgsn_ip_address,
-    uint32_t access_network_charging_ip_address,
-    uint32_t charging_id,
-    const char* gprs_negotiated_qos_profile,
-    const std::vector<unsigned char>& user_location_info,
-    std::string_view nsapi,
-    std::string_view selection_mode,
-    std::string_view charging_characteristics
-  )
-  */
-
   bool Processor::process_request(
     dpi::Manager::AcctStatusType acct_status_type,
     std::string_view calling_station_id, //< msisdn
     uint32_t framed_ip_address,
-    const std::unordered_map<ConstAttributeKeyPtr, Value>& pass_attributes,
     const UserSessionTraits& user_session_traits
   )
   {
-    std::cout << "process radius request" << std::endl;
+    std::cout << "process radius request: " <<
+      user_session_traits.user_session_property_container->to_string() <<
+      std::endl;
+
     logger_->log("process radius request");
 
     bool result = false;
 
-    /*
-    dpi::UserSessionTraits user_session_traits;
-    user_session_traits.framed_ip_address = framed_ip_address;
-    user_session_traits.msisdn = calling_station_id;
-    user_session_traits.imei = imei;
-    user_session_traits.imsi = imsi;
-    user_session_traits.called_station_id = called_station_id;
-    user_session_traits.nas_ip_address = nas_ip_address;
-    user_session_traits.rat_type = rat_type;
-    user_session_traits.timezone = timezone;
-    user_session_traits.mcc_mnc = mcc_mnc;
-    user_session_traits.sgsn_ip_address = sgsn_ip_address;
-    user_session_traits.access_network_charging_ip_address = access_network_charging_ip_address;
-    user_session_traits.charging_id = charging_id;
-    user_session_traits.gprs_negotiated_qos_profile = gprs_negotiated_qos_profile ?
-      gprs_negotiated_qos_profile : "";
-    user_session_traits.user_location_info = user_location_info;
-    user_session_traits.nsapi = nsapi;
-    user_session_traits.selection_mode = selection_mode;
-    */
-
-    result = manager_->process_request(acct_status_type, user_session_traits);
+    result = manager_->process_request(
+      acct_status_type,
+      user_session_traits);
 
     std::cout << "Radius: return " << result <<
       ", acct_status_type = " << (int)acct_status_type <<

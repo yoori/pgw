@@ -16,6 +16,7 @@
 #include <dpi/Manager.hpp>
 #include <dpi/IOServiceActiveObject.hpp>
 #include <dpi/SessionRuleOverrideUserSessionPacketProcessor.hpp>
+#include <dpi/RadiusUserSessionPropertyExtractor.hpp>
 
 #include "RadiusServer.hpp"
 #include "Processor.hpp"
@@ -35,6 +36,7 @@ void sigproc(int)
 
 namespace dpi
 {
+  /*
   ConstAttributeKeyPtrSet
   resolve_attribute_keys(const std::vector<DiameterPassAttribute>& pass_attributes)
   {
@@ -49,6 +51,7 @@ namespace dpi
 
     return result;
   }
+  */
 }
 
 int main(int argc, char **argv)
@@ -320,6 +323,7 @@ int main(int argc, char **argv)
 
   if (config.radius.has_value()) // create RadiusServer on activated io_service !
   {
+    /*
     // collect required custom attributes from radius
     dpi::ConstAttributeKeyPtrSet resolve_radius_keys;
 
@@ -334,6 +338,29 @@ int main(int argc, char **argv)
       auto resolved_keys = dpi::resolve_attribute_keys(config.gy->pass_attributes);
       resolve_radius_keys.insert(resolved_keys.begin(), resolved_keys.end());
     }
+    */
+
+    dpi::RadiusUserSessionPropertyExtractorPtr radius_user_session_property_extractor;
+
+    {
+      std::list<std::pair<dpi::ConstAttributeKeyPtr, std::string>> extract_radius_attributes;
+
+      for (const auto& extract_radius_attribute : config.radius->radius_properties)
+      {
+        extract_radius_attributes.emplace_back(
+          std::make_shared<const dpi::AttributeKey>(
+            extract_radius_attribute.name, extract_radius_attribute.vendor),
+          extract_radius_attribute.target_property_name
+        );
+      }
+
+      radius_user_session_property_extractor =
+        std::make_shared<dpi::RadiusUserSessionPropertyExtractor>(
+          config.radius->dictionary,
+          config.radius->secret,
+          extract_radius_attributes
+        );
+    }
 
     radius_server = std::make_shared<dpi::RadiusServer>(
       io_service_active_object->io_service(),
@@ -341,9 +368,9 @@ int main(int argc, char **argv)
       config.radius->secret,
       config.radius->dictionary,
       processor,
-      resolve_radius_keys);
+      radius_user_session_property_extractor);
   }
-  
+
   interrupter->activate_object();
   interrupter->wait_object();
 

@@ -1,12 +1,17 @@
 #pragma once
 
 #include <string>
+#include <unordered_set>
 #include <boost/functional/hash.hpp>
 
 namespace dpi
 {
   struct AttributeKey
   {
+    AttributeKey();
+
+    AttributeKey(const std::string& name, const std::string& vendor);
+
     std::string name;
     std::string vendor;
 
@@ -47,6 +52,16 @@ namespace dpi
 namespace dpi
 {
   // AttributeKey impl
+  inline
+  AttributeKey::AttributeKey()
+  {}
+
+  inline
+  AttributeKey::AttributeKey(const std::string& name_val, const std::string& vendor_val)
+    : name(name_val),
+      vendor(vendor_val)
+  {}
+
   inline bool
   AttributeKey::operator==(const AttributeKey& right) const
   {

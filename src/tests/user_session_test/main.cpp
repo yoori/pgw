@@ -3,6 +3,8 @@
 
 #include <dpi/UserSession.hpp>
 
+using namespace dpi;
+
 std::string used_limits_to_string(const dpi::UserSession::UsedLimitArray& used_limits)
 {
   std::ostringstream ostr;
@@ -10,7 +12,9 @@ std::string used_limits_to_string(const dpi::UserSession::UsedLimitArray& used_l
   {
     ostr << (it != used_limits.begin() ? ", " : "") << "{" <<
       "session_key = " << it->session_key.to_string() <<
-      ", used_bytes = " << it->used_bytes <<
+      ", total_octets = " << it->total_octets <<
+      ", output_octets = " << it->output_octets <<
+      ", input_octets = " << it->input_octets <<
       "}";
   }
 
@@ -28,7 +32,7 @@ bool test_no_limits()
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
-    10, 0, 0);
+    OctetStats(10, 10, 0));
   
   if (!res.block || res.revalidate_gx || res.revalidate_gy)
   {
@@ -65,7 +69,7 @@ bool test_pass_by_limit()
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
-    10, 0, 0);
+    OctetStats(10, 10, 0));
 
   if (!res.block || res.revalidate_gx || res.revalidate_gy)
   {
@@ -104,7 +108,7 @@ bool test_block_by_limit()
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
-    1500, 0, 0);
+    OctetStats(1500, 0, 0));
 
   //std::cout << "T: " << res.to_string() << std::endl;
 
@@ -152,7 +156,7 @@ bool test_use_and_block_by_limit()
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
-    100, 0, 0);
+    OctetStats(100, 0, 0));
 
   if (res.block)
   {
@@ -163,7 +167,7 @@ bool test_use_and_block_by_limit()
 
   auto used_limits = user_session.get_gy_used_limits();
 
-  if (used_limits.size() != 1 || used_limits.begin()->used_bytes != 100)
+  if (used_limits.size() != 1 || used_limits.begin()->total_octets != 100)
   {
     std::cerr << TEST_NAME << ": step2 - unexpected used limits: " <<
       used_limits_to_string(used_limits) <<
@@ -174,7 +178,7 @@ bool test_use_and_block_by_limit()
   res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
-    910, 0, 0);
+    OctetStats(910, 0, 0));
 
   if (!res.block)
   {
@@ -214,7 +218,7 @@ bool test_gx_flow()
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
-    100, 0, 0);
+    OctetStats(100, 0, 0));
 
   if (res.block)
   {
@@ -224,7 +228,7 @@ bool test_gx_flow()
 
   auto used_limits = user_session.get_gy_used_limits();
 
-  if (used_limits.size() != 1 || used_limits.begin()->used_bytes != 100)
+  if (used_limits.size() != 1 || used_limits.begin()->total_octets != 100)
   {
     std::cerr << TEST_NAME << ": step2 - unexpected used limits: " <<
       used_limits_to_string(used_limits) <<
@@ -248,13 +252,13 @@ bool test_gx_flow()
   res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
-    110, 0, 0);
+    OctetStats(110, 0, 0));
 
   user_session.set_limits(limits);
 
   auto last_used_limits2 = user_session.get_gy_used_limits();
 
-  if (last_used_limits2.size() != 1 || last_used_limits2.begin()->used_bytes != 110)
+  if (last_used_limits2.size() != 1 || last_used_limits2.begin()->total_octets != 110)
   {
     std::cerr << TEST_NAME << ": step3 - unexpected used limits: " <<
       used_limits_to_string(used_limits) <<
@@ -304,7 +308,7 @@ bool test_pass_by_generic_limit()
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     now,
-    10, 0, 0);
+    OctetStats(10, 0, 0));
 
   if (res.block)
   {
@@ -345,9 +349,7 @@ bool revalidate_gx_by_time_test()
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     start_time,
-    10,
-    0,
-    0);
+    OctetStats(10, 0, 0));
 
   if (res.revalidate_gx)
   {
@@ -358,9 +360,7 @@ bool revalidate_gx_by_time_test()
   res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     start_time + Gears::Time(9),
-    10,
-    0,
-    0);
+    OctetStats(10, 0, 0));
 
   if (res.revalidate_gx)
   {
@@ -371,9 +371,7 @@ bool revalidate_gx_by_time_test()
   res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     start_time + Gears::Time(11),
-    10,
-    0,
-    0);
+    OctetStats(10, 0, 0));
 
   if (!res.revalidate_gx)
   {
@@ -384,9 +382,7 @@ bool revalidate_gx_by_time_test()
   res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     start_time + Gears::Time(11),
-    10,
-    0,
-    0);
+    OctetStats(10, 0, 0));
 
   if (res.revalidate_gx)
   {
@@ -425,9 +421,7 @@ bool revalidate_gx_by_limit_test()
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     start_time,
-    9998,
-    0,
-    0);
+    OctetStats(9998, 0, 0));
 
   if (res.block || res.revalidate_gx)
   {
@@ -438,9 +432,7 @@ bool revalidate_gx_by_limit_test()
   res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     start_time + Gears::Time(9),
-    1000,
-    0,
-    0);
+    OctetStats(1000, 0, 0));
 
   if (res.block || !res.revalidate_gx)
   {
@@ -451,9 +443,7 @@ bool revalidate_gx_by_limit_test()
   res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     start_time + Gears::Time(11),
-    1000,
-    0,
-    0);
+    OctetStats(1000, 0, 0));
 
   if (res.block || res.revalidate_gx)
   {
@@ -465,9 +455,7 @@ bool revalidate_gx_by_limit_test()
   res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
     start_time + Gears::Time(11),
-    990000,
-    0,
-    0);
+    OctetStats(990000, 0, 0));
 
   if (!res.block)
   {

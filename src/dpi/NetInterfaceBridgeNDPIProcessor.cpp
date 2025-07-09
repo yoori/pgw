@@ -60,12 +60,14 @@ namespace dpi
         direction_,
         send_interface_);
 
+      /*
       if (packet_processing_state.block_packet)
       {
         std::cout << "NetInterfaceBridgeProcessor::process_packet(): block packet: " <<
           ipv4_address_to_string(flow_traits.src_ip) << " => " <<
           ipv4_address_to_string(flow_traits.dst_ip) << std::endl;
       }
+      */
 
       if (packet_processing_state.user_session && (
         packet_processing_state.revalidate_gx || packet_processing_state.revalidate_gy) &&

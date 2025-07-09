@@ -6,6 +6,7 @@
 #include <memory>
 
 #include "NetworkUtils.hpp"
+#include "UserSessionPropertyContainer.hpp"
 
 namespace dpi
 {
@@ -31,6 +32,8 @@ namespace dpi
     std::string nsapi;
     std::string selection_mode;
     std::string charging_characteristics;
+
+    UserSessionPropertyContainerPtr user_session_property_container;
 
     bool
     operator==(const UserSessionTraits& right) const;
