@@ -82,9 +82,13 @@ namespace dpi
     {
       UsedLimit() {};
 
-      UsedLimit(const SessionKey& session_key_val, const OctetStats& used_bytes_val);
+      UsedLimit(
+        const SessionKey& session_key_val,
+        const OctetStats& used_bytes_val,
+        const std::optional<UsageReportingReason>& reporting_reason = std::nullopt);
 
       SessionKey session_key;
+      std::optional<UsageReportingReason> reporting_reason;
     };
 
     using UsedLimitArray = std::vector<UsedLimit>;
@@ -139,7 +143,7 @@ namespace dpi
     get_gx_used_limits(bool own_stats = true);
 
     UsedLimitArray
-    get_gy_used_limits(bool own_stats = true);
+    get_gy_used_limits(const Gears::Time& now, bool own_stats);
 
     std::pair<std::string, unsigned long>
     generate_gx_request_id();
@@ -169,14 +173,6 @@ namespace dpi
     close();
 
   private:
-    struct LimitHolder
-    {
-      Gears::Time gx_recheck_time;
-      unsigned long gx_limit = 0;
-      Gears::Time gy_recheck_time;
-      unsigned long gy_limit = 0;
-    };
-
     using LimitMap = Gears::HashTable<SessionKey, Limit>;
 
     using UsedLimitHolderMap = Gears::HashTable<SessionKey, OctetStats>;
@@ -265,9 +261,11 @@ namespace dpi
   inline
   UserSession::UsedLimit::UsedLimit(
     const SessionKey& session_key_val,
-    const OctetStats& octet_stats)
-    : session_key(session_key_val),
-      OctetStats(octet_stats)
+    const OctetStats& octet_stats,
+    const std::optional<UsageReportingReason>& reporting_reason_val)
+    : OctetStats(octet_stats),
+      session_key(session_key_val),
+      reporting_reason(reporting_reason_val)
   {}
 
   // UserSession::Limit

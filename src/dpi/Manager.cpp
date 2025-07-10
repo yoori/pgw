@@ -105,14 +105,17 @@ namespace dpi
 
     std::unordered_map<unsigned long, dpi::DiameterSession::GyRequest::UsageRatingGroup> send_rating_groups;
 
-    /*
-    for (const auto& rg_id : rating_groups)
+    if (fill_zero_usage_groups)
     {
-      send_rating_groups.emplace(rg_id, OctetStats());
+      for (const auto& rg_id : rating_groups)
+      {
+        send_rating_groups.emplace(
+          rg_id,
+          DiameterSession::GyRequest::UsageRatingGroup(rg_id, OctetStats(), std::nullopt));
+      }
     }
-    */
 
-    auto used_limits = user_session.get_gy_used_limits();
+    auto used_limits = user_session.get_gy_used_limits(Gears::Time::get_time_of_day(), true);
     for (const auto& used_limit : used_limits)
     {
       auto session_rule_it = pcc_config->session_keys.find(used_limit.session_key);
@@ -123,17 +126,19 @@ namespace dpi
         for (const auto& rg_id : session_key_rule.rating_groups)
         {
           auto& send_rating_group = send_rating_groups[rg_id];
-          send_rating_group += used_limit;
           send_rating_group.rating_group_id = rg_id;
-          
+          send_rating_group += used_limit;
+          if (used_limit.reporting_reason.has_value())
+          {
+            send_rating_group.reporting_reason = used_limit.reporting_reason;
+          }
         }
       }
     }
 
-    for (const auto& [rg_id, rg_use] : send_rating_groups)
+    for (const auto& [_, rg_use] : send_rating_groups)
     {
-      gy_request.usage_rating_groups.emplace_back(
-        dpi::DiameterSession::GyRequest::UsageRatingGroup(rg_id, rg_use));
+      gy_request.usage_rating_groups.emplace_back(rg_use);
     }
   }
 
@@ -418,40 +423,6 @@ namespace dpi
               mk_id,
               used_limit
             ));
-        }
-      }
-    }
-  }
-
-  void
-  Manager::fill_gy_stats_(
-    dpi::DiameterSession::GyRequest& gy_request,
-    dpi::UserSession& user_session)
-  {
-    if (!pcc_config_provider_)
-    {
-      return;
-    }
-
-    auto pcc_config = pcc_config_provider_->get_config();
-
-    if (!pcc_config)
-    {
-      return;
-    }
-
-    auto used_limits = user_session.get_gy_used_limits();
-    for (const auto& used_limit : used_limits)
-    {
-      auto session_rule_it = pcc_config->session_keys.find(used_limit.session_key);
-      if (session_rule_it != pcc_config->session_keys.end())
-      {
-        const dpi::PccConfig::SessionKeyRule& session_key_rule = session_rule_it->second;
-
-        for (const auto& rg_id : session_key_rule.rating_groups)
-        {
-          gy_request.usage_rating_groups.emplace_back(
-            dpi::DiameterSession::GyRequest::UsageRatingGroup(rg_id, used_limit));
         }
       }
     }
@@ -933,7 +904,7 @@ namespace dpi
         logger_->log("send diameter gy terminate");
 
         DiameterSession::GyRequest gy_update_request; // To fix : use locally
-        fill_gy_request_(gy_update_request, user_session, true);
+        fill_gy_request_(gy_update_request, user_session, false);
         gy_update_request.reason = reason;
 
         // TODO: lock diameter exchange for session

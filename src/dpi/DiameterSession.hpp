@@ -54,7 +54,7 @@ namespace dpi
 
         UsageRatingGroup(
           unsigned long rating_group_id_val,
-          const OctetStats& octet_stats = OctetStats(),
+          const OctetStats& octet_stats,
           const std::optional<UsageReportingReason>& reporting_reason_val)
           : OctetStats(octet_stats),
             rating_group_id(rating_group_id_val),

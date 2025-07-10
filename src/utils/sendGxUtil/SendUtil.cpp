@@ -415,8 +415,11 @@ int main(int argc, char* argv[])
       request.request_id = gy_request_i++;
 
       request.user_session_traits = user_session_traits;
-      request.usage_rating_groups.emplace_back(dpi::DiameterSession::GyRequest::UsageRatingGroup(32)); // Internet(MVNO_SBT_UNLIM): RG32 MK64
-      request.usage_rating_groups.emplace_back(dpi::DiameterSession::GyRequest::UsageRatingGroup(61)); //
+      request.usage_rating_groups.emplace_back(
+        dpi::DiameterSession::GyRequest::UsageRatingGroup(32, dpi::OctetStats(), std::nullopt));
+      //< Internet(MVNO_SBT_UNLIM): RG32 MK64
+      request.usage_rating_groups.emplace_back(
+        dpi::DiameterSession::GyRequest::UsageRatingGroup(61, dpi::OctetStats(), std::nullopt)); //
 
       dpi::DiameterSession::GyResponse gy_init_response = session->send_gy_init(request);
       std::cout << "Gy init request: result-code = " << gy_init_response.result_code <<

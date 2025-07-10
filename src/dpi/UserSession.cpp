@@ -119,6 +119,8 @@ namespace dpi
     const Gears::Time& now,
     const OctetStats& used_octets)
   {
+    //std::cout << "UserSession::use_limit_i_()" << std::endl;
+
     UseLimitResult use_limit_result;
 
     auto use_it = gy_used_limits_.find(session_key);
@@ -205,10 +207,12 @@ namespace dpi
       }
     }
 
+    //std::cout << "P1" << std::endl;
+
     if (!use_limit_result.block)
     {
-      gy_used_limits_[session_key] += used_octets;
       gx_used_limits_[session_key] += used_octets;
+      gy_used_limits_[session_key] += used_octets;
     }
 
     return use_limit_result;
@@ -272,14 +276,36 @@ namespace dpi
   }
 
   UserSession::UsedLimitArray
-  UserSession::get_gy_used_limits(bool own_stats)
+  UserSession::get_gy_used_limits(const Gears::Time& now, bool own_stats)
   {
     UsedLimitArray res;
 
     std::shared_lock<std::shared_mutex> guard(limits_lock_);
     for (auto it = gy_used_limits_.begin(); it != gy_used_limits_.end(); ++it)
     {
-      res.emplace_back(UsedLimit(it->first, it->second));
+      // evaluate used limit status
+      std::optional<UsageReportingReason> reporting_reason;
+      auto limit_it = limits_.find(it->first);
+      if (limit_it != limits_.end())
+      {
+        const unsigned used_bytes = it->second.total_octets;
+
+        if (limit_it->second.gy_limit.has_value() && used_bytes >= *limit_it->second.gy_limit)
+        {
+          reporting_reason = UsageReportingReason::QUOTA_EXHAUSTED;
+        }
+        else if (limit_it->second.gy_recheck_limit.has_value() && used_bytes >= *limit_it->second.gy_recheck_limit)
+        {
+          reporting_reason = UsageReportingReason::QUOTA_EXHAUSTED;
+        }
+        else if (limit_it->second.gy_recheck_time.has_value() &&
+          now >= *limit_it->second.gy_recheck_time)
+        {
+          reporting_reason = UsageReportingReason::VALIDITY_TIME;
+        }
+      }
+
+      res.emplace_back(UsedLimit(it->first, it->second, reporting_reason));
     }
 
     if (own_stats)
