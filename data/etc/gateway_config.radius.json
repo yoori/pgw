@@ -1,4 +1,7 @@
 {
+  "global_properties": [
+    { "target_property_name": "PDP-Type", "value": 0},
+  ],
   "radius": {
     "listen_port": 1813,
     "secret": "sbtel",

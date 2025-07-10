@@ -8,10 +8,8 @@ namespace dpi
 {
   UserSession::UserSession(
     const UserSessionTraits& traits,
-    ConstUserSessionPropertyContainerPtr properties,
     UserPtr user)
     : traits_(std::make_shared<const UserSessionTraits>(traits)),
-      properties_(std::move(properties)),
       user_(std::move(user)),
       gx_request_id_(0),
       gy_request_id_(0)
@@ -22,6 +20,7 @@ namespace dpi
       std::to_string(Gears::safe_rand()) + ";0;" + std::to_string(Gears::safe_rand());
   }
 
+  /*
   ConstUserSessionPropertyContainerPtr
   UserSession::properties() const
   {
@@ -42,6 +41,7 @@ namespace dpi
     }
     properties_.swap(new_properties);
   }
+  */
 
   void
   UserSession::set_traits(const UserSessionTraits& traits)

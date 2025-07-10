@@ -21,7 +21,6 @@ namespace dpi
 
     UserSessionPtr add_user_session(
       const UserSessionTraits& user_session_traits,
-      const ConstUserSessionPropertyContainerPtr& properties,
       const UserPtr& user);
 
     // remove session from storage

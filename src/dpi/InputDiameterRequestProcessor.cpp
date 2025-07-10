@@ -1,5 +1,6 @@
 #include "AVPUtils.hpp"
 
+#include "DiameterSession.hpp"
 #include "InputDiameterRequestProcessor.hpp"
 
 namespace dpi
@@ -55,6 +56,13 @@ namespace dpi
           }
         }
 
+        std::unordered_set<std::string> install_charging_rule_names;
+        std::unordered_set<std::string> remove_charging_rule_names;
+        SCTPDiameterSession::get_charging_rules(
+          install_charging_rule_names,
+          remove_charging_rule_names,
+          request);
+
         // Make update/terminate before RAR response
         auto manager = manager_.lock();
 
@@ -74,7 +82,13 @@ namespace dpi
             }
             else
             {
-              manager->update_session(session_id, true, true, "RAR request");
+              manager->update_session(
+                session_id,
+                true,
+                true,
+                "RAR request",
+                install_charging_rule_names,
+                remove_charging_rule_names);
             }
           }
           catch (const Manager::UnknownSession&)

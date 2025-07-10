@@ -78,6 +78,10 @@ namespace dpi
       gy_pass_attributes_(std::move(gy_pass_attributes)),
       origin_state_id_(3801248757)
   {
+    std::cout << "SCTPDiameterSession::SCTPDiameterSession(): "
+      "gx_pass_attributes_.size = " << gx_pass_attributes_.size() <<
+      ", gy_pass_attributes_.size = " << gy_pass_attributes_.size() << std::endl;
+
     Gears::ActiveObjectCallback_var callback(new CerrCallback());
 
     task_runner_ = Gears::TaskRunner_var(new Gears::TaskRunner(callback, 1));
@@ -342,7 +346,7 @@ namespace dpi
           }
         }
       }
-      else if (avp.header().avpCode() == 1002) //< Charging-Rule-Install(1001)
+      else if (avp.header().avpCode() == 1002) //< Charging-Rule-Remove(1002)
       {
         auto avp_data = avp.data().toAVPs();
         for (const auto& sub_avp : avp_data)
@@ -484,6 +488,10 @@ namespace dpi
               if (g_avp.header().avpCode() == 421) // < CC-Total-Octets(421)
               {
                 rating_group_limit.cc_total_octets = g_avp.data().toUnsigned64();
+              }
+              else if (g_avp.header().avpCode() == 869) // < Volume-Quota-Threshold(869)
+              {
+                rating_group_limit.octets_threshold = g_avp.data().toUnsigned32();
               }
             }
           }
@@ -852,6 +860,17 @@ namespace dpi
       packet.addAVP(create_string_avp(283, *destination_realm_)); // Destination-Realm(283)
     }
 
+    std::string imsi;
+
+    {
+      // fill IMSI
+      auto property_it = request.user_session_traits.user_session_property_container->values.find("IMSI");
+      if (property_it != request.user_session_traits.user_session_property_container->values.end())
+      {
+        imsi = value_as_string(property_it->second);
+      }
+    }
+
     packet
       .addAVP(create_uint32_avp(415, request_key.request_i, std::nullopt, true)) // CC-Request-Number
       .addAVP(create_uint32_avp(278, 3801248757, std::nullopt, true)) // Origin-State-Id
@@ -881,7 +900,6 @@ namespace dpi
       .addAVP(create_int32_avp(1009, 1, 10415, true)) // Online
       .addAVP(create_int32_avp(1008, 1, 10415, true)) // Offline
       .addAVP(create_uint32_avp(1024, 1, 10415, true)) // Network-Request-Support
-      // Subscription-Id with IMSI
       .addAVP(create_avp( // Subscription-Id
         443,
         Diameter::AVP::Data()
@@ -890,11 +908,12 @@ namespace dpi
         std::nullopt,
         true
         ))
+      // Subscription-Id with IMSI
       .addAVP(create_avp( // Subscription-Id
         443,
         Diameter::AVP::Data()
           .addAVP(create_int32_avp(450, 1)) // Subscription-Id-Type = END_USER_IMSI
-          .addAVP(create_string_avp(444, request.user_session_traits.imsi)), // Subscription-Id-Data
+          .addAVP(create_string_avp(444, imsi)), // Subscription-Id-Data
         std::nullopt,
         true
         ))
@@ -909,63 +928,24 @@ namespace dpi
       .addAVP(create_uint32_avp(1027, 5, 10415, true)) // IP-CAN-Type
       ;
 
-    if (!request.user_session_traits.imei.empty())
-    {
-      packet.addAVP(
-        create_avp(
-          458, // User-Equipment-Info(458)
-          Diameter::AVP::Data()
-            .addAVP(create_uint32_avp(459, 0, std::nullopt, false))
-            //< User-Equipment-Info-Type(459) = IMEISV
-            .addAVP(create_string_avp(
-              460,
-              request.user_session_traits.imei, std::nullopt, false))
-            //< User-Equipment-Info-Type(459)
-          ,
-          std::nullopt,
-          false
-        )
-      );
-    }
-
-    /*
-    DiameterPacketFiller packet_filler(diameter_dictionary_, 272);
-    packet_filler.add_avp("RAT-Type", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.rat_type));
-    packet_filler.add_non_empty_avp("3GPP-User-Location-Info",
-      dpi::Value(request.user_session_traits.user_location_info));
-    packet_filler.add_non_empty_avp("3GPP-SGSN-MCC-MNC", request.user_session_traits.mcc_mnc);
-    packet_filler.add_avp("3GPP-SGSN-Address",
-      DiameterFieldAdapterDictionary::instance().get_adapter("ipv4-as-4bytes")->adapt(
-        dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address)
-      )
-    );
-    packet_filler.add_avp("AN-GW-Address",
-      dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
-    packet_filler.add_avp("Access-Network-Charging-Address",
-      dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.access_network_charging_ip_address));
-    packet_filler.add_avp("Framed-IP-Address",
-      DiameterFieldAdapterDictionary::instance().get_adapter("ipv4-as-4bytes")->adapt(
-        dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.framed_ip_address)
-      )
-    );
-
-    packet_filler.add_avp("3GPP-MS-TimeZone",
-      DiameterFieldAdapterDictionary::instance().get_adapter("timezone-as-2bytes")->adapt(
-        dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.timezone)
-      )
-    );
-    packet_filler.add_avp("Access-Network-Charging-Identifier-Gx.Access-Network-Charging-Identifier-Value",
-      DiameterFieldAdapterDictionary::instance().get_adapter("int-as-4bytes")->adapt(
-        dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.charging_id)
-      )
-    );
-    packet_filler.add_avp("Called-Station-Id", request.user_session_traits.called_station_id);
-    packet_filler.apply(packet);
-    */
+    std::cout << "gx_pass_attributes_.size() = " << gx_pass_attributes_.size() << std::endl;
 
     if (request.user_session_traits.user_session_property_container)
     {
       DiameterPacketFiller packet_filler(diameter_dictionary_, 272);
+
+      {
+        // fill IMEI
+        auto property_it = request.user_session_traits.user_session_property_container->values.find("IMEI");
+        if (property_it != request.user_session_traits.user_session_property_container->values.end())
+        {
+          packet_filler.add_avp(
+            "User-Equipment-Info.User-Equipment-Info-Type", dpi::Value(std::in_place_type<uint64_t>, 0));
+          packet_filler.add_avp(
+            "User-Equipment-Info.User-Equipment-Info-Value", property_it->second);
+        }
+      }
+      
       for (const auto& pass_attribute : gx_pass_attributes_)
       {
         auto property_it = request.user_session_traits.user_session_property_container->values.find(
@@ -977,7 +957,14 @@ namespace dpi
             DiameterFieldAdapterDictionary::instance().get_adapter(pass_attribute.adapter)->adapt(
               property_it->second)
           );
+          //std::cout << "ATTR: set attribute '" << pass_attribute.property_name << "'" << std::endl;
         }
+        /*
+        else
+        {
+          std::cout << "ATTR: no attribute '" << pass_attribute.property_name << "'" << std::endl;
+        }
+        */
       }
       packet_filler.apply(packet);
     }
@@ -1122,7 +1109,7 @@ namespace dpi
   std::pair<SCTPDiameterSession::RequestKey, ByteArray>
   SCTPDiameterSession::generate_gy_terminate_(const GyRequest& request) const
   {
-    auto [request_key, packet] = generate_base_gy_packet_(request, 2);
+    auto [request_key, packet] = generate_base_gy_packet_(request, UsageReportingReason::FINAL);
 
     packet.addAVP(create_int32_avp(295, 1, std::nullopt, true)); // Termination-Cause(295)=DIAMETER_LOGOUT
     packet.addAVP(create_int32_avp(416, 3, std::nullopt, true)); // CC-Request-Type
@@ -1136,7 +1123,8 @@ namespace dpi
   std::pair<SCTPDiameterSession::RequestKey, Diameter::Packet>
   SCTPDiameterSession::generate_base_gy_packet_(
     const GyRequest& request,
-    const std::optional<unsigned int>& reporting_reason) const
+    const std::optional<UsageReportingReason>& usage_reporting_reason //< Override 3GPP-Reporting-Reason
+  ) const
   {
     auto packet = Diameter::Packet()
       .setHeader(
@@ -1172,6 +1160,17 @@ namespace dpi
       packet.addAVP(create_string_avp(283, *destination_realm_)); // Destination-Realm(283)
     }
 
+    std::string imsi;
+
+    {
+      // fill IMSI
+      auto property_it = request.user_session_traits.user_session_property_container->values.find("IMSI");
+      if (property_it != request.user_session_traits.user_session_property_container->values.end())
+      {
+        imsi = value_as_string(property_it->second);
+      }
+    }
+
     packet
       .addAVP(create_uint32_avp(415, request_i, std::nullopt, true)) // CC-Request-Number
       .addAVP(create_uint32_avp(278, origin_state_id_, std::nullopt, true)) // Origin-State-Id
@@ -1189,7 +1188,7 @@ namespace dpi
         443,
         Diameter::AVP::Data()
           .addAVP(create_int32_avp(450, 1)) // Subscription-Id-Type = END_USER_IMSI
-          .addAVP(create_string_avp(444, request.user_session_traits.imsi)), // Subscription-Id-Data
+          .addAVP(create_string_avp(444, imsi)), // Subscription-Id-Data
         std::nullopt,
         true
         ))
@@ -1210,13 +1209,34 @@ namespace dpi
         )
       );
 
-      if (rating_group.total_octets > 0)
+      if (rating_group.total_octets > 0 || rating_group.input_octets > 0 || rating_group.output_octets > 0)
       {
         Diameter::AVP::Data used_avp_data;
-        used_avp_data.addAVP(create_uint64_avp(421, rating_group.total_octets, std::nullopt, true));
-        if (reporting_reason.has_value())
+        used_avp_data.addAVP(create_uint64_avp(421, rating_group.total_octets, std::nullopt, true)); // CC-Total-Octets(421)
+        used_avp_data.addAVP(create_uint64_avp(412, rating_group.input_octets, std::nullopt, true)); // CC-Input-Octets(412)
+        used_avp_data.addAVP(create_uint64_avp(414, rating_group.output_octets, std::nullopt, true)); // CC-Output-Octets(414)
+        if (usage_reporting_reason.has_value())
         {
-          used_avp_data.addAVP(create_uint32_avp(872, *reporting_reason, 10415, true)); // 3GPP-Reporting-Reason(872)=THRESHOLD
+          used_avp_data.addAVP(create_uint32_avp(872, static_cast<uint32_t>(*usage_reporting_reason), 10415, true));
+          //< 3GPP-Reporting-Reason(872)=THRESHOLD
+        }
+        else if (rating_group.reporting_reason.has_value())
+        {
+          used_avp_data.addAVP(create_uint32_avp(
+            872,
+            static_cast<uint32_t>(*rating_group.reporting_reason),
+            10415,
+            true
+          ));
+        }
+        else
+        {
+          used_avp_data.addAVP(create_uint32_avp(
+            872,
+            static_cast<uint32_t>(UsageReportingReason::OTHER_QUOTA_TYPE),
+            10415,
+            true
+          ));
         }
 
         avp_data.addAVP(create_avp(
@@ -1237,21 +1257,27 @@ namespace dpi
       );
     }
 
-    if (!request.user_session_traits.imei.empty())
     {
-      packet.addAVP(
-        create_avp(
-          458, // User-Equipment-Info(458)
-          Diameter::AVP::Data()
-            .addAVP(create_uint32_avp(459, 0, std::nullopt, false))
-            //< User-Equipment-Info-Type(459) = IMEISV
-            .addAVP(create_string_avp(460, request.user_session_traits.imei, std::nullopt, false))
-            //< User-Equipment-Info-Type(459)
-          ,
-          std::nullopt,
-          false
-        )
-      );
+      // fill IMEI
+      auto property_it = request.user_session_traits.user_session_property_container->values.find("IMEI");
+      if (property_it != request.user_session_traits.user_session_property_container->values.end())
+      {
+        std::string imei = value_as_string(property_it->second);
+
+        packet.addAVP(
+          create_avp(
+            458, // User-Equipment-Info(458)
+            Diameter::AVP::Data()
+              .addAVP(create_uint32_avp(459, 0, std::nullopt, false))
+              //< User-Equipment-Info-Type(459) = IMEISV
+              .addAVP(create_string_avp(460, imei, std::nullopt, false))
+              //< User-Equipment-Info-Type(459)
+            ,
+            std::nullopt,
+            false
+          )
+        );
+      }
     }
 
     /*
@@ -1264,7 +1290,9 @@ namespace dpi
     packet_filler.add_avp(
       "Service-Information.PS-Information.GGSN-Address",
       dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.access_network_charging_ip_address));
-    packet_filler.add_avp("Service-Information.PS-Information.CG-Address", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
+    packet_filler.add_avp(
+      "Service-Information.PS-Information.CG-Address",
+      dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.sgsn_ip_address));
 
     packet_filler.add_avp("Service-Information.PS-Information.3GPP-Charging-Id", dpi::Value(std::in_place_type<uint64_t>, request.user_session_traits.charging_id));
     packet_filler.add_avp("Service-Information.PS-Information.3GPP-PDP-Type", dpi::Value(std::in_place_type<uint64_t>, 0));
@@ -1292,6 +1320,8 @@ namespace dpi
     packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-GPRS-Negotiated-QoS-Profile",
       dpi::Value(request.user_session_traits.gprs_negotiated_qos_profile));
     */
+    std::cout << "gy_pass_attributes_.size() = " << gy_pass_attributes_.size() << std::endl;
+
     if (request.user_session_traits.user_session_property_container)
     {
       DiameterPacketFiller packet_filler(diameter_dictionary_, 272);
@@ -1306,7 +1336,14 @@ namespace dpi
             DiameterFieldAdapterDictionary::instance().get_adapter(pass_attribute.adapter)->adapt(
               property_it->second)
           );
+          //std::cout << "ATTR GY: set attribute '" << pass_attribute.property_name << "'" << std::endl;
         }
+        /*
+        else
+        {
+          std::cout << "ATTR GY: no attribute '" << pass_attribute.property_name << "'" << std::endl;
+        }
+        */
       }
       packet_filler.apply(packet);
     }
@@ -1351,11 +1388,21 @@ namespace dpi
       packet.addAVP(create_string_avp(283, *destination_realm_));
     }
 
+    std::string imsi;
+
+    {
+      // fill IMSI
+      auto property_it = request.user_session_traits.user_session_property_container->values.find("IMSI");
+      if (property_it != request.user_session_traits.user_session_property_container->values.end())
+      {
+        imsi = value_as_string(property_it->second);
+        std::cout << "IMSI search : " << imsi << std::endl;
+      }
+    }
+
     packet
       .addAVP(create_uint32_avp(415, request_key.request_i, std::nullopt, true)) // CC-Request-Number
       .addAVP(create_uint32_avp(278, origin_state_id_, std::nullopt, true)) // Origin-State-Id
-      .addAVP(create_string_avp(30, request.user_session_traits.called_station_id, std::nullopt, true))
-      //< Called-Station-Id
       .addAVP(create_avp( // Subscription-Id
         443,
         Diameter::AVP::Data()
@@ -1368,7 +1415,7 @@ namespace dpi
         443,
         Diameter::AVP::Data()
           .addAVP(create_int32_avp(450, 1)) // Subscription-Id-Type = END_USER_IMSI
-          .addAVP(create_string_avp(444, request.user_session_traits.imsi)), // Subscription-Id-Data
+          .addAVP(create_string_avp(444, imsi)), // Subscription-Id-Data
         std::nullopt,
         true
       ));

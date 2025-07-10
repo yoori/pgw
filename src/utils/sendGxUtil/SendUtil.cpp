@@ -37,20 +37,17 @@ dpi::UserSessionPropertyContainerPtr fill_user_session_property_container()
     "Charging-ID",
     dpi::Value(std::in_place_type<uint64_t>, 0x4188491));
   user_session_property_container->values.emplace(
-    "PDP-Type",
-    dpi::Value(std::in_place_type<uint64_t>, 0)); //< Constant
-  user_session_property_container->values.emplace(
     "RAT-Type",
-    dpi::Value(std::in_place_type<uint64_t>, 1004));
-  user_session_property_container->values.emplace(
-    "Service-Type",
-    dpi::Value(std::in_place_type<uint64_t>, 2)); //< Constant
+    dpi::Value(std::in_place_type<uint64_t>, 6));
   user_session_property_container->values.emplace(
     "MS-TimeZone",
-    dpi::Value(std::in_place_type<uint64_t>, 0));
+    dpi::Value(std::in_place_type<uint64_t>, 33));
   user_session_property_container->values.emplace(
     "SGSN-MCC-MNC",
     std::string("25020"));
+  user_session_property_container->values.emplace(
+    "Called-Station-Id",
+    std::string("internet.sberbank-tele.com"));
   /*
   user_session_property_container->values.emplace(
     "Charging-Characteristics",
@@ -71,6 +68,23 @@ dpi::UserSessionPropertyContainerPtr fill_user_session_property_container()
   user_session_property_container->values.emplace(
     "GPRS-Negotiated-QoS-profile",
     std::string("08-48080000c350000249f0"));
+  user_session_property_container->values.emplace(
+    "IMEI",
+    dpi::Value(std::string("33353732343837373930353932323031")));
+
+  // Constants
+  user_session_property_container->values.emplace(
+    "Serving-Node-Type",
+    dpi::Value(std::in_place_type<uint64_t>, 2));
+  user_session_property_container->values.emplace(
+    "PDP-Type",
+    dpi::Value(std::in_place_type<uint64_t>, 0));
+  user_session_property_container->values.emplace(
+    "PDP-Context-Type",
+    dpi::Value(std::in_place_type<uint64_t>, 0));
+  user_session_property_container->values.emplace(
+    "IMSI",
+    std::string("250507712932915"));
 
   return user_session_property_container;
 }
@@ -79,8 +93,18 @@ std::vector<dpi::DiameterPassAttribute> fill_gx_pass_attributes()
 {
   std::vector<dpi::DiameterPassAttribute> pass_attributes;
   pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Framed-IP-Address",
+    "Framed-IP-Address",
+    "ipv4-as-4bytes"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Called-Station-Id",
+    "Called-Station-Id"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
     "RAT-Type",
     "RAT-Type"
+    // TODO : adapter from 3GPP-RAT-Type values to RAT-Type, radius contains : 6, 3GPP-RAT-Type (gy) : 6, RAT-Type (gx) : 1004
   ));
   pass_attributes.emplace_back(dpi::DiameterPassAttribute(
     "3GPP-User-Location-Info",
@@ -92,7 +116,7 @@ std::vector<dpi::DiameterPassAttribute> fill_gx_pass_attributes()
   ));
   pass_attributes.emplace_back(dpi::DiameterPassAttribute(
     "3GPP-SGSN-Address",
-    "SGSN-MCC-MNC",
+    "SGSN-Address",
     "ipv4-as-4bytes"
   ));
   pass_attributes.emplace_back(dpi::DiameterPassAttribute(
@@ -108,18 +132,14 @@ std::vector<dpi::DiameterPassAttribute> fill_gx_pass_attributes()
     "CG-Address"
   ));
   pass_attributes.emplace_back(dpi::DiameterPassAttribute(
-    "Framed-IP-Address",
-    "Framed-IP-Address",
-    "ipv4-as-4bytes"
-  ));
-  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
     "3GPP-MS-TimeZone",
     "MS-TimeZone",
     "timezone-as-2bytes"
   ));
   pass_attributes.emplace_back(dpi::DiameterPassAttribute(
     "Access-Network-Charging-Identifier-Gx.Access-Network-Charging-Identifier-Value",
-    "Charging-Id"
+    "Charging-ID",
+    "to-string"
   ));
 
   return pass_attributes;
@@ -137,6 +157,10 @@ std::vector<dpi::DiameterPassAttribute> fill_gy_pass_attributes()
     "SGSN-Address"
   ));
   pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.CG-Address",
+    "SGSN-Address"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
     "Service-Information.PS-Information.GGSN-Address",
     "CG-Address"
   ));
@@ -149,8 +173,13 @@ std::vector<dpi::DiameterPassAttribute> fill_gy_pass_attributes()
     "PDP-Type"
   ));
   pass_attributes.emplace_back(dpi::DiameterPassAttribute(
+    "Service-Information.PS-Information.PDP-Context-Type",
+    "PDP-Context-Type"
+  ));
+  pass_attributes.emplace_back(dpi::DiameterPassAttribute(
     "Service-Information.PS-Information.3GPP-RAT-Type",
-    "RAT-Type"
+    "RAT-Type",
+    "int-as-1byte"
   ));
   pass_attributes.emplace_back(dpi::DiameterPassAttribute(
     "Service-Information.PS-Information.PDN-Connection-Charging-ID",
@@ -158,7 +187,7 @@ std::vector<dpi::DiameterPassAttribute> fill_gy_pass_attributes()
   ));
   pass_attributes.emplace_back(dpi::DiameterPassAttribute(
     "Service-Information.PS-Information.Serving-Node-Type",
-    "Service-Type"
+    "Serving-Node-Type"
   ));
   pass_attributes.emplace_back(dpi::DiameterPassAttribute(
     "Service-Information.PS-Information.3GPP-MS-TimeZone",
@@ -313,6 +342,14 @@ int main(int argc, char* argv[])
 
     session->activate_object();
 
+    dpi::UserSessionTraits user_session_traits;
+    user_session_traits.user_session_property_container = user_session_property_container;
+    user_session_traits.msisdn = "79662660021";
+    //user_session_traits.called_station_id = "ltpcef.test";
+    user_session_traits.framed_ip_address = ipv4(10, 243, 64, 1);
+    //user_session_traits.nas_ip_address = ipv4(10, 77, 21, 116);
+    //user_session_traits.imsi = "250507712932915";
+
     const unsigned long GX_APPLICATION_ID = 16777238;
     const std::string GX_SESSION_ID_SUFFIX = ";1;0;1";
     unsigned int gx_request_i = 0;
@@ -321,25 +358,7 @@ int main(int argc, char* argv[])
     request.application_id = GX_APPLICATION_ID;
     request.session_id_suffix = GX_SESSION_ID_SUFFIX;
     request.request_id = gx_request_i++;
-    request.user_session_traits.msisdn = "79662660021";
-    //request.service_id = 1; // TO FILL
-    request.user_session_traits.called_station_id = "ltpcef.test";
-    request.user_session_traits.framed_ip_address = ipv4(10, 243, 64, 1);
-    request.user_session_traits.nas_ip_address = ipv4(10, 77, 21, 116);
-    request.user_session_traits.imsi = "250507712932915";
-    request.user_session_traits.rat_type = 1004;
-    request.user_session_traits.mcc_mnc = "25020";
-    request.user_session_traits.timezone = 33;
-    request.user_session_traits.sgsn_ip_address = ipv4(185, 77, 17, 121);
-    request.user_session_traits.access_network_charging_ip_address = ipv4(185, 174, 131, 53);
-    request.user_session_traits.charging_id = 0x4188491;
-    const unsigned char USER_LOCATION_INFO[] = {
-      0x82, 0x52, 0xf0, 0x02, 0x6c, 0x9a, 0x52, 0xf0, 0x02, 0x0b, 0xcd, 0xc0, 0x23
-    };
-    request.user_session_traits.user_location_info.assign(
-      USER_LOCATION_INFO,
-      USER_LOCATION_INFO + sizeof(USER_LOCATION_INFO)
-    );
+    request.user_session_traits = user_session_traits;
 
     dpi::DiameterSession::GxInitResponse gx_init_response = session->send_gx_init(request);
     std::cout << "Gx init request: result-code: " << gx_init_response.result_code << ", charging_rule_names = [";
@@ -395,22 +414,7 @@ int main(int argc, char* argv[])
       request.session_id_suffix = GY_SESSION_ID_SUFFIX;
       request.request_id = gy_request_i++;
 
-      request.user_session_traits.msisdn = "79662660021";
-      request.user_session_traits.imsi = "250507712932915";
-      request.user_session_traits.called_station_id = "ltpcef.test";
-      request.user_session_traits.framed_ip_address = ipv4(10, 243, 64, 1);
-      request.user_session_traits.nas_ip_address = ipv4(10, 77, 21, 116);
-      request.user_session_traits.rat_type = 6;
-      request.user_session_traits.mcc_mnc = "25020";
-      request.user_session_traits.timezone = 33;
-      request.user_session_traits.sgsn_ip_address = ipv4(185, 77, 17, 121);
-      request.user_session_traits.access_network_charging_ip_address = ipv4(185, 174, 131, 53);
-      request.user_session_traits.charging_id = 0x4188491;
-      request.user_session_traits.gprs_negotiated_qos_profile = "08-48080000c350000249f0"; // 08-48080000c350000249f0
-      request.user_session_traits.user_location_info.assign(
-        USER_LOCATION_INFO,
-        USER_LOCATION_INFO + sizeof(USER_LOCATION_INFO)
-      );
+      request.user_session_traits = user_session_traits;
       request.usage_rating_groups.emplace_back(dpi::DiameterSession::GyRequest::UsageRatingGroup(32)); // Internet(MVNO_SBT_UNLIM): RG32 MK64
       request.usage_rating_groups.emplace_back(dpi::DiameterSession::GyRequest::UsageRatingGroup(61)); //
 

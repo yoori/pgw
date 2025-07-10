@@ -1,5 +1,8 @@
 #pragma once
 
+#include <list>
+#include <unordered_map>
+
 #include <radproto/dictionaries.h>
 #include <radproto/packet.h>
 
@@ -14,7 +17,8 @@ namespace dpi
     RadiusUserSessionPropertyExtractor(
       const std::string& dictionary_path,
       const std::string& secret,
-      const std::list<std::pair<ConstAttributeKeyPtr, std::string>>& parse_attributes);
+      const std::list<std::pair<ConstAttributeKeyPtr, std::string>>& parse_attributes,
+      const std::unordered_map<std::string, dpi::Value>& global_properties);
 
     UserSessionPropertyContainerPtr
     extract(const RadProto::Packet& request) const;
@@ -31,6 +35,7 @@ namespace dpi
     RadProto::Dictionaries dictionaries_;
     const std::string secret_;
     RadiusAttributeParseMap extract_attributes_;
+    std::unordered_map<std::string, dpi::Value> global_properties_;
   };
 
   using RadiusUserSessionPropertyExtractorPtr =

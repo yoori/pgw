@@ -31,15 +31,16 @@ namespace dpi
 
         UserSessionTraits user_session_traits;
         user_session_traits.framed_ip_address = string_to_ipv4_address(ip);
+        /*
         if (request_json.contains("imsi"))
         {
           user_session_traits.imsi = request_json["imsi"].as_string();
         }
+        */
 
         UserPtr user = user_storage_->add_user(msisdn);
         UserSessionPtr user_session = user_session_storage_->add_user_session(
           user_session_traits,
-          nullptr,
           user
         );
 

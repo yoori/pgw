@@ -68,7 +68,9 @@ namespace dpi
       const std::string& session_id,
       bool update_gx,
       bool update_gy,
-      const std::string& reason)
+      const std::string& reason,
+      const std::unordered_set<std::string>& install_charging_rule_names = std::unordered_set<std::string>(),
+      const std::unordered_set<std::string>& remove_charging_rule_names = std::unordered_set<std::string>())
       // throw UnknownSession
       ;
 
@@ -78,7 +80,9 @@ namespace dpi
       dpi::UserSession& user_session,
       bool update_gx,
       bool update_gy,
-      const std::string& reason);
+      const std::string& reason,
+      const std::unordered_set<std::string>& install_charging_rule_names = std::unordered_set<std::string>(),
+      const std::unordered_set<std::string>& remove_charging_rule_names = std::unordered_set<std::string>());
 
     void
     update_session_async(

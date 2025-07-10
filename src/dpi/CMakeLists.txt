@@ -41,6 +41,7 @@ add_library(dpi
   RadiusUserSessionPropertyExtractor.cpp
   UserSessionPropertyContainer.cpp
   JsonUtils.cpp
+  Value.cpp
   )
 
 target_link_libraries(dpi

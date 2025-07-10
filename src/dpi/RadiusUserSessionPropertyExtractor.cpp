@@ -9,9 +9,11 @@ namespace dpi
   RadiusUserSessionPropertyExtractor::RadiusUserSessionPropertyExtractor(
     const std::string& dictionary_path,
     const std::string& secret,
-    const std::list<std::pair<ConstAttributeKeyPtr, std::string>>& extract_attributes)
+    const std::list<std::pair<ConstAttributeKeyPtr, std::string>>& extract_attributes,
+    const std::unordered_map<std::string, dpi::Value>& global_properties)
     : dictionaries_(dictionary_path),
-      secret_(secret)
+      secret_(secret),
+      global_properties_(global_properties)
   {
     dictionaries_.resolve();
 
@@ -50,6 +52,7 @@ namespace dpi
   {
     UserSessionPropertyContainerPtr result_property_container =
       std::make_shared<UserSessionPropertyContainer>();
+    result_property_container->values = global_properties_;
     RadProto::PacketReader packet_reader(request, dictionaries_, secret_);
 
     for (const auto& [extract_attribute, property_names] : extract_attributes_)

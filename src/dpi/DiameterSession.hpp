@@ -15,6 +15,7 @@
 
 #include <Diameter/Packet.hpp>
 
+#include "Types.hpp"
 #include "Logger.hpp"
 #include "NetworkUtils.hpp"
 #include "BaseConnection.hpp"
@@ -53,12 +54,16 @@ namespace dpi
 
         UsageRatingGroup(
           unsigned long rating_group_id_val,
-          const OctetStats& octet_stats = OctetStats())
+          const OctetStats& octet_stats = OctetStats(),
+          const std::optional<UsageReportingReason>& reporting_reason_val)
           : OctetStats(octet_stats),
-            rating_group_id(rating_group_id_val)
+            rating_group_id(rating_group_id_val),
+            reporting_reason(reporting_reason_val)
         {}
 
         unsigned long rating_group_id = 0;
+        std::optional<UsageReportingReason> reporting_reason;
+        //< If limit isn't reached(null) we push OTHER_QUOTA_TYPE
       };
 
       std::string reason;
@@ -130,6 +135,7 @@ namespace dpi
         unsigned long rating_group_id = 0;
         std::optional<unsigned long> max_bps;
         std::optional<uint64_t> cc_total_octets;
+        std::optional<uint64_t> octets_threshold;
         Gears::Time validity_time;
         unsigned long result_code = 0;
 
@@ -315,7 +321,7 @@ namespace dpi
     std::pair<RequestKey, Diameter::Packet>
     generate_base_gy_packet_(
       const GyRequest& request,
-      const std::optional<unsigned int>& reporting_reason) const;
+      const std::optional<UsageReportingReason>& reporting_reason) const;
 
     ByteArray
     generate_watchdog_packet_(

@@ -145,8 +145,8 @@ int main(int argc, char **argv)
         "3GPP Gx",
         [](const Diameter::Packet& packet) {},
         std::vector<std::string>(),
-        std::vector<dpi::DiameterPassAttribute>(),
-        std::vector<dpi::DiameterPassAttribute>()
+        config.gx->pass_attributes,
+        config.gy.has_value() ? config.gy->pass_attributes : std::vector<dpi::DiameterPassAttribute>()
       );
 
       all_active_objects->add_child_object(gx_sctp_diameter_session);
@@ -354,11 +354,18 @@ int main(int argc, char **argv)
         );
       }
 
+      std::unordered_map<std::string, dpi::Value> global_properties;
+      for (const auto& global_property : config.global_properties)
+      {
+        global_properties.emplace(global_property.target_property_name, global_property.value);
+      }
+
       radius_user_session_property_extractor =
         std::make_shared<dpi::RadiusUserSessionPropertyExtractor>(
           config.radius->dictionary,
           config.radius->secret,
-          extract_radius_attributes
+          extract_radius_attributes,
+          global_properties
         );
     }
 

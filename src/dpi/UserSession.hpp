@@ -12,6 +12,7 @@
 #include <gears/Hash.hpp>
 #include <gears/HashTable.hpp>
 
+#include "Types.hpp"
 #include "UserSessionTraits.hpp"
 #include "SessionKey.hpp"
 #include "User.hpp"
@@ -93,6 +94,7 @@ namespace dpi
       bool block = false;
       bool revalidate_gx = false;
       bool revalidate_gy = false;
+      Gears::HashTable<SessionKey, UsageReportingReason> gy_reached_limits;
       bool closed = false;
       //bool revalidate = false; // set to true if revalidate time switched or limit.
 
@@ -102,16 +104,17 @@ namespace dpi
   public:
     UserSession(
       const UserSessionTraits& traits,
-      ConstUserSessionPropertyContainerPtr properties,
       UserPtr user);
 
     ConstUserSessionTraitsPtr traits() const;
 
     void set_traits(const UserSessionTraits& traits);
 
+    /*
     ConstUserSessionPropertyContainerPtr properties() const;
 
     void set_properties(const UserSessionPropertyValueMap& properties);
+    */
 
     const UserPtr& user() const;
 

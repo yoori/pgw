@@ -107,6 +107,35 @@ namespace dpi
 
     jsoncons::json config_json = jsoncons::json::parse(config_text);
 
+    if (config_json.contains("global_properties"))
+    {
+      for (const auto global_property_json : config_json["global_properties"].array_range())
+      {
+        Config::GlobalProperty global_property;
+        global_property.target_property_name = global_property_json["target_property_name"].as_string();
+        if (global_property_json.contains("value"))
+        {
+          const auto& val = global_property_json["value"];
+          if (val.type() == jsoncons::json_type::uint64_value)
+          {
+            global_property.value = Value(std::in_place_type<uint64_t>, val.as<uint64_t>());
+          }
+          else if (val.type() == jsoncons::json_type::int64_value)
+          {
+            global_property.value = Value(std::in_place_type<int64_t>, val.as<int64_t>());
+          }
+          else if (val.type() == jsoncons::json_type::string_value)
+          {
+            global_property.value = Value(val.as_string());
+          }
+        }
+
+        global_property.target_property_name = global_property_json["target_property_name"].as_string();
+
+        result.global_properties.emplace_back(std::move(global_property));
+      }
+    }
+
     if (config_json.contains("pcap_file"))
     {
       result.pcap_file = config_json["pcap_file"].as_string();

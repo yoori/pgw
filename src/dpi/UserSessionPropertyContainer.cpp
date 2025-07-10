@@ -24,4 +24,14 @@ namespace dpi
   {
     return json_to_string(to_json());
   }
+
+  UserSessionPropertyContainer&
+  UserSessionPropertyContainer::add(const UserSessionPropertyContainer& right)
+  {
+    for (const auto& [name, value] : right.values)
+    {
+      values.emplace(name, value);
+    }
+    return *this;
+  }
 }

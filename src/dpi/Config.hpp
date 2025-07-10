@@ -8,6 +8,7 @@
 #include "DiameterSession.hpp"
 #include "DiameterPassAttribute.hpp"
 #include "Attribute.hpp"
+#include "Value.hpp"
 
 namespace dpi
 {
@@ -29,6 +30,12 @@ namespace dpi
 
   struct Config
   {
+    struct GlobalProperty
+    {
+      std::string target_property_name;
+      Value value;
+    };
+
     struct RediusProperty
     {
       std::string target_property_name;
@@ -50,6 +57,7 @@ namespace dpi
       std::vector<DiameterPassAttribute> pass_attributes;
     };
 
+    std::vector<GlobalProperty> global_properties;
     std::string pcap_file;
     std::string interface;
     std::string interface2;

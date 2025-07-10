@@ -19,6 +19,9 @@ namespace dpi
 
     std::string to_string() const;
 
+    UserSessionPropertyContainer&
+    add(const UserSessionPropertyContainer& right);
+
     UserSessionPropertyValueMap values;
   };
 

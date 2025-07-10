@@ -272,6 +272,7 @@ namespace dpi
       user_session_traits.framed_ip_address = framed_ip_address;
       user_session_traits.msisdn = *calling_station_id_attr->as_string();
 
+      /*
       {
         user_session_traits.called_station_id = get_radius_string_attribute(packet_reader, "Called-Station-Id");
         user_session_traits.msisdn = get_radius_string_attribute(packet_reader, "Calling-Station-Id");
@@ -313,6 +314,7 @@ namespace dpi
           }
         }
       }
+      */
 
       user_session_traits.user_session_property_container = user_session_property_container;
 

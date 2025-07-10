@@ -1,8 +1,31 @@
 {
+  "global_properties": [
+    { "target_property_name": "PDP-Type", "value": 0},
+    { "target_property_name": "PDP-Context-Type", "value": 0},
+    { "target_property_name": "Serving-Node-Type", "value": 2}
+  ],
   "radius": {
     "listen_port": 1813,
     "secret": "sbtel",
-    "dictionary": "/opt/tel-gateway/share/radius-dictionary/dictionary"
+    "dictionary": "/opt/tel-gateway/share/radius-dictionary/dictionary",
+    "properties": [
+      { "target_property_name": "Framed-IP-Address", "name": "Framed-IP-Address"},
+      { "target_property_name": "NAS-IP-Address", "name": "NAS-IP-Address"},
+      { "target_property_name": "Called-Station-Id", "name": "Called-Station-Id"},
+      { "target_property_name": "IMSI", "name": "IMSI", "vendor": "3GPP"},
+      { "target_property_name": "IMEI", "name": "IMEISV", "vendor": "3GPP"},
+      { "target_property_name": "RAT-Type", "name": "RAT-Type", "vendor": "3GPP"},
+      { "target_property_name": "SGSN-MCC-MNC", "name": "SGSN-MCC-MNC", "vendor": "3GPP"},
+      { "target_property_name": "MS-TimeZone", "name": "MS-TimeZone", "vendor": "3GPP"},
+      { "target_property_name": "SGSN-Address", "name": "SGSN-Address", "vendor": "3GPP"},
+      { "target_property_name": "CG-Address", "name": "CG-Address", "vendor": "3GPP"},
+      { "target_property_name": "Charging-ID", "name": "Charging-ID", "vendor": "3GPP"},
+      { "target_property_name": "Charging-Characteristics", "name": "Charging-Characteristics", "vendor": "3GPP"},
+      { "target_property_name": "GPRS-Negotiated-QoS-profile", "name": "GPRS-Negotiated-QoS-profile", "vendor": "3GPP"},
+      { "target_property_name": "NSAPI", "name": "NSAPI", "vendor": "3GPP"},
+      { "target_property_name": "Selection-Mode", "name": "Selection-Mode", "vendor": "3GPP"},
+      { "target_property_name": "User-Location-Info", "name": "User-Location-Info", "vendor": "3GPP"}
+    ]
   },
   "gx": {
     "diameter_url": {
@@ -14,7 +37,23 @@
       "origin-host": "traflabpgw01.msk.epc.mnc050.mcc250.3gppnetwork.org",
       "origin-realm": "epc.mnc050.mcc250.3gppnetwork.org",
       "destination-realm": "test.epc.mnc050.mcc250.3gppnetwork.org"
-    }
+    },
+    "pass_attributes": [
+      { "avp_path": "Framed-IP-Address", "property_name": "Framed-IP-Address", "adapter": "ipv4-as-4bytes"},
+      { "avp_path": "Called-Station-Id", "property_name": "Called-Station-Id"},
+      { "avp_path": "RAT-Type", "property_name": "RAT-Type"},
+      { "avp_path": "3GPP-User-Location-Info", "property_name": "User-Location-Info"},
+      { "avp_path": "3GPP-SGSN-MCC-MNC", "property_name": "SGSN-MCC-MNC"},
+      { "avp_path": "3GPP-SGSN-Address", "property_name": "SGSN-Address", "adapter": "ipv4-as-4bytes"},
+      { "avp_path": "AN-GW-Address", "property_name": "SGSN-Address"},
+      { "avp_path": "Access-Network-Charging-Address", "property_name": "CG-Address"},
+      { "avp_path": "3GPP-MS-TimeZone", "property_name": "MS-TimeZone", "adapter": "timezone-as-2bytes"},
+      {
+        "avp_path": "Access-Network-Charging-Identifier-Gx.Access-Network-Charging-Identifier-Value",
+        "property_name": "Charging-ID",
+        "adapter": "to-string"
+      }
+    ]
   },
   "gy" : {
     "diameter_url": {
@@ -26,7 +65,35 @@
       "origin-host": "traflabpgw01.msk.epc.mnc050.mcc250.3gppnetwork.org",
       "origin-realm": "epc.mnc050.mcc250.3gppnetwork.org",
       "destination-realm": "test.epc.mnc050.mcc250.3gppnetwork.org"
-    }
+    },
+    "pass_attributes": [
+      { "avp_path": "Service-Information.PS-Information.PDP-Address", "property_name": "Framed-IP-Address"},
+      { "avp_path": "Service-Information.PS-Information.SGSN-Address", "property_name": "SGSN-Address"},
+      { "avp_path": "Service-Information.PS-Information.CG-Address", "property_name": "SGSN-Address"},
+      { "avp_path": "Service-Information.PS-Information.GGSN-Address", "property_name": "CG-Address"},
+      { "avp_path": "Service-Information.PS-Information.3GPP-Charging-Id", "property_name": "Charging-ID"},
+      {
+        "avp_path": "Service-Information.PS-Information.3GPP-RAT-Type",
+        "property_name": "RAT-Type",
+        "adapter": "int-as-1byte",
+        "comment": "3GPP-RAT-Type have octetstring type and by fact contains single byte with RAT-Type int value"
+      },
+      { "avp_path": "Service-Information.PS-Information.PDN-Connection-Charging-ID", "property_name": "Charging-ID"},
+      { "avp_path": "Service-Information.PS-Information.3GPP-MS-TimeZone", "property_name": "MS-TimeZone", "adapter": "timezone-as-2bytes"},
+      { "avp_path": "Service-Information.PS-Information.Called-Station-Id", "property_name": "Called-Station-Id"},
+      { "avp_path": "Service-Information.PS-Information.3GPP-GGSN-MCC-MNC", "property_name": "SGSN-MCC-MNC"},
+      { "avp_path": "Service-Information.PS-Information.3GPP-SGSN-MCC-MNC", "property_name": "SGSN-MCC-MNC"},
+      { "avp_path": "Service-Information.PS-Information.3GPP-IMSI-MCC-MNC", "property_name": "SGSN-MCC-MNC"},
+      { "avp_path": "Service-Information.PS-Information.3GPP-Charging-Characteristics", "property_name": "Charging-Characteristics"},
+      { "avp_path": "Service-Information.PS-Information.3GPP-Selection-Mode", "property_name": "Selection-Mode"},
+      { "avp_path": "Service-Information.PS-Information.3GPP-NSAPI", "property_name": "NSAPI"},
+      { "avp_path": "Service-Information.PS-Information.3GPP-User-Location-Info", "property_name": "User-Location-Info"},
+      { "avp_path": "Service-Information.PS-Information.3GPP-GPRS-Negotiated-QoS-Profile", "property_name": "GPRS-Negotiated-QoS-profile"},
+
+      { "avp_path": "Service-Information.PS-Information.3GPP-PDP-Type", "property_name": "PDP-Type"},
+      { "avp_path": "Service-Information.PS-Information.PDP-Context-Type", "property_name": "PDP-Context-Type"},
+      { "avp_path": "Service-Information.PS-Information.Serving-Node-Type", "property_name": "Serving-Node-Type"}
+    ]
   },
   "http_port": 8080,
   "dpi_interface": "ens161",
