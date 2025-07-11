@@ -10,21 +10,22 @@
     "dictionary": "/opt/tel-gateway/share/radius-dictionary/dictionary",
     "properties": [
       { "target_property_name": "Framed-IP-Address", "name": "Framed-IP-Address"},
+      { "target_property_name": "RAT-Type", "name": "RAT-Type", "vendor": "3GPP"},
+      { "target_property_name": "User-Location-Info", "name": "User-Location-Info", "vendor": "3GPP"},
+      { "target_property_name": "SGSN-Address", "name": "SGSN-Address", "vendor": "3GPP"},
+
       { "target_property_name": "NAS-IP-Address", "name": "NAS-IP-Address"},
       { "target_property_name": "Called-Station-Id", "name": "Called-Station-Id"},
       { "target_property_name": "IMSI", "name": "IMSI", "vendor": "3GPP"},
       { "target_property_name": "IMEI", "name": "IMEISV", "vendor": "3GPP"},
-      { "target_property_name": "RAT-Type", "name": "RAT-Type", "vendor": "3GPP"},
       { "target_property_name": "SGSN-MCC-MNC", "name": "SGSN-MCC-MNC", "vendor": "3GPP"},
       { "target_property_name": "MS-TimeZone", "name": "MS-TimeZone", "vendor": "3GPP"},
-      { "target_property_name": "SGSN-Address", "name": "SGSN-Address", "vendor": "3GPP"},
       { "target_property_name": "CG-Address", "name": "CG-Address", "vendor": "3GPP"},
       { "target_property_name": "Charging-ID", "name": "Charging-ID", "vendor": "3GPP"},
       { "target_property_name": "Charging-Characteristics", "name": "Charging-Characteristics", "vendor": "3GPP"},
       { "target_property_name": "GPRS-Negotiated-QoS-profile", "name": "GPRS-Negotiated-QoS-profile", "vendor": "3GPP"},
       { "target_property_name": "NSAPI", "name": "NSAPI", "vendor": "3GPP"},
-      { "target_property_name": "Selection-Mode", "name": "Selection-Mode", "vendor": "3GPP"},
-      { "target_property_name": "User-Location-Info", "name": "User-Location-Info", "vendor": "3GPP"}
+      { "target_property_name": "Selection-Mode", "name": "Selection-Mode", "vendor": "3GPP"}
     ]
   },
   "gx": {
@@ -41,7 +42,7 @@
     "pass_attributes": [
       { "avp_path": "Framed-IP-Address", "property_name": "Framed-IP-Address", "adapter": "ipv4-as-4bytes"},
       { "avp_path": "Called-Station-Id", "property_name": "Called-Station-Id"},
-      { "avp_path": "RAT-Type", "property_name": "RAT-Type"},
+        { "avp_path": "RAT-Type", "property_name": "RAT-Type", "adapter": "radius-rat-type-to-diameter-rat-type"},
       { "avp_path": "3GPP-User-Location-Info", "property_name": "User-Location-Info"},
       { "avp_path": "3GPP-SGSN-MCC-MNC", "property_name": "SGSN-MCC-MNC"},
       { "avp_path": "3GPP-SGSN-Address", "property_name": "SGSN-Address", "adapter": "ipv4-as-4bytes"},

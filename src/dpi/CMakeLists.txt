@@ -37,6 +37,7 @@ add_library(dpi
   Manager.cpp
   IOServiceActiveObject.cpp
 
+  DiameterEventChecker.cpp
   DiameterFieldAdapters.cpp
   RadiusUserSessionPropertyExtractor.cpp
   UserSessionPropertyContainer.cpp

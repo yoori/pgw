@@ -14,6 +14,7 @@
 
 #include "CerrCallback.hpp"
 #include "FunTask.hpp"
+
 #include "Manager.hpp"
 
 namespace dpi
@@ -499,7 +500,11 @@ namespace dpi
         else if (acct_status_type == AcctStatusType::UPDATE)
         {
           // update Gy on radius Interim-Update
-          if (!(user_session_traits == *user_session->traits())) // TODO: check updates on control properties
+          auto event_triggers = diameter_event_checker_.check(
+            user_session->traits()->user_session_property_container,
+            user_session_traits.user_session_property_container);
+
+          if (!event_triggers.empty()) // TODO: check updates on control properties
           {
             std::cout << "Manager::process_request(): update with traits changes: " << std::endl <<
               "  old: " << user_session->traits()->to_string() << std::endl <<
@@ -508,7 +513,10 @@ namespace dpi
               *user_session,
               true, //< update Gx on traits changes ?
               true,
-              "radius Interim-Update with changes");
+              "radius Interim-Update with changes",
+              std::unordered_set<std::string>(), //< install charging rule names
+              std::unordered_set<std::string>(), //< remove charging rule names
+              event_triggers);
 
             if (!result)
             {
@@ -737,7 +745,8 @@ namespace dpi
     bool update_gy,
     const std::string& reason,
     const std::unordered_set<std::string>& install_charging_rule_names,
-    const std::unordered_set<std::string>& remove_charging_rule_names)
+    const std::unordered_set<std::string>& remove_charging_rule_names,
+    const EventTriggerArray& event_triggers)
   {
     std::cout << "Manager::update_session(): "
       "msisdn = " << user_session.traits()->msisdn <<
@@ -790,6 +799,7 @@ namespace dpi
     {
       dpi::DiameterSession::GxUpdateRequest gx_update_request;
       fill_gx_stats_(gx_update_request, user_session);
+      gx_update_request.event_triggers = event_triggers;
 
       try
       {

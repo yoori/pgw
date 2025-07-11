@@ -1024,6 +1024,10 @@ namespace dpi
     auto [request_key, packet] = generate_base_gx_packet_(request);
     fill_gx_stat_update_(packet, update_request);
     packet.addAVP(create_int32_avp(416, 2)); // CC-Request-Type
+    for (const auto& event_trigger: update_request.event_triggers)
+    {
+      packet.addAVP(create_int32_avp(1006, static_cast<uint32_t>(event_trigger), 10415, true)); // CC-Request-Type
+    }
 
     return std::make_pair(
       request_key,
