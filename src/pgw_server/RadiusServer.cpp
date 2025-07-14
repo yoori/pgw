@@ -331,9 +331,10 @@ namespace dpi
         return RadProto::Packet(
           RadProto::ACCOUNTING_RESPONSE,
           request.id(),
-          request.auth(),
+	  request.auth(),
           std::vector<RadProto::Attribute*>(),
-          std::vector<RadProto::VendorSpecific>());
+          std::vector<RadProto::VendorSpecific>(),
+          true);
       }
     }
 
