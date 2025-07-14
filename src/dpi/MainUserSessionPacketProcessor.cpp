@@ -131,8 +131,8 @@ namespace dpi
           now,
           OctetStats(
             packet_size,
-            direction == UserSessionPacketProcessor::Direction::D_OUTPUT ? packet_size : 0,
-            direction == UserSessionPacketProcessor::Direction::D_INPUT ? packet_size : 0
+            direction == Direction::D_OUTPUT ? packet_size : 0,
+            direction == Direction::D_INPUT ? packet_size : 0
           )
         );
 

@@ -22,7 +22,7 @@ namespace dpi
       const Gears::Time& now,
       UserPtr user,
       const FlowTraits& flow_traits,
-      UserSessionPacketProcessor::Direction direction,
+      Direction direction,
       const SessionKey& session_key,
       unsigned long size,
       const void* packet,
@@ -35,7 +35,7 @@ namespace dpi
         const Gears::Time& timestamp,
         UserPtr user,
         const FlowTraits& flow_traits,
-        UserSessionPacketProcessor::Direction direction,
+        Direction direction,
         const SessionKey& session_key,
         std::vector<unsigned char> packet,
         NetInterfacePtr net_interface
@@ -44,7 +44,7 @@ namespace dpi
       Gears::Time timestamp;
       const UserPtr user;
       const FlowTraits flow_traits;
-      const UserSessionPacketProcessor::Direction direction;
+      const Direction direction;
       const SessionKey session_key;
       std::vector<unsigned char> packet;
       NetInterfacePtr net_interface;

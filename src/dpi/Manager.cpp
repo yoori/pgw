@@ -33,11 +33,14 @@ namespace dpi
       gx_diameter_session_(std::move(gx_diameter_session)),
       gy_diameter_session_(std::move(gy_diameter_session)),
       pcc_config_provider_(std::move(pcc_config_provider)),
-      logger_(std::make_shared<dpi::StreamLogger>(std::cout))
+      logger_(std::make_shared<dpi::StreamLogger>(std::cout)),
+      user_session_action_planner_(std::make_shared<UserSessionActionPlanner>())
   {
     Gears::ActiveObjectCallback_var callback(new CerrCallback());
     task_runner_ = Gears::TaskRunner_var(new Gears::TaskRunner(callback, 10));
     add_child_object(task_runner_);
+
+    add_child_object(user_session_action_planner_);
   }
 
   void
@@ -188,7 +191,7 @@ namespace dpi
       set_limits.emplace_back(add_limit);
     }
 
-    user_session.set_limits(set_limits);
+    user_session.set_gy_limits(set_limits);
   }
 
   bool
@@ -204,6 +207,8 @@ namespace dpi
     {
       pcc_config = pcc_config_provider_->get_config();
     }
+
+    std::optional<Gears::Time> first_check_time;
 
     if (gx_diameter_session_)
     {
@@ -251,15 +256,16 @@ namespace dpi
         {
           abort_session(
             *user_session,
-            true,
-            true,
-            false,
+            true, //< terminate radius
+            true, //< terminate gx
+            false, //< terminate gy
             "Empty charging rules on Gy init",
             not_found_charging_rule_names);
           return false;
         }
 
         user_session->set_charging_rule_names(result_charging_rule_names);
+        user_session->set_gx_revalidation_time(response.revalidate_time);
       }
       catch(const std::exception& ex)
       {
@@ -282,9 +288,9 @@ namespace dpi
         {
           abort_session(
             *user_session,
-            true,
-            true,
-            false, //< Don't terminate Gy
+            true, //< terminate radius
+            true, //< terminate gx
+            false, //< don't terminate gy
             std::string("Gy init result code: ") + std::to_string(gy_init_response.result_code));
           return false;
         }
@@ -299,9 +305,9 @@ namespace dpi
         {
           abort_session(
             *user_session,
-            true,
-            true,
-            true, //< Terminate Gy
+            true, //< terminate radius
+            true, //< terminate gx
+            true, //< terminate gy
             "No success rating groups on Gy update");
           return false;
         }
@@ -313,6 +319,13 @@ namespace dpi
         logger_->log(std::string("send diameter gy init error: ") + ex.what());
         std::cout << (std::string("send diameter gy init error: ") + ex.what()) << std::endl;
       }
+    }
+
+    UserSession::RevalidateResult revalidation = user_session->revalidation();
+    std::optional<Gears::Time> check_time = revalidation.min_time();
+    if (check_time.has_value())
+    {
+      user_session_action_planner_->add_user_session(user_session, *check_time);
     }
 
     return true;
@@ -370,20 +383,23 @@ namespace dpi
         dpi::DiameterSession::GxUpdateRequest gx_update_request;
         gx_update_request.not_found_charging_rule_names = not_found_charging_rule_names;
 
-        dpi::DiameterSession::GxUpdateResponse response = gx_diameter_session_->send_gx_update(
+        dpi::DiameterSession::GxUpdateResponse gx_response = gx_diameter_session_->send_gx_update(
           request,
           gx_update_request);
 
-        if (response.result_code != 2001)
+        if (gx_response.result_code != 2001)
         {
           abort_session(
             user_session,
-            true,
-            true,
-            false,
-            std::string("Gx update(for charging rules reporting) result code: ") + std::to_string(response.result_code)); // REVIEW
+            true, //< terminate radius
+            true, //< terminate gx
+            true, //< terminate gy
+            std::string("Gx update(for charging rules reporting) result code: ") +
+              std::to_string(gx_response.result_code)); // REVIEW
           return false;
         }
+
+        user_session.set_gx_revalidation_time(gx_response.revalidate_time);
       }
 
       return true;
@@ -540,7 +556,12 @@ namespace dpi
 
         if (user_session)
         {
-          abort_session(*user_session, true, true, true, "Radius stop");
+          abort_session(
+            *user_session,
+            true, //< terminate radius
+            true, //< terminate gx
+            true, //< terminate gy
+            "Radius stop");
         }
 
         result = true;
@@ -787,9 +808,9 @@ namespace dpi
         // empty charging rules - drop session
         abort_session(
           user_session,
-          true,
-          true,
-          true,
+          true, //< terminate radius
+          true, //< terminate gx
+          true, //< terminate gy
           std::string("Empty charging rules after Gx update"));
 
         return false;
@@ -833,9 +854,9 @@ namespace dpi
         {
           abort_session(
             user_session,
-            true,
-            true,
-            true,
+            true, //< terminate radius
+            true, //< terminate gx
+            true, //< terminate gy
             std::string("Gx update result code: ") + std::to_string(response.result_code));
           return false;
         }
@@ -892,9 +913,9 @@ namespace dpi
           // empty charging rules - drop session
           abort_session(
             user_session,
-            true,
-            true,
-            true,
+            true, //< terminate radius
+            true, //< terminate gx
+            true, //< terminate gy
             std::string("Empty charging rules after Gx update"));
 
           return false;
@@ -936,9 +957,9 @@ namespace dpi
         {
           abort_session(
             user_session,
-            true,
-            true,
-            true,
+            true, //< terminate radius
+            true, //< terminate gx
+            true, //< terminate gy
             std::string("Gy update result code: ") + std::to_string(gy_response.result_code));
           return false;
         }
@@ -953,9 +974,9 @@ namespace dpi
         {
           abort_session(
             user_session,
-            true,
-            true,
-            true,
+            true, //< terminate radius
+            true, //< terminate gx
+            true, //< terminate gy
             "No success rating groups on Gy update");
           return false;
         }

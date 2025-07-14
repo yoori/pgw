@@ -1,5 +1,8 @@
 #pragma once
 
+#include <vector>
+
+#include "Types.hpp"
 #include "User.hpp"
 #include "PacketProcessingState.hpp"
 #include "FlowTraits.hpp"
@@ -9,13 +12,6 @@ namespace dpi
   class UserSessionPacketProcessor
   {
   public:
-    enum Direction
-    {
-      D_NONE = 0,
-      D_OUTPUT,
-      D_INPUT
-    };
-
     virtual void process_user_session_packet(
       PacketProcessingState& packet_processing_state,
       const Gears::Time& time,
@@ -51,5 +47,5 @@ namespace dpi
   };
 
   const std::string&
-  direction_to_string(UserSessionPacketProcessor::Direction direction);
+  direction_to_string(Direction direction);
 }

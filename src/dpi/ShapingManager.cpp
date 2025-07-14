@@ -1,28 +1,9 @@
+#include "CerrCallback.hpp"
+
 #include "ShapingManager.hpp"
 
 namespace dpi
 {
-  namespace
-  {
-    class CerrCallback: public Gears::ActiveObjectCallback
-    {
-    public:
-      virtual void
-      report_error(
-        Severity,
-        const Gears::SubString& description,
-        const char* = 0)
-        noexcept
-      {
-        std::cerr << description.str() << std::endl;
-      }
-
-      virtual
-      ~CerrCallback() noexcept
-      {}
-    };
-  };
-
   class ShapingManager::CheckPacketsTask: public Gears::TaskGoal
   {
   public:
@@ -52,7 +33,7 @@ namespace dpi
     const Gears::Time& timestamp_val,
     UserPtr user_val,
     const FlowTraits& flow_traits_val,
-    UserSessionPacketProcessor::Direction direction_val,
+    Direction direction_val,
     const SessionKey& session_key_val,
     std::vector<unsigned char> packet_val,
     NetInterfacePtr net_interface_val // net interface for send packet
@@ -85,7 +66,7 @@ namespace dpi
     const Gears::Time& now,
     UserPtr user,
     const FlowTraits& flow_traits,
-    UserSessionPacketProcessor::Direction direction,
+    Direction direction,
     const SessionKey& session_key,
     unsigned long size,
     const void* packet,

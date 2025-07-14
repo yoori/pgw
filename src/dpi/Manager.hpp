@@ -10,6 +10,7 @@
 #include <dpi/DiameterSession.hpp>
 #include <dpi/PccConfigProvider.hpp>
 #include <dpi/DiameterEventChecker.hpp>
+#include <dpi/UserSessionActionPlanner.hpp>
 
 namespace dpi
 {
@@ -151,6 +152,7 @@ namespace dpi
     PccConfigProviderPtr pcc_config_provider_;
     
     Gears::TaskRunner_var task_runner_;
+    UserSessionActionPlannerPtr user_session_action_planner_;
   };
 
   using ManagerPtr = std::shared_ptr<Manager>;

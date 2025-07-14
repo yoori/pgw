@@ -46,7 +46,7 @@ namespace dpi
         std::string traffic_category_val,
         uint32_t src_ip_val,
         uint32_t dst_ip_val,
-        UserSessionPacketProcessor::Direction direction_val
+        Direction direction_val
         );
 
       bool
@@ -61,7 +61,7 @@ namespace dpi
       const std::string msisdn;
       const uint32_t src_ip;
       const uint32_t dst_ip;
-      const UserSessionPacketProcessor::Direction direction;
+      const Direction direction;
 
     protected:
       void calc_hash_();
@@ -173,7 +173,7 @@ namespace dpi
     std::string traffic_category_val,
     uint32_t src_ip_val,
     uint32_t dst_ip_val,
-    UserSessionPacketProcessor::Direction direction_val
+    Direction direction_val
     )
     : date(date_val),
       msisdn(std::move(msisdn_val)),

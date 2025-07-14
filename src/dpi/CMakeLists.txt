@@ -26,6 +26,7 @@ add_library(dpi
 
   AVPUtils.cpp
   TrafficRules.cpp
+  UserSessionActionPlanner.cpp
   UserSessionStorage.cpp
   PccConfig.cpp
   PccConfigProvider.cpp
@@ -43,6 +44,8 @@ add_library(dpi
   UserSessionPropertyContainer.cpp
   JsonUtils.cpp
   Value.cpp
+  SessionKeyEvaluator.cpp
+  ProtocolAdapter.cpp
   )
 
 target_link_libraries(dpi

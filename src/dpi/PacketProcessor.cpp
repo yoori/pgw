@@ -530,57 +530,47 @@ namespace dpi
     const FlowTraits& flow_traits,
     unsigned long packet_size,
     const void* packet,
-    UserSessionPacketProcessor::Direction direction,
+    Direction direction,
     NetInterfacePtr send_interface)
   {
     ++packet_i_;
 
     return process_packet_(
-      flow_traits.proto,
-      flow_traits.src_ip,
-      flow_traits.dst_ip,
+      flow_traits,
       packet_size,
       direction,
       packet
       );
   }
 
-  const SessionKey&
-  PacketProcessor::proto_to_session_key_(u_int16_t proto) const
+  SessionKey
+  PacketProcessor::proto_to_session_key_(const std::string& protocol)
   {
-    auto session_key_it = protocol_session_keys_.find(proto);
-    if (session_key_it != protocol_session_keys_.end())
-    {
-      return session_key_it->second;
-    }
-
-    return unknown_session_key_;
+    return SessionKey(protocol, std::string());
   }
 
   PacketProcessingState
   PacketProcessor::process_packet_(
-    u_int16_t proto,
-    uint32_t src_ip,
-    uint32_t dst_ip,
+    const FlowTraits& orig_flow_traits,
     uint64_t packet_size,
-    UserSessionPacketProcessor::Direction direction,
+    Direction direction, // TODO: push to FlowTraits
     const void* packet
     )
   {
     // find SessionKey by proto
-    const SessionKey& base_session_key = proto_to_session_key_(proto);
+    const SessionKey& base_session_key = proto_to_session_key_(orig_flow_traits.protocol);
     const std::string* category = nullptr;
 
     {
       // find category by ip
-      auto cat_it = ip_categories_.find(dst_ip);
+      auto cat_it = ip_categories_.find(orig_flow_traits.dst_ip);
       if (cat_it != ip_categories_.end())
       {
         category = &cat_it->second;
       }
       else
       {
-        cat_it = ip_categories_.find(src_ip);
+        cat_it = ip_categories_.find(orig_flow_traits.src_ip);
         if (cat_it != ip_categories_.end())
         {
           category = &cat_it->second;
@@ -593,12 +583,9 @@ namespace dpi
 
     const Gears::Time now = Gears::Time::get_time_of_day();
 
-    UserPtr user = get_user_(src_ip, dst_ip, now);
+    FlowTraits flow_traits(orig_flow_traits);
 
-    FlowTraits flow_traits;
-    flow_traits.proto = proto;
-    flow_traits.src_ip = src_ip;
-    flow_traits.dst_ip = dst_ip;
+    UserPtr user = get_user_(flow_traits.src_ip, flow_traits.dst_ip, now);
 
     PacketProcessingState processing_state;
     ConstPccConfigPtr pcc_config;

@@ -1,5 +1,6 @@
 #include <iostream>
 
+#include <dpi/Types.hpp>
 #include <dpi/User.hpp>
 #include <dpi/ShapingManager.hpp>
 #include <dpi/NetInterfaceProcessor.hpp>
@@ -12,7 +13,7 @@ public:
     const Gears::Time& time,
     const dpi::UserPtr& user,
     const dpi::FlowTraits& flow_traits,
-    Direction direction,
+    dpi::Direction direction,
     const dpi::SessionKey& session_key,
     uint64_t packet_size,
     const void* packet) override
@@ -75,7 +76,7 @@ int main()
         start_time,
         user,
         dpi::FlowTraits(),
-        dpi::UserSessionPacketProcessor::Direction::D_NONE,
+        dpi::Direction::D_NONE,
         key2,
         0,
         nullptr, //< packet buffer

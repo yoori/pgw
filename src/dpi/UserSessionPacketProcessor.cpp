@@ -10,14 +10,14 @@ namespace dpi
   };
 
   const std::string&
-  direction_to_string(UserSessionPacketProcessor::Direction direction)
+  direction_to_string(Direction direction)
   {
-    if (direction == UserSessionPacketProcessor::Direction::D_OUTPUT)
+    if (direction == Direction::D_OUTPUT)
     {
       return DIRECTION_OUTPUT_STR;
     }
 
-    if (direction == UserSessionPacketProcessor::Direction::D_INPUT)
+    if (direction == Direction::D_INPUT)
     {
       return DIRECTION_INPUT_STR;
     }

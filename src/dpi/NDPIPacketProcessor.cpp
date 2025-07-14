@@ -1334,9 +1334,10 @@ namespace dpi
 
       if (flow)
       {
-	flow_traits.proto = flow->detected_protocol.proto.app_protocol ?
+        flow_traits.protocol = protocol_adapter_.ndpi_protocol_to_string(
+          flow->detected_protocol.proto.app_protocol ?
 	  flow->detected_protocol.proto.app_protocol :
-	  flow->detected_protocol.proto.master_protocol;
+	  flow->detected_protocol.proto.master_protocol);
 	flow_traits.src_ip = flow->src_ip;
 	flow_traits.dst_ip = flow->dst_ip;
       }

@@ -85,24 +85,17 @@ namespace dpi
   }
 
   void
-  UserSession::set_limits(
+  UserSession::set_gx_revalidation_time(const std::optional<Gears::Time>& gx_recheck_time)
+  {
+    std::unique_lock<std::shared_mutex> guard(limits_lock_);
+    gx_revalidation_time_ = gx_recheck_time;
+  }
+
+  void
+  UserSession::set_gy_limits(
     const SetLimitArray& limits,
     const UsedLimitArray& decrease_used)
   {
-    /*
-    {
-      std::ostringstream ostr;
-      ostr << "UserSession::set_limits(msisdn = " << traits_.msisdn << "):";
-
-      for (const auto& limit: limits)
-      {
-        ostr << " " << limit.session_key.to_string() << " => " << limit.to_string();
-      }
-
-      std::cout << ostr.str() << std::endl;
-    }
-    */
-
     LimitMap new_limits;
     for (const auto& limit: limits)
     {
@@ -111,111 +104,6 @@ namespace dpi
 
     std::unique_lock<std::shared_mutex> guard(limits_lock_);
     limits_.swap(new_limits);
-  }
-
-  UserSession::UseLimitResult
-  UserSession::use_limit_i_(
-    const SessionKey& session_key,
-    const Gears::Time& now,
-    const OctetStats& used_octets)
-  {
-    //std::cout << "UserSession::use_limit_i_()" << std::endl;
-
-    UseLimitResult use_limit_result;
-
-    auto use_it = gy_used_limits_.find(session_key);
-    auto limit_it = limits_.find(session_key);
-
-    if (limit_it == limits_.end())
-    {
-      //std::cout << "use_limit: #1, session_key = " << session_key.to_string() << std::endl;
-      use_limit_result.block = true;
-      return use_limit_result;
-    }
-
-    //std::cout << "use_limit: #2" << session_key.to_string() << std::endl;
-    const unsigned long prev_used_bytes = (
-      use_it != gy_used_limits_.end() ? use_it->second.total_octets : 0);
-
-    // check blocking
-    /*
-    std::cout << "gx_limit = " <<
-      (limit_it->second.gx_limit.has_value() ?
-        std::to_string(*limit_it->second.gx_limit) : std::string("null")) <<
-      std::endl;
-    */
-
-    if (limit_it->second.gx_limit.has_value() &&
-      prev_used_bytes + used_octets.total_octets > *limit_it->second.gx_limit)
-    {
-      if (prev_used_bytes <= *limit_it->second.gx_limit)
-      {
-        use_limit_result.revalidate_gx = true;
-      }
-
-      use_limit_result.block = true;
-    }
-
-    if (limit_it->second.gy_limit.has_value() &&
-      prev_used_bytes + used_octets.total_octets > *limit_it->second.gy_limit)
-    {
-      /*
-      std::cout << "use_limit: #3, prev_used_bytes = " << prev_used_bytes <<
-        ", used_bytes = " << used_bytes <<
-        ", gy_limit = " << *limit_it->second.gy_limit <<
-        std::endl;
-      */
-      if (prev_used_bytes <= *limit_it->second.gy_limit)
-      {
-        use_limit_result.revalidate_gy = true;
-      }
-
-      use_limit_result.block = true;
-    }
-
-    if (!use_limit_result.block)
-    {
-      if(limit_it->second.gx_recheck_limit.has_value() &&
-        prev_used_bytes + used_octets.total_octets > *limit_it->second.gx_recheck_limit &&
-        prev_used_bytes <= *limit_it->second.gx_recheck_limit)
-      {
-        use_limit_result.revalidate_gx = true;
-      }
-
-      if (limit_it->second.gy_recheck_limit.has_value() &&
-        prev_used_bytes + used_octets.total_octets > *limit_it->second.gy_recheck_limit &&
-        prev_used_bytes <= *limit_it->second.gy_recheck_limit)
-      {
-        use_limit_result.revalidate_gy = true;
-      }
-
-      if (limit_it->second.gx_recheck_time.has_value() &&
-        *limit_it->second.gx_recheck_time != Gears::Time::ZERO &&
-        last_limits_use_timestamp_ < now &&
-        *limit_it->second.gx_recheck_time <= now)
-      {
-        // jump over gx_recheck_time
-        use_limit_result.revalidate_gx = true;
-      }
-
-      if (limit_it->second.gy_recheck_time.has_value() &&
-        *limit_it->second.gy_recheck_time != Gears::Time::ZERO &&
-        last_limits_use_timestamp_ < now &&
-        *limit_it->second.gy_recheck_time <= now)
-      {
-        use_limit_result.revalidate_gy = true;
-      }
-    }
-
-    //std::cout << "P1" << std::endl;
-
-    if (!use_limit_result.block)
-    {
-      gx_used_limits_[session_key] += used_octets;
-      gy_used_limits_[session_key] += used_octets;
-    }
-
-    return use_limit_result;
   }
 
   UserSession::UseLimitResult
@@ -251,7 +139,96 @@ namespace dpi
       }
     }
 
-    last_limits_use_timestamp_ = now;
+    return use_limit_result;
+  }
+
+  UserSession::RevalidateResult
+  UserSession::revalidation() const
+  {
+    RevalidateResult revalidate_result;
+
+    {
+      std::shared_lock<std::shared_mutex> guard(limits_lock_);
+
+      for (const auto& [_, limit] : limits_)
+      {
+        if (limit.gy_recheck_time.has_value())
+        {
+          revalidate_result.revalidate_gy_time = limit.gy_recheck_time.has_value() ?
+            std::min(*revalidate_result.revalidate_gy_time, *limit.gy_recheck_time) :
+            *limit.gy_recheck_time;
+        }
+      }
+    }
+
+    return revalidate_result;
+  }
+
+  UserSession::UseLimitResult
+  UserSession::use_limit_i_(
+    const SessionKey& session_key,
+    const Gears::Time& now,
+    const OctetStats& used_octets)
+  {
+    //std::cout << "UserSession::use_limit_i_()" << std::endl;
+
+    UseLimitResult use_limit_result;
+
+    auto use_it = gy_used_limits_.find(session_key);
+    auto limit_it = limits_.find(session_key);
+
+    if (limit_it == limits_.end())
+    {
+      //std::cout << "use_limit: #1, session_key = " << session_key.to_string() << std::endl;
+      use_limit_result.block = true;
+      return use_limit_result;
+    }
+
+    //std::cout << "use_limit: #2" << session_key.to_string() << std::endl;
+    const unsigned long prev_used_bytes = (
+      use_it != gy_used_limits_.end() ? use_it->second.total_octets : 0);
+
+    // check blocking
+    if (limit_it->second.gy_limit.has_value() &&
+      prev_used_bytes + used_octets.total_octets > *limit_it->second.gy_limit)
+    {
+      /*
+      std::cout << "use_limit: #3, prev_used_bytes = " << prev_used_bytes <<
+        ", used_bytes = " << used_bytes <<
+        ", gy_limit = " << *limit_it->second.gy_limit <<
+        std::endl;
+      */
+      if (prev_used_bytes <= *limit_it->second.gy_limit)
+      {
+        use_limit_result.revalidate_gy = true;
+      }
+
+      use_limit_result.block = true;
+    }
+
+    if (!use_limit_result.block)
+    {
+
+      if (limit_it->second.gy_recheck_limit.has_value() &&
+        prev_used_bytes + used_octets.total_octets > *limit_it->second.gy_recheck_limit &&
+        prev_used_bytes <= *limit_it->second.gy_recheck_limit)
+      {
+        use_limit_result.revalidate_gy = true;
+      }
+
+      if (limit_it->second.gy_recheck_time.has_value() &&
+        *limit_it->second.gy_recheck_time != Gears::Time::ZERO &&
+        *limit_it->second.gy_recheck_time <= now)
+      {
+        use_limit_result.revalidate_gy = true;
+      }
+    }
+
+    if (!use_limit_result.block)
+    {
+      gx_used_limits_[session_key] += used_octets;
+      gy_used_limits_[session_key] += used_octets;
+    }
 
     return use_limit_result;
   }

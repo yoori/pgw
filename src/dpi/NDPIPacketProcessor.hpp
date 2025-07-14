@@ -15,6 +15,7 @@
 #include "UserSessionPacketProcessor.hpp"
 #include "FlowTraits.hpp"
 #include "Config.hpp"
+#include "ProtocolAdapter.hpp"
 
 namespace dpi
 {
@@ -78,6 +79,7 @@ namespace dpi
       const void *node, ndpi_VISIT which, int depth, void *user_data);
 
   private:
+    const ProtocolAdapter protocol_adapter_;
     const Config config_;
     const PacketProcessorPtr packet_processor_;
     int datalink_type_;

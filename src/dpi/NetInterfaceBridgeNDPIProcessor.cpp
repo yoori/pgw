@@ -14,8 +14,8 @@ namespace dpi
       NetInterfacePtr send_interface,
       ManagerPtr manager,
       unsigned int threads = 1,
-      UserSessionPacketProcessor::Direction direction =
-        UserSessionPacketProcessor::Direction::D_NONE,
+      Direction direction =
+        Direction::D_NONE,
       LoggerPtr logger = nullptr
       )
       : dpi::NetInterfaceProcessor(std::move(interface), threads),
@@ -123,7 +123,7 @@ namespace dpi
     ShapingManagerPtr shaping_manager_;
     NetInterfacePtr send_interface_;
     ManagerPtr manager_;
-    const UserSessionPacketProcessor::Direction direction_;
+    const Direction direction_;
     const LoggerPtr logger_;
   };
 
@@ -147,7 +147,7 @@ namespace dpi
           interface2,
           manager,
           threads,
-          UserSessionPacketProcessor::Direction::D_OUTPUT,
+          Direction::D_OUTPUT,
           logger
         )),
       // interface2 => interface1 direction
@@ -160,7 +160,7 @@ namespace dpi
           interface1,
           manager,
           threads,
-          UserSessionPacketProcessor::Direction::D_INPUT,
+          Direction::D_INPUT,
           logger
         ))
   {

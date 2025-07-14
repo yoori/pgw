@@ -1,9 +1,17 @@
 #pragma once
 
 #include <cstdint>
+#include <vector>
 
 namespace dpi
 {
+  enum Direction
+  {
+    D_NONE = 0,
+    D_OUTPUT,
+    D_INPUT
+  };
+
   enum class UsageReportingReason: uint32_t
   {
     THRESHOLD = 0, //

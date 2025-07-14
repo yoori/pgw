@@ -41,7 +41,7 @@ namespace dpi
       const FlowTraits& flow_traits,
       unsigned long packet_size,
       const void* packet,
-      UserSessionPacketProcessor::Direction direction,
+      Direction direction,
       NetInterfacePtr send_interface
       );
 
@@ -63,11 +63,9 @@ namespace dpi
     };
 
     PacketProcessingState process_packet_(
-      u_int16_t proto,
-      uint32_t src_ip,
-      uint32_t dst_ip,
+      const FlowTraits& flow_traits,
       uint64_t packet_size,
-      UserSessionPacketProcessor::Direction direction,
+      Direction direction,
       const void* packet);
 
     bool process_session_packet_(
@@ -81,7 +79,10 @@ namespace dpi
       uint32_t& dst_ip,
       const Gears::Time& now) const;
 
-    const SessionKey& proto_to_session_key_(u_int16_t proto) const;
+    static SessionKey
+    proto_to_session_key_(const std::string& protocol);
+
+    //const SessionKey& proto_to_session_key_(u_int16_t proto) const;
 
     void
     fill_gx_gy_stats_(

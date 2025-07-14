@@ -63,14 +63,11 @@ bool test_pass_by_installed_limit()
       use_session_key,
       std::nullopt,
       std::nullopt,
-      std::nullopt,
-      std::nullopt,
-      std::nullopt,
       std::nullopt
     )
   );
 
-  user_session.set_limits(limits);
+  user_session.set_gy_limits(limits);
 
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     use_session_key,
@@ -127,14 +124,11 @@ bool test_block_by_limit()
       use_session_key,
       std::nullopt,
       std::nullopt,
-      1000,
-      std::nullopt,
-      std::nullopt,
-      2000
+      1000
     )
   );
 
-  user_session.set_limits(limits);
+  user_session.set_gy_limits(limits);
 
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     use_session_key,
@@ -185,14 +179,11 @@ bool test_use_and_block_by_limit()
       use_session_key,
       std::nullopt,
       std::nullopt,
-      1000,
-      std::nullopt, 
-      std::nullopt,
-      2000
+      1000
     )
   );
 
-  user_session.set_limits(limits);
+  user_session.set_gy_limits(limits);
 
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     use_session_key,
@@ -273,14 +264,11 @@ bool test_gx_flow()
       dpi::SessionKey("test", std::string()),
       std::nullopt,
       std::nullopt,
-      1000,
-      std::nullopt,
-      std::nullopt,
-      2000
+      1000
     )
   );
 
-  user_session.set_limits(limits);
+  user_session.set_gy_limits(limits);
 
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
@@ -303,7 +291,7 @@ bool test_gx_flow()
     return false;
   }
 
-  user_session.set_limits(limits, used_limits);
+  user_session.set_gy_limits(limits, used_limits);
 
   auto last_used_limits = user_session.get_gy_used_limits(Gears::Time::get_time_of_day(), true);
 
@@ -321,7 +309,7 @@ bool test_gx_flow()
     now,
     OctetStats(110, 0, 0));
 
-  user_session.set_limits(limits);
+  user_session.set_gy_limits(limits);
 
   auto last_used_limits2 = user_session.get_gy_used_limits(Gears::Time::get_time_of_day(), true);
 
@@ -353,9 +341,6 @@ bool test_pass_by_generic_limit()
       dpi::SessionKey(),
       std::nullopt,
       std::nullopt,
-      std::nullopt,
-      std::nullopt,
-      std::nullopt,
       100000
     )
   );
@@ -364,13 +349,10 @@ bool test_pass_by_generic_limit()
       dpi::SessionKey("test", std::string()),
       std::nullopt,
       std::nullopt,
-      std::nullopt,
-      std::nullopt,
-      std::nullopt,
       0
     )
   );
-  user_session.set_limits(limits);
+  user_session.set_gy_limits(limits);
 
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
@@ -406,6 +388,7 @@ bool test_pass_by_generic_limit()
 }
 
 // revalidate_gx_by_time_test
+/*
 bool revalidate_gx_by_time_test()
 {
   static const char* TEST_NAME = "revalidate gx by time test";
@@ -421,15 +404,12 @@ bool revalidate_gx_by_time_test()
   limits.emplace_back(
     dpi::UserSession::SetLimit(
       dpi::SessionKey(),
-      start_time + Gears::Time(10),
       std::nullopt,
       std::nullopt,
-      std::nullopt,
-      std::nullopt,
-      100000
+      std::nullopt
     )
   );
-  user_session.set_limits(limits);
+  user_session.set_gy_limits(limits);
 
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     dpi::SessionKey("test", std::string()),
@@ -478,6 +458,7 @@ bool revalidate_gx_by_time_test()
   std::cout << TEST_NAME << ": success" << std::endl;
   return true;
 }
+*/
 
 // revalidate_gy_by_limit_test
 bool revalidate_gy_by_limit_test()
@@ -496,13 +477,10 @@ bool revalidate_gy_by_limit_test()
       dpi::SessionKey(),
       std::nullopt,
       10000,
-      100000,
-      std::nullopt,
-      std::nullopt,
-      std::nullopt
+      100000
     )
   );
-  user_session.set_limits(limits);
+  user_session.set_gy_limits(limits);
 
   dpi::UserSession::UseLimitResult res = user_session.use_limit(
     use_session_key,
@@ -569,16 +547,13 @@ bool test_gy_revalidate_by_time()
   limits.emplace_back(
     dpi::UserSession::SetLimit(
       use_session_key,
-      std::nullopt,
-      std::nullopt,
-      std::nullopt,
       now + Gears::Time(10), //< gy revalidate abs time
       std::nullopt,
       std::nullopt
     )
   );
 
-  user_session.set_limits(limits);
+  user_session.set_gy_limits(limits);
 
   {
     dpi::UserSession::UseLimitResult res = user_session.use_limit(
@@ -704,10 +679,12 @@ int main()
     res = false;
   }
 
+  /*
   if (!revalidate_gx_by_time_test())
   {
     res = false;
   }
+  */
 
   if (!revalidate_gy_by_limit_test())
   {

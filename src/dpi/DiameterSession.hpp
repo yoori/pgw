@@ -117,6 +117,7 @@ namespace dpi
     {
       std::unordered_set<std::string> install_charging_rule_names;
       std::unordered_set<std::string> remove_charging_rule_names;
+      std::optional<Gears::Time> revalidate_time;
 
       std::string to_string() const;
     };
@@ -362,6 +363,9 @@ namespace dpi
 
     std::string
     get_session_id_(const std::string& session_id_suffix) const;
+
+    static std::optional<Gears::Time>
+    get_gx_revalidate_time_(const Diameter::Packet& response);
 
   private:
     dpi::LoggerPtr logger_;

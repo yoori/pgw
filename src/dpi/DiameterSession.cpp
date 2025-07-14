@@ -26,6 +26,13 @@ namespace dpi
       ByteArray ba = avp_data.toOctetString();
       return std::string(reinterpret_cast<const char*>(&ba[0]), ba.size());
     }
+
+    Gears::Time
+    get_avp_time_value(const Diameter::AVP& avp)
+    {
+      const auto& avp_data = avp.data();
+      return Gears::Time(avp_data.toInteger32());
+    }
   }
 
   // SCTPDiameterSession::ReadResponsesTask
@@ -387,6 +394,8 @@ namespace dpi
       init_response.remove_charging_rule_names,
       *response);
 
+    init_response.revalidate_time = get_gx_revalidate_time_(*response);
+
     std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: GX INIT RESPONSE (" <<
       request_key.to_string() << "): " <<
       request.to_string() << " => " <<
@@ -422,6 +431,8 @@ namespace dpi
       update_response.install_charging_rule_names,
       update_response.remove_charging_rule_names,
       *response);
+
+    update_response.revalidate_time = get_gx_revalidate_time_(*response);
 
     std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: GX UPDATE RESPONSE (" <<
       request_key.to_string() << "): " <<
@@ -1556,5 +1567,20 @@ namespace dpi
     };
 
     return ByteArray(BUF, sizeof(BUF));
+  }
+
+  std::optional<Gears::Time>
+  SCTPDiameterSession::get_gx_revalidate_time_(const Diameter::Packet& response)
+  {
+    for (int i = 0; i < response.numberOfAVPs(); ++i)
+    {
+      const auto& avp = response.avp(i);
+      if (avp.header().avpCode() == 1042) //< Revalidation-Time(1042)
+      {
+        return get_avp_time_value(avp);
+      }
+    }
+
+    return std::nullopt;
   }
 }
