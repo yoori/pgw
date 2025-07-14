@@ -41,7 +41,7 @@ namespace dpi
 
       if (request.header().commandCode() == 258)
       {
-        std::cout << "[DIAMETER] Send response for RAR request" << std::endl;
+        //std::cout << "[DIAMETER] Send response for RAR request" << std::endl;
 
         // check termination
         bool terminate = false;
@@ -66,7 +66,8 @@ namespace dpi
         // Make update/terminate before RAR response
         auto manager = manager_.lock();
 
-        std::cout << "DIAMETER: PROCESS RAR, manager = " << manager.get() << std::endl;
+        std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: PROCESS RAR for session_id = " <<
+          session_id << std::endl;
 
         unsigned int result_code = 5012; //< DIAMETER_UNABLE_TO_COMPLY
 
@@ -100,6 +101,8 @@ namespace dpi
         auto diameter_session = diameter_session_.lock();
         if (diameter_session)
         {
+          std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: RESPONSE FOR RAR, result-code = " <<
+            result_code << std::endl;
           auto rar_response_packet = generate_rar_response_packet_(
             session_id,
             request.header().hbhIdentifier(),
@@ -110,11 +113,12 @@ namespace dpi
       }
       else if (request.header().commandCode() == 274 || request.header().commandCode() == 275)
       {
-        std::cout << "[DIAMETER] Send response for ASR/STR request" << std::endl;
+        //std::cout << "[DIAMETER] Send response for ASR/STR request" << std::endl;
 
         auto manager = manager_.lock();
 
-        std::cout << "DIAMETER: PROCESS RAR, manager = " << manager.get() << std::endl;
+        std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER: PROCESS ASR/STR for session_id = " <<
+          session_id << std::endl;
 
         unsigned int result_code = 5012; //< DIAMETER_UNABLE_TO_COMPLY
 
@@ -146,7 +150,8 @@ namespace dpi
     }
     else
     {
-      std::cout << "[DIAMETER] [ERROR] Input request (Command-Code = " << request.header().commandCode() <<
+      std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] DIAMETER, ERROR Input request (Command-Code = " <<
+        request.header().commandCode() <<
         ") that can't be processed" << std::endl;
     }
   }

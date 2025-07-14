@@ -260,7 +260,7 @@ namespace dpi
       UserSessionPropertyContainerPtr user_session_property_container =
         radius_user_session_property_extractor_->extract(request);
 
-      std::cout << "RADIUS PACKET: acct_status_type = " << *acct_status_type_attr->as_uint() <<
+      std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] RADIUS: acct_status_type = " << *acct_status_type_attr->as_uint() <<
         ", pass_attributes = " << user_session_property_container->values.size() <<
         ", framed_ip_address = " << dpi::ipv4_address_to_string(framed_ip_address) <<
         ", msisdn = " << *calling_station_id_attr->as_string() <<
@@ -327,6 +327,7 @@ namespace dpi
 
       if (res)
       {
+        std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] RADIUS: return 1" << std::endl;
         return RadProto::Packet(
           RadProto::ACCOUNTING_RESPONSE,
           request.id(),
@@ -336,6 +337,7 @@ namespace dpi
       }
     }
 
+    std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] RADIUS: return 0" << std::endl;
     return std::nullopt;
   }
 

@@ -478,6 +478,33 @@ namespace dpi
         user_session = user_session_storage_->get_user_session_by_ip(
           user_session_traits.framed_ip_address);
 
+        if (user_session && acct_status_type == AcctStatusType::START)
+        {
+          // drop session
+          if (!user_session->is_closed())
+          {
+            // abort
+            std::cout << "Manager::process_request(): abort and drop closed session for framed_ip_address = " <<
+              user_session_traits.framed_ip_address <<
+              std::endl;
+            abort_session(
+              *user_session,
+              true, //< terminate radius
+              true, //< terminate gx
+              true, //< terminate gy
+              "Started new session for this ip address");
+          }
+          else
+          {
+            std::cout << "Manager::process_request(): drop closed session for framed_ip_address = " <<
+              user_session_traits.framed_ip_address <<
+              std::endl;
+          }
+
+          user_session_storage_->remove_user_session(user_session_traits.framed_ip_address);
+          user_session.reset();
+        }
+
         if (!user_session)
         {
           // fill base user session properties by radius request
