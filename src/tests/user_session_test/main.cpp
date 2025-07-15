@@ -11,7 +11,7 @@ std::string used_limits_to_string(const dpi::UserSession::UsedLimitArray& used_l
   for (auto it = used_limits.begin(); it != used_limits.end(); ++it)
   {
     ostr << (it != used_limits.begin() ? ", " : "") << "{" <<
-      "session_key = " << it->session_key.to_string() <<
+      "rule_id = " << it->rule_id <<
       ", total_octets = " << it->total_octets <<
       ", output_octets = " << it->output_octets <<
       ", input_octets = " << it->input_octets <<
@@ -27,10 +27,10 @@ bool test_no_limits()
 
   Gears::Time now = Gears::Time::get_time_of_day();
 
-  dpi::SessionKey use_session_key("test", std::string());
-  dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
-  dpi::UserSession::UseLimitResult res = user_session.use_limit(
+  SessionKey use_session_key("test", std::string());
+  UserPtr user = std::make_shared<User>(std::string("111"));
+  UserSession user_session(UserSessionTraits(), user);
+  UserSession::UseLimitResult res = user_session.use_limit(
     use_session_key,
     now,
     OctetStats(10, 10, 0));
@@ -48,19 +48,23 @@ bool test_no_limits()
 bool test_pass_by_installed_limit()
 {
   // installed limit => use it => get result used limits
-  static const char* TEST_NAME = "pass by installed limit check";
+  static const char* TEST_NAME = "test_pass_by_installed_limit";
+
+  const unsigned long RULE_ID = 1;
 
   Gears::Time now = Gears::Time::get_time_of_day();
 
-  dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+  UserPtr user = std::make_shared<User>(std::string("111"));
+  UserSession user_session(UserSessionTraits(), user);
 
-  dpi::SessionKey use_session_key("test", std::string());
+  const SessionKey use_session_key("test", std::string());
 
-  dpi::UserSession::SetLimitArray limits;
+  UserSession::SetLimitArray limits;
   limits.emplace_back(
-    dpi::UserSession::SetLimit(
-      use_session_key,
+    UserSession::SetLimit(
+      RULE_ID,
+      1,
+      SessionKeyArray({use_session_key}),
       std::nullopt,
       std::nullopt,
       std::nullopt
@@ -69,7 +73,7 @@ bool test_pass_by_installed_limit()
 
   user_session.set_gy_limits(limits);
 
-  dpi::UserSession::UseLimitResult res = user_session.use_limit(
+  UserSession::UseLimitResult res = user_session.use_limit(
     use_session_key,
     now,
     OctetStats(10, 10, 0));
@@ -81,25 +85,36 @@ bool test_pass_by_installed_limit()
   }
 
   // get limits should return null reporting reason
-  auto used_limits = user_session.get_gy_used_limits(now + Gears::Time::ONE_SECOND, true);
+  {
+    auto gy_used_limits = user_session.get_gy_used_limits(now + Gears::Time::ONE_SECOND, true);
 
-  if (used_limits.size() != 1)
+    if (gy_used_limits.size() != 1)
+    {
+      std::cerr << TEST_NAME << ": unexpected used limits, size = " <<
+        gy_used_limits.size() << std::endl;
+      return false;
+    }
+
+    if (!(gy_used_limits.begin()->rule_id == RULE_ID))
+    {
+      std::cerr << TEST_NAME << ": unexpected session key in used limits" << std::endl;
+      return false;
+    }
+
+    if (gy_used_limits.begin()->reporting_reason.has_value())
+    {
+      std::cerr << TEST_NAME << ": unexpected not null reporting_reason in used limits: " <<
+        std::to_string(static_cast<uint32_t>(*gy_used_limits.begin()->reporting_reason)) << std::endl;
+      return false;
+    }
+  }
+
+  auto gx_used_limits = user_session.get_gx_used_limits(true);
+
+  if (gx_used_limits.size() != 1)
   {
     std::cerr << TEST_NAME << ": unexpected used limits, size = " <<
-      used_limits.size() << std::endl;
-    return false;
-  }
-
-  if (!(used_limits.begin()->session_key == use_session_key))
-  {
-    std::cerr << TEST_NAME << ": unexpected session key in used limits" << std::endl;
-    return false;
-  }
-
-  if (used_limits.begin()->reporting_reason.has_value())
-  {
-    std::cerr << TEST_NAME << ": unexpected not null reporting_reason in used limits: " <<
-      std::to_string(static_cast<uint32_t>(*used_limits.begin()->reporting_reason)) << std::endl;
+      gx_used_limits.size() << std::endl;
     return false;
   }
 
@@ -112,16 +127,20 @@ bool test_block_by_limit()
 {
   static const char* TEST_NAME = "block by limit check";
 
+  const unsigned long RULE_ID = 1;
+
   Gears::Time now = Gears::Time::get_time_of_day();
 
-  dpi::SessionKey use_session_key("test", std::string());
-  dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+  SessionKey use_session_key("test", std::string());
+  UserPtr user = std::make_shared<User>(std::string("111"));
+  UserSession user_session(UserSessionTraits(), user);
 
-  dpi::UserSession::SetLimitArray limits;
+  UserSession::SetLimitArray limits;
   limits.emplace_back(
-    dpi::UserSession::SetLimit(
-      use_session_key,
+    UserSession::SetLimit(
+      RULE_ID,
+      1,
+      SessionKeyArray({use_session_key}),
       std::nullopt,
       std::nullopt,
       1000
@@ -130,7 +149,7 @@ bool test_block_by_limit()
 
   user_session.set_gy_limits(limits);
 
-  dpi::UserSession::UseLimitResult res = user_session.use_limit(
+  UserSession::UseLimitResult res = user_session.use_limit(
     use_session_key,
     now,
     OctetStats(1500, 0, 0));
@@ -167,16 +186,20 @@ bool test_use_and_block_by_limit()
 {
   static const char* TEST_NAME = "use and block by limit check";
 
+  const unsigned long RULE_ID = 1;
+
   Gears::Time now = Gears::Time::get_time_of_day();
 
-  dpi::SessionKey use_session_key("test", std::string());
-  dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+  SessionKey use_session_key("test", std::string());
+  UserPtr user = std::make_shared<User>(std::string("111"));
+  UserSession user_session(UserSessionTraits(), user);
 
-  dpi::UserSession::SetLimitArray limits;
+  UserSession::SetLimitArray limits;
   limits.emplace_back(
-    dpi::UserSession::SetLimit(
-      use_session_key,
+    UserSession::SetLimit(
+      RULE_ID,
+      1,
+      SessionKeyArray({use_session_key}),
       std::nullopt,
       std::nullopt,
       1000
@@ -185,7 +208,7 @@ bool test_use_and_block_by_limit()
 
   user_session.set_gy_limits(limits);
 
-  dpi::UserSession::UseLimitResult res = user_session.use_limit(
+  UserSession::UseLimitResult res = user_session.use_limit(
     use_session_key,
     now,
     OctetStats(100, 0, 0));
@@ -231,7 +254,7 @@ bool test_use_and_block_by_limit()
       return false;
     }
 
-    if (!(used_limits.begin()->session_key == use_session_key))
+    if (!(used_limits.begin()->rule_id == RULE_ID))
     {
       std::cerr << TEST_NAME << ": unexpected session key in used limits" << std::endl;
       return false;
@@ -251,17 +274,21 @@ bool test_use_and_block_by_limit()
 // test_gx_flow
 bool test_gx_flow()
 {
-  static const char* TEST_NAME = "gx flow";
+  static const char* TEST_NAME = "test_gx_flow";
+
+  const unsigned long RULE_ID = 1;
 
   Gears::Time now = Gears::Time::get_time_of_day();
 
-  dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+  UserPtr user = std::make_shared<User>(std::string("111"));
+  UserSession user_session(UserSessionTraits(), user);
 
-  dpi::UserSession::SetLimitArray limits;
+  UserSession::SetLimitArray limits;
   limits.emplace_back(
-    dpi::UserSession::SetLimit(
-      dpi::SessionKey("test", std::string()),
+    UserSession::SetLimit(
+      RULE_ID,
+      1,
+      SessionKeyArray({SessionKey("test", std::string())}),
       std::nullopt,
       std::nullopt,
       1000
@@ -270,8 +297,8 @@ bool test_gx_flow()
 
   user_session.set_gy_limits(limits);
 
-  dpi::UserSession::UseLimitResult res = user_session.use_limit(
-    dpi::SessionKey("test", std::string()),
+  UserSession::UseLimitResult res = user_session.use_limit(
+    SessionKey("test", std::string()),
     now,
     OctetStats(100, 0, 0));
 
@@ -297,7 +324,7 @@ bool test_gx_flow()
 
   if (!last_used_limits.empty())
   {
-    std::cerr << TEST_NAME << ": step2 - unexpected used limits: " <<
+    std::cerr << TEST_NAME << ": step3 - unexpected used limits: " <<
       used_limits_to_string(used_limits) <<
       std::endl;
     return false;
@@ -305,7 +332,7 @@ bool test_gx_flow()
 
   //
   res = user_session.use_limit(
-    dpi::SessionKey("test", std::string()),
+    SessionKey("test", std::string()),
     now,
     OctetStats(110, 0, 0));
 
@@ -315,7 +342,7 @@ bool test_gx_flow()
 
   if (last_used_limits2.size() != 1 || last_used_limits2.begin()->total_octets != 110)
   {
-    std::cerr << TEST_NAME << ": step3 - unexpected used limits: " <<
+    std::cerr << TEST_NAME << ": step4 - unexpected used limits: " <<
       used_limits_to_string(used_limits) <<
       std::endl;
     return false;
@@ -328,25 +355,32 @@ bool test_gx_flow()
 // test_pass_by_generic_limit
 bool test_pass_by_generic_limit()
 {
-  static const char* TEST_NAME = "pass by generic limit check";
+  static const char* TEST_NAME = "test_pass_by_generic_limit";
+
+  const unsigned long RULE_ID = 1;
+  const unsigned long RULE_ID2 = 2;
 
   Gears::Time now = Gears::Time::get_time_of_day();
 
-  dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+  UserPtr user = std::make_shared<User>(std::string("111"));
+  UserSession user_session(UserSessionTraits(), user);
 
-  dpi::UserSession::SetLimitArray limits;
+  UserSession::SetLimitArray limits;
   limits.emplace_back(
-    dpi::UserSession::SetLimit(
-      dpi::SessionKey(),
+    UserSession::SetLimit(
+      RULE_ID,
+      1,
+      SessionKeyArray({SessionKey()}),
       std::nullopt,
       std::nullopt,
       100000
     )
   );
   limits.emplace_back(
-    dpi::UserSession::SetLimit(
-      dpi::SessionKey("test", std::string()),
+    UserSession::SetLimit(
+      RULE_ID2,
+      1,
+      SessionKeyArray({SessionKey("test", std::string())}),
       std::nullopt,
       std::nullopt,
       0
@@ -354,8 +388,8 @@ bool test_pass_by_generic_limit()
   );
   user_session.set_gy_limits(limits);
 
-  dpi::UserSession::UseLimitResult res = user_session.use_limit(
-    dpi::SessionKey("test", std::string()),
+  UserSession::UseLimitResult res = user_session.use_limit(
+    SessionKey("test", std::string()),
     now,
     OctetStats(10, 0, 0));
 
@@ -378,7 +412,9 @@ bool test_pass_by_generic_limit()
 
     if (used_limits.begin()->reporting_reason.has_value())
     {
-      std::cerr << TEST_NAME << ": unexpected not null reporting_reason in used limits" << std::endl;
+      std::cerr << TEST_NAME << ": unexpected not null reporting_reason in used limits = " <<
+        static_cast<unsigned int>(*(used_limits.begin()->reporting_reason)) <<
+        std::endl;
       return false;
     }
   }
@@ -395,15 +431,15 @@ bool revalidate_gx_by_time_test()
 
   Gears::Time now = Gears::Time::get_time_of_day();
 
-  dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+  UserPtr user = std::make_shared<User>(std::string("111"));
+  UserSession user_session(UserSessionTraits(), user);
 
   Gears::Time start_time = Gears::Time::get_time_of_day();
 
-  dpi::UserSession::SetLimitArray limits;
+  UserSession::SetLimitArray limits;
   limits.emplace_back(
-    dpi::UserSession::SetLimit(
-      dpi::SessionKey(),
+    UserSession::SetLimit(
+      SessionKey(),
       std::nullopt,
       std::nullopt,
       std::nullopt
@@ -411,8 +447,8 @@ bool revalidate_gx_by_time_test()
   );
   user_session.set_gy_limits(limits);
 
-  dpi::UserSession::UseLimitResult res = user_session.use_limit(
-    dpi::SessionKey("test", std::string()),
+  UserSession::UseLimitResult res = user_session.use_limit(
+    SessionKey("test", std::string()),
     start_time,
     OctetStats(10, 0, 0));
 
@@ -423,7 +459,7 @@ bool revalidate_gx_by_time_test()
   }
 
   res = user_session.use_limit(
-    dpi::SessionKey("test", std::string()),
+    SessionKey("test", std::string()),
     start_time + Gears::Time(9),
     OctetStats(10, 0, 0));
 
@@ -434,7 +470,7 @@ bool revalidate_gx_by_time_test()
   }
 
   res = user_session.use_limit(
-    dpi::SessionKey("test", std::string()),
+    SessionKey("test", std::string()),
     start_time + Gears::Time(11),
     OctetStats(10, 0, 0));
 
@@ -445,7 +481,7 @@ bool revalidate_gx_by_time_test()
   }
 
   res = user_session.use_limit(
-    dpi::SessionKey("test", std::string()),
+    SessionKey("test", std::string()),
     start_time + Gears::Time(11),
     OctetStats(10, 0, 0));
 
@@ -465,16 +501,20 @@ bool revalidate_gy_by_limit_test()
 {
   static const char* TEST_NAME = "revalidate gy by limit test";
 
-  dpi::SessionKey use_session_key("test", std::string());
-  dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+  const unsigned long RULE_ID = 1;
+
+  SessionKey use_session_key("test", std::string());
+  UserPtr user = std::make_shared<User>(std::string("111"));
+  UserSession user_session(UserSessionTraits(), user);
 
   Gears::Time start_time = Gears::Time::get_time_of_day();
 
-  dpi::UserSession::SetLimitArray limits;
+  UserSession::SetLimitArray limits;
   limits.emplace_back(
-    dpi::UserSession::SetLimit(
-      dpi::SessionKey(),
+    UserSession::SetLimit(
+      RULE_ID,
+      1,
+      SessionKeyArray({SessionKey()}),
       std::nullopt,
       10000,
       100000
@@ -482,7 +522,7 @@ bool revalidate_gy_by_limit_test()
   );
   user_session.set_gy_limits(limits);
 
-  dpi::UserSession::UseLimitResult res = user_session.use_limit(
+  UserSession::UseLimitResult res = user_session.use_limit(
     use_session_key,
     start_time,
     OctetStats(9998, 0, 0));
@@ -533,20 +573,24 @@ bool revalidate_gy_by_limit_test()
 
 bool test_gy_revalidate_by_time()
 {
+  const unsigned long RULE_ID = 1;
+
   // installed limit => use it => get result used limits
   static const char* TEST_NAME = "gy revalidate by time check";
 
   Gears::Time now = Gears::Time::get_time_of_day();
 
-  dpi::UserPtr user = std::make_shared<dpi::User>(std::string("111"));
-  dpi::UserSession user_session(dpi::UserSessionTraits(), user);
+  UserPtr user = std::make_shared<User>(std::string("111"));
+  UserSession user_session(UserSessionTraits(), user);
 
-  dpi::SessionKey use_session_key("test", std::string());
+  SessionKey use_session_key("test", std::string());
 
-  dpi::UserSession::SetLimitArray limits;
+  UserSession::SetLimitArray limits;
   limits.emplace_back(
-    dpi::UserSession::SetLimit(
-      use_session_key,
+    UserSession::SetLimit(
+      RULE_ID,
+      1,
+      SessionKeyArray({use_session_key}),
       now + Gears::Time(10), //< gy revalidate abs time
       std::nullopt,
       std::nullopt
@@ -556,7 +600,7 @@ bool test_gy_revalidate_by_time()
   user_session.set_gy_limits(limits);
 
   {
-    dpi::UserSession::UseLimitResult res = user_session.use_limit(
+    UserSession::UseLimitResult res = user_session.use_limit(
       use_session_key,
       now,
       OctetStats(10, 10, 0));
@@ -579,7 +623,7 @@ bool test_gy_revalidate_by_time()
       return false;
     }
 
-    if (!(used_limits.begin()->session_key == use_session_key))
+    if (!(used_limits.begin()->rule_id == RULE_ID))
     {
       std::cerr << TEST_NAME << ": unexpected session key in used limits" << std::endl;
       return false;
@@ -594,7 +638,7 @@ bool test_gy_revalidate_by_time()
   }
 
   {
-    dpi::UserSession::UseLimitResult res = user_session.use_limit(
+    UserSession::UseLimitResult res = user_session.use_limit(
       use_session_key,
       now + Gears::Time::ONE_SECOND,
       OctetStats(10, 10, 0));
@@ -617,7 +661,7 @@ bool test_gy_revalidate_by_time()
       return false;
     }
 
-    if (!(used_limits.begin()->session_key == use_session_key))
+    if (!(used_limits.begin()->rule_id == RULE_ID))
     {
       std::cerr << TEST_NAME << ": unexpected session key in used limits" << std::endl;
       return false;
@@ -662,12 +706,10 @@ int main()
     res = false;
   }
 
-  /*
-  if (!test_use_and_block_by_limit())
-  {
-    res = false;
-  }
-  */
+  //if (!test_use_and_block_by_limit())
+  //{
+  //  res = false;
+  //}
 
   if (!test_gx_flow())
   {
@@ -679,12 +721,10 @@ int main()
     res = false;
   }
 
-  /*
-  if (!revalidate_gx_by_time_test())
-  {
-    res = false;
-  }
-  */
+  //if (!revalidate_gx_by_time_test())
+  //{
+  //  res = false;
+  //}
 
   if (!revalidate_gy_by_limit_test())
   {

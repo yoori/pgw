@@ -31,6 +31,8 @@ namespace dpi
     std::string category_type_;
     unsigned long hash_;
   };
+
+  using SessionKeyArray = std::vector<SessionKey>;
 }
 
 namespace dpi

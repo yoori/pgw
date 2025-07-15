@@ -24,14 +24,11 @@ namespace dpi
 
     if (config_json.contains("rules"))
     {
+      unsigned long rule_id = 1;
+
       for (const auto config_element_obj : config_json["rules"].array_range())
       {
         SessionKeyRule session_key_rule;
-
-        const auto& session_key_obj = config_element_obj["session_key"];
-        const std::string traffic_type = session_key_obj["traffic_type"].as_string();
-        const std::string category_type = session_key_obj["category_type"].as_string();
-        session_key_rule.session_key = SessionKey(traffic_type, category_type);
 
         if (config_element_obj.contains("charging_rule_name"))
         {
@@ -90,7 +87,37 @@ namespace dpi
           session_key_rule.check_gy = config_element_obj["check_gy"].as_bool();
         }
 
-        result_config->session_keys.emplace(session_key_rule.session_key, session_key_rule);
+        if (config_element_obj.contains("priority"))
+        {
+          session_key_rule.priority = config_element_obj["priority"].as_integer<uint16_t>();
+        }
+
+        for (const auto& session_key_obj : config_element_obj["session_keys"].array_range())
+        {
+          const std::string traffic_type = session_key_obj["traffic_type"].as_string();
+          const std::string category_type = session_key_obj["category_type"].as_string();
+          session_key_rule.session_keys.emplace_back(SessionKey(traffic_type, category_type));
+        }
+
+        for (const auto& session_key : session_key_rule.session_keys)
+        {
+          {
+            auto it = result_config->session_rule_by_session_key.find(session_key);
+            if (it != result_config->session_rule_by_session_key.end())
+            {
+              if (it->second.priority < session_key_rule.priority)
+              {
+                result_config->session_rule_by_session_key[session_key] = session_key_rule;
+              }
+            }
+            else
+            {
+              result_config->session_rule_by_session_key.emplace(session_key, session_key_rule);
+            }
+          }
+        }
+
+        result_config->session_keys.emplace(session_key_rule.rule_id, session_key_rule);
 
         if (!session_key_rule.charging_rule_name.empty())
         {
@@ -105,6 +132,8 @@ namespace dpi
             rating_group_id,
             session_key_rule);
         }
+
+        ++rule_id;
       }
     }
 
@@ -115,17 +144,20 @@ namespace dpi
   PccConfig::save(const std::string_view& file_path) const
   {
     std::vector<jsoncons::json> rules_arr;
-    for (auto it = session_keys.begin(); it != session_keys.end(); ++it)
+    for (const auto& [_, session_key_rule] : session_keys)
     {
-      const auto& session_key = it->first;
-      const auto& session_key_rule = it->second;
-
-      jsoncons::json session_key_json;
-      session_key_json["traffic_type"] = session_key.traffic_type();
-      session_key_json["category_type"] = session_key.category_type();
+      std::vector<jsoncons::json> session_keys_json;
+      for (const auto& session_key : session_key_rule.session_keys)
+      {
+        jsoncons::json session_key_json;
+        session_key_json["traffic_type"] = session_key.traffic_type();
+        session_key_json["category_type"] = session_key.category_type();
+        session_keys_json.emplace_back(std::move(session_key_json));
+      }
 
       jsoncons::json rule_obj;
-      rule_obj["session_key"] = session_key_json;
+      rule_obj["priority"] = session_key_rule.priority;
+      rule_obj["session_keys"] = session_keys_json;
       rule_obj["rating_groups"] = session_key_rule.rating_groups;
       rule_obj["monitoring_keys"] = session_key_rule.monitoring_keys;
       rule_obj["allow_traffic"] = session_key_rule.allow_traffic;

@@ -19,6 +19,12 @@ namespace dpi
         input_octets(input_octets_val)
     {}
 
+    bool
+    is_null() const;
+
+    void
+    set_null();
+
     OctetStats&
     operator+=(const OctetStats& right);
 
@@ -32,6 +38,21 @@ namespace dpi
 
 namespace dpi
 {
+  // OctetStats inlines
+  inline bool
+  OctetStats::is_null() const
+  {
+    return total_octets == 0 && output_octets == 0 && input_octets == 0;
+  }
+
+  inline void
+  OctetStats::set_null()
+  {
+    total_octets = 0;
+    output_octets = 0;
+    input_octets = 0;
+  }
+
   inline OctetStats&
   OctetStats::operator+=(const OctetStats& right)
   {

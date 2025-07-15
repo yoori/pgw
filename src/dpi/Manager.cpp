@@ -122,7 +122,7 @@ namespace dpi
     auto used_limits = user_session.get_gy_used_limits(Gears::Time::get_time_of_day(), true);
     for (const auto& used_limit : used_limits)
     {
-      auto session_rule_it = pcc_config->session_keys.find(used_limit.session_key);
+      auto session_rule_it = pcc_config->session_keys.find(used_limit.rule_id);
       if (session_rule_it != pcc_config->session_keys.end())
       {
         const dpi::PccConfig::SessionKeyRule& session_key_rule = session_rule_it->second;
@@ -161,7 +161,7 @@ namespace dpi
       auto session_rule_it = pcc_config->session_rule_by_rating_group.find(rating_group_limit.rating_group_id);
       if (session_rule_it != pcc_config->session_rule_by_rating_group.end())
       {
-        add_limit.session_key = session_rule_it->second.session_key;
+        add_limit.session_keys = session_rule_it->second.session_keys;
         if (rating_group_limit.result_code == 2001 && rating_group_limit.cc_total_octets.has_value())
         {
           if (*rating_group_limit.cc_total_octets > 0)
@@ -428,7 +428,7 @@ namespace dpi
     auto used_limits = user_session.get_gx_used_limits();
     for (const auto& used_limit : used_limits)
     {
-      auto session_rule_it = pcc_config->session_keys.find(used_limit.session_key);
+      auto session_rule_it = pcc_config->session_keys.find(used_limit.rule_id);
       if (session_rule_it != pcc_config->session_keys.end())
       {
         const dpi::PccConfig::SessionKeyRule& session_key_rule = session_rule_it->second;
@@ -507,9 +507,6 @@ namespace dpi
 
         if (!user_session)
         {
-          // fill base user session properties by radius request
-          ConstUserSessionPropertyContainerPtr user_session_properties; // TO FIX
-
           user_session = user_session_storage_->add_user_session(
             user_session_traits,
             user

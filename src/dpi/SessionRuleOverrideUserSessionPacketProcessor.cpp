@@ -25,8 +25,8 @@ namespace dpi
     ConstPccConfigPtr pcc_config = pcc_config_provider_->get_config();
     if (pcc_config)
     {
-      auto session_key_rule_it = pcc_config->session_keys.find(session_key);
-      if (session_key_rule_it != pcc_config->session_keys.end())
+      auto session_key_rule_it = pcc_config->session_rule_by_session_key.find(session_key);
+      if (session_key_rule_it != pcc_config->session_rule_by_session_key.end())
       {
         const PccConfig::SessionKeyRule& session_key_rule = session_key_rule_it->second;
         if (session_key_rule.allow_traffic)

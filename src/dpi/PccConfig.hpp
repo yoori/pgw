@@ -17,7 +17,9 @@ namespace dpi
 
     struct SessionKeyRule
     {
-      SessionKey session_key;
+      unsigned long rule_id = 1;
+      unsigned long priority = 1;
+      std::vector<SessionKey> session_keys;
       std::string charging_rule_name;
       std::vector<unsigned long> monitoring_keys;
       std::vector<unsigned long> rating_groups;
@@ -26,7 +28,9 @@ namespace dpi
       bool check_gy = true;
     };
 
-    Gears::HashTable<SessionKey, SessionKeyRule> session_keys;
+    // use only for allow/disallow traffic, contains rule with biggest priority:
+    Gears::HashTable<SessionKey, SessionKeyRule> session_rule_by_session_key;
+    std::unordered_map<unsigned long, SessionKeyRule> session_keys;
     std::unordered_map<std::string, SessionKeyRule> session_rule_by_charging_name;
     std::unordered_map<unsigned long, SessionKeyRule> session_rule_by_rating_group;
 

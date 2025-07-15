@@ -6,6 +6,76 @@
 
 namespace dpi
 {
+  // UserSessionStatsHolder impl
+  std::unordered_map<unsigned long, OctetStats>
+  UserSessionStatsHolder::get_usage(bool own) const
+  {
+    std::unordered_map<unsigned long, OctetStats> res;
+
+    for (const auto& [rule_id, octet_stats_ptr] : usage_by_rule_id_)
+    {
+      if (!octet_stats_ptr->is_null())
+      {
+        res.emplace(rule_id, *octet_stats_ptr);
+        if (own)
+        {
+          octet_stats_ptr->set_null();
+        }
+      }
+    }
+
+    return res;
+  }
+
+  UserSessionStatsHolder::OctetStatsPtr
+  UserSessionStatsHolder::get_usage_cell(const SessionKey& session_key)
+  {
+    auto it = usage_by_session_key_.find(session_key);
+    if (it != usage_by_session_key_.end())
+    {
+      return it->second;
+    }
+
+    return nullptr;
+  }
+
+  void
+  UserSessionStatsHolder::allow_session_keys(const AllowedSessionKeyMap& allowed_session_keys)
+  {
+    UsageByRuleIdMap new_usage_by_rule_id;
+    UsageBySessionKeyMap new_usage_by_session_key;
+
+    for (const auto& [session_key, rule_id] : allowed_session_keys)
+    {
+      auto old_usage_by_rule_it = usage_by_rule_id_.find(rule_id);
+      if (old_usage_by_rule_it != usage_by_rule_id_.end())
+      {
+        // rule usage already exists
+        new_usage_by_rule_id.emplace(rule_id, old_usage_by_rule_it->second);
+        new_usage_by_session_key.emplace(session_key, old_usage_by_rule_it->second);
+      }
+      else
+      {
+        // new rule id
+        auto n_it = new_usage_by_rule_id.find(rule_id);
+        if (n_it != new_usage_by_rule_id.end())
+        {
+          new_usage_by_session_key.emplace(session_key, n_it->second);
+        }
+        else
+        {
+          auto octet_stats_ptr = std::make_shared<OctetStats>();
+          new_usage_by_rule_id.emplace(rule_id, octet_stats_ptr);
+          new_usage_by_session_key.emplace(session_key, octet_stats_ptr);
+        }
+      }
+    }
+
+    usage_by_rule_id_.swap(new_usage_by_rule_id);
+    usage_by_session_key_.swap(new_usage_by_session_key);
+  }
+
+  // UserSession impl
   UserSession::UserSession(
     const UserSessionTraits& traits,
     UserPtr user)
@@ -19,29 +89,6 @@ namespace dpi
     gy_session_id_suffix_ = std::string(";") +
       std::to_string(Gears::safe_rand()) + ";0;" + std::to_string(Gears::safe_rand());
   }
-
-  /*
-  ConstUserSessionPropertyContainerPtr
-  UserSession::properties() const
-  {
-    std::unique_lock<std::shared_mutex> guard(properties_lock_);
-    return properties_;
-  }
-
-  void
-  UserSession::set_properties(const UserSessionPropertyValueMap& properties)
-  {
-    std::shared_ptr<UserSessionPropertyContainer> new_properties;
-
-    std::unique_lock<std::shared_mutex> guard(properties_lock_);
-    new_properties = std::make_shared<UserSessionPropertyContainer>(*properties_);
-    for (const auto& [name, value] : properties)
-    {
-      new_properties->values[name] = value;
-    }
-    properties_.swap(new_properties);
-  }
-  */
 
   void
   UserSession::set_traits(const UserSessionTraits& traits)
@@ -96,14 +143,67 @@ namespace dpi
     const SetLimitArray& limits,
     const UsedLimitArray& decrease_used)
   {
-    LimitMap new_limits;
-    for (const auto& limit: limits)
+    struct LimitHolder
     {
-      new_limits.emplace(limit.session_key, limit);
+      LimitHolder() {}
+
+      LimitHolder(unsigned int priority_val, unsigned long rule_id_val, LimitPtr limit_val)
+        : priority(priority_val),
+          rule_id(rule_id_val),
+          limit(std::move(limit_val))
+      {}
+
+      unsigned int priority = 1;
+      unsigned long rule_id;
+      LimitPtr limit;
+    };
+
+    Gears::HashTable<SessionKey, LimitHolder> packed_new_limits;
+    //std::unordered_map<unsigned long, std::shared_ptr<Limit>> packed_new_limits_by_rule_id;
+
+    for (const auto& set_limit: limits)
+    {
+      auto limit_ptr = std::make_shared<Limit>(set_limit); //< construct without session_
+
+      for (const auto& session_key : set_limit.session_keys)
+      {
+        auto prev_limit_it = packed_new_limits.find(session_key);
+        if (prev_limit_it != packed_new_limits.end())
+        {
+          if (prev_limit_it->second.priority < set_limit.priority)
+          {
+            auto& change_limit_holder = packed_new_limits[session_key];
+            change_limit_holder.priority = set_limit.priority;
+            change_limit_holder.rule_id = set_limit.rule_id;
+            change_limit_holder.limit = limit_ptr;
+          }
+        }
+        else
+        {
+          packed_new_limits.emplace(
+            session_key,
+            LimitHolder(set_limit.priority, set_limit.rule_id, limit_ptr));
+        }
+      }
+    }
+
+    // Now we have mapping session_key => limit, used should have equal struct
+    LimitMap new_limits;
+    LimitByRuleIdMap limits_by_rule_id;
+    UserSessionStatsHolder::AllowedSessionKeyMap allowed_session_keys;
+
+    for (const auto& [session_key, packed_limit] : packed_new_limits)
+    {
+      new_limits.emplace(session_key, packed_limit.limit);
+      allowed_session_keys.emplace(session_key, packed_limit.rule_id);
+      limits_by_rule_id.emplace(packed_limit.rule_id, packed_limit.limit);
     }
 
     std::unique_lock<std::shared_mutex> guard(limits_lock_);
     limits_.swap(new_limits);
+    limits_by_rule_id_.swap(limits_by_rule_id);
+    gx_usage_.allow_session_keys(allowed_session_keys);
+    gy_usage_.allow_session_keys(allowed_session_keys);
   }
 
   UserSession::UseLimitResult
@@ -150,13 +250,13 @@ namespace dpi
     {
       std::shared_lock<std::shared_mutex> guard(limits_lock_);
 
-      for (const auto& [_, limit] : limits_)
+      for (const auto& [_, limit_ptr] : limits_)
       {
-        if (limit.gy_recheck_time.has_value())
+        if (limit_ptr->gy_recheck_time.has_value())
         {
-          revalidate_result.revalidate_gy_time = limit.gy_recheck_time.has_value() ?
-            std::min(*revalidate_result.revalidate_gy_time, *limit.gy_recheck_time) :
-            *limit.gy_recheck_time;
+          revalidate_result.revalidate_gy_time = limit_ptr->gy_recheck_time.has_value() ?
+            std::min(*revalidate_result.revalidate_gy_time, *(limit_ptr->gy_recheck_time)) :
+            *(limit_ptr->gy_recheck_time);
         }
       }
     }
@@ -174,7 +274,6 @@ namespace dpi
 
     UseLimitResult use_limit_result;
 
-    auto use_it = gy_used_limits_.find(session_key);
     auto limit_it = limits_.find(session_key);
 
     if (limit_it == limits_.end())
@@ -184,21 +283,38 @@ namespace dpi
       return use_limit_result;
     }
 
-    //std::cout << "use_limit: #2" << session_key.to_string() << std::endl;
-    const unsigned long prev_used_bytes = (
-      use_it != gy_used_limits_.end() ? use_it->second.total_octets : 0);
+    // for limits check we use only gy stats
+    auto use_cell = gy_usage_.get_usage_cell(session_key);
+
+    if (!use_cell)
+    {
+      use_limit_result.block = true;
+      return use_limit_result;
+    }
+
+    const unsigned long prev_used_bytes = use_cell->total_octets;
+
+    /*
+    std::cout << "use_limit: #2" << session_key.to_string() <<
+      ", prev_used_bytes = " << prev_used_bytes <<
+      ", gy_limit = " << (
+        limit_it->second->gy_limit.has_value() ?
+        std::to_string(*limit_it->second->gy_limit) : "none") <<
+      std::endl;
+    */
 
     // check blocking
-    if (limit_it->second.gy_limit.has_value() &&
-      prev_used_bytes + used_octets.total_octets > *limit_it->second.gy_limit)
+    if (limit_it->second->gy_limit.has_value() &&
+      prev_used_bytes + used_octets.total_octets > *(limit_it->second->gy_limit))
     {
       /*
       std::cout << "use_limit: #3, prev_used_bytes = " << prev_used_bytes <<
-        ", used_bytes = " << used_bytes <<
-        ", gy_limit = " << *limit_it->second.gy_limit <<
+        ", used_bytes = " << use_cell->total_octets <<
+        ", gy_limit = " << *limit_it->second->gy_limit <<
         std::endl;
       */
-      if (prev_used_bytes <= *limit_it->second.gy_limit)
+
+      if (prev_used_bytes <= *(limit_it->second->gy_limit))
       {
         use_limit_result.revalidate_gy = true;
       }
@@ -209,25 +325,29 @@ namespace dpi
     if (!use_limit_result.block)
     {
 
-      if (limit_it->second.gy_recheck_limit.has_value() &&
-        prev_used_bytes + used_octets.total_octets > *limit_it->second.gy_recheck_limit &&
-        prev_used_bytes <= *limit_it->second.gy_recheck_limit)
+      if (limit_it->second->gy_recheck_limit.has_value() &&
+        prev_used_bytes + use_cell->total_octets > *(limit_it->second->gy_recheck_limit) &&
+        prev_used_bytes <= *(limit_it->second->gy_recheck_limit))
       {
         use_limit_result.revalidate_gy = true;
       }
 
+      /*
       if (limit_it->second.gy_recheck_time.has_value() &&
         *limit_it->second.gy_recheck_time != Gears::Time::ZERO &&
         *limit_it->second.gy_recheck_time <= now)
       {
         use_limit_result.revalidate_gy = true;
       }
+      */
     }
 
     if (!use_limit_result.block)
     {
-      gx_used_limits_[session_key] += used_octets;
-      gy_used_limits_[session_key] += used_octets;
+      *use_cell += used_octets;
+      auto gx_use_cell = gx_usage_.get_usage_cell(session_key);
+      assert(gx_use_cell);
+      *gx_use_cell += used_octets;
     }
 
     return use_limit_result;
@@ -238,16 +358,20 @@ namespace dpi
   {
     UsedLimitArray res;
 
-    std::shared_lock<std::shared_mutex> guard(limits_lock_);
-    for (auto it = gx_used_limits_.begin(); it != gx_used_limits_.end(); ++it)
+    std::unique_lock<std::shared_mutex> guard(limits_lock_);
+    auto usage_stats = gx_usage_.get_usage(own_stats);
+
+    for (const auto& [rule_id, octet_stats] : usage_stats)
     {
-      res.emplace_back(UsedLimit(it->first, it->second));
+      res.emplace_back(UsedLimit(rule_id, octet_stats, std::nullopt));
     }
 
+    /*
     if (own_stats)
     {
       gx_used_limits_.clear();
     }
+    */
 
     return res;
   }
@@ -257,38 +381,53 @@ namespace dpi
   {
     UsedLimitArray res;
 
-    std::shared_lock<std::shared_mutex> guard(limits_lock_);
-    for (auto it = gy_used_limits_.begin(); it != gy_used_limits_.end(); ++it)
+    std::unique_lock<std::shared_mutex> guard(limits_lock_);
+
+    auto usage_stats = gy_usage_.get_usage(own_stats);
+
+    for (const auto& [rule_id, octet_stats] : usage_stats)
     {
       // evaluate used limit status
       std::optional<UsageReportingReason> reporting_reason;
-      auto limit_it = limits_.find(it->first);
-      if (limit_it != limits_.end())
+      auto limit_it = limits_by_rule_id_.find(rule_id);
+      if (limit_it != limits_by_rule_id_.end())
       {
-        const unsigned used_bytes = it->second.total_octets;
+        const unsigned used_bytes = octet_stats.total_octets;
 
-        if (limit_it->second.gy_limit.has_value() && used_bytes >= *limit_it->second.gy_limit)
+        /*
+        std::cout << "R STEP: used_bytes = " << used_bytes <<
+          ", gy_limit = " << (
+            limit_it->second->gy_limit.has_value() ?
+            std::to_string(*(limit_it->second->gy_limit)) :
+            "none") << std::endl;
+        */
+
+        if (limit_it->second->gy_limit.has_value() &&
+          used_bytes >= *(limit_it->second->gy_limit))
         {
           reporting_reason = UsageReportingReason::QUOTA_EXHAUSTED;
         }
-        else if (limit_it->second.gy_recheck_limit.has_value() && used_bytes >= *limit_it->second.gy_recheck_limit)
+        else if (limit_it->second->gy_recheck_limit.has_value() &&
+          used_bytes >= *(limit_it->second->gy_recheck_limit))
         {
-          reporting_reason = UsageReportingReason::QUOTA_EXHAUSTED;
+          reporting_reason = UsageReportingReason::THRESHOLD;
         }
-        else if (limit_it->second.gy_recheck_time.has_value() &&
-          now >= *limit_it->second.gy_recheck_time)
+        else if (limit_it->second->gy_recheck_time.has_value() &&
+          now >= *(limit_it->second->gy_recheck_time))
         {
           reporting_reason = UsageReportingReason::VALIDITY_TIME;
         }
       }
 
-      res.emplace_back(UsedLimit(it->first, it->second, reporting_reason));
+      res.emplace_back(UsedLimit(rule_id, octet_stats, reporting_reason));
     }
 
+    /*
     if (own_stats)
     {
       gy_used_limits_.clear();
     }
+    */
 
     return res;
   }
