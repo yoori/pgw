@@ -1,144 +1,227 @@
 {
-    "rules": [
-	{
-	    "allow_traffic": true,
-            "session_key": {
-                "category_type": "",
-                "traffic_type": "ip_ospf"
-            }
-	},
-	{
-	    "allow_traffic": true,
-            "session_key": {
-                "category_type": "",
-                "traffic_type": "bfd"
-            }
-	},
-        {
-	    "charging_rule_name": "MVNO_SBT_UNLIM",
-            "allow_traffic": false, 
-            "monitoring_keys": [
-                64
-            ], 
-            "rating_groups": [
-                32
-            ], 
-            "session_key": {
-                "category_type": "", 
-                "traffic_type": ""
-            }
-        }, 
-        {
-	    "charging_rule_name": "MVNO_SBT_IMO_UNLIM",
-            "allow_traffic": false, 
-            "monitoring_keys": [
-                164
-            ], 
-            "rating_groups": [
-                64
-            ], 
-            "session_key": {
-                "category_type": "", 
-                "traffic_type": "imo"
-            }
-        }, 
-        {
-	    "charging_rule_name": "MVNO_SBT_RUTUBE_UNLIM",
-            "allow_traffic": false, 
-            "monitoring_keys": [
-                176
-            ], 
-            "rating_groups": [
-                76
-            ], 
-            "session_key": {
-                "category_type": "", 
-                "traffic_type": "rutube"
-            }
-        }, 
-        {
-	    "charging_rule_name": "MVNO_SBT_YOUTUBE_UNLIM",
-            "allow_traffic": false, 
-            "monitoring_keys": [
-                175
-            ], 
-            "rating_groups": [
-                75
-            ], 
-            "session_key": {
-                "category_type": "", 
-                "traffic_type": "youtube_upload"
-            }
-        }, 
-        {
-	    "charging_rule_name": "MVNO_SBT_YOUTUBE_UNLIM",
-            "allow_traffic": false, 
-            "monitoring_keys": [
-                175
-            ], 
-            "rating_groups": [
-                75
-            ], 
-            "session_key": {
-                "category_type": "", 
-                "traffic_type": "youtube"
-            }
-        }, 
-        {
-	    "charging_rule_name": "MVNO_SBT_WHATSAPP_UNLIM",
-            "allow_traffic": false, 
-            "monitoring_keys": [
-                162
-            ], 
-            "rating_groups": [
-                62
-            ], 
-            "session_key": {
-                "category_type": "", 
-                "traffic_type": "whatsapp_call"
-            }
-        }, 
-        {
-	    "charging_rule_name": "MVNO_SBT_WHATSAPP_UNLIM",
-            "allow_traffic": false, 
-            "monitoring_keys": [
-                162
-            ], 
-            "rating_groups": [
-                62
-            ], 
-            "session_key": {
-                "category_type": "", 
-                "traffic_type": "whatsapp"
-            }
-        }, 
-        {
-	    "charging_rule_name": "MVNO_SBT_TELEGRAM_UNLIM",
-            "allow_traffic": false, 
-            "monitoring_keys": [
-                161
-            ], 
-            "rating_groups": [
-                61
-            ], 
-            "session_key": {
-                "category_type": "", 
-                "traffic_type": "telegram"
-            }
-        },
-        {
-	    "charging_rule_name": "MVNO_SBT_TELEGRAM_UNLIM",
-            "allow_traffic": false, 
-            "monitoring_keys": [
-                161
-            ], 
-            "rating_groups": [
-                61
-            ], 
-            "session_key": {
-                "category_type": "", 
-                "traffic_type": "telegram_voip"
-            }
-        }
-    ]
+  "rules": [
+    {
+      "priority": 1000,
+      "allow_traffic": true,
+      "session_keys": [
+        { "traffic_type": "ip_ospf", "category_type": "" }
+      ]
+    },
+    {
+      "priority": 1000,
+      "allow_traffic": true,
+      "session_keys": [
+        { "traffic_type": "bfd", "category_type": "" }
+      ]
+    },
+
+    {
+      "charging_rule_name": "R_DNS",
+      "priority": 700,
+      "allow_traffic": false, 
+      "monitoring_keys": [],
+      "rating_groups": [20], 
+      "session_keys": [
+        { "traffic_type": "", "category_type": "sber-dns" }
+      ]
+    }, 
+      
+    {
+      "charging_rule_name": "MVNO_SBT_SOC_INTERNET",
+      "priority": 610,
+      "allow_traffic": false, 
+      "monitoring_keys": [99],
+      "rating_groups": [37], 
+      "session_keys": [
+        { "traffic_type": "vk", "category_type": "" },
+        { "traffic_type": "", "category_type": "gosuslugi" }
+      ]
+    }, 
+    {
+      "charging_rule_name": "R_INT_SBERBANK",
+      "priority": 600,
+      "allow_traffic": false, 
+      "monitoring_keys": [12], 
+      "rating_groups": [21], 
+      "session_keys": [
+        { "traffic_type": "", "category_type": "kassa.rambler" },
+        { "traffic_type": "", "category_type": "sber-online" },
+        { "traffic_type": "", "category_type": "sber-mobile" },
+        { "traffic_type": "", "category_type": "afisha" },
+        { "traffic_type": "", "category_type": "samokat" },
+        { "traffic_type": "", "category_type": "2gis" },
+        { "traffic_type": "", "category_type": "kuper" }
+      ]
+    }, 
+
+    {
+      "charging_rule_name": "MVNO_SBT_TELEGRAM_UNLIM",
+      "priority": 520,
+      "allow_traffic": false, 
+      "monitoring_keys": [161], 
+      "rating_groups": [61], 
+      "session_keys": [
+        { "traffic_type": "telegram", "category_type": "" },
+        { "traffic_type": "telegram_voip", "category_type": "" }
+      ]
+    },
+
+    {
+      "charging_rule_name": "MVNO_SBT_MESSENGER_UNLIM",
+      "priority": 510,
+      "allow_traffic": false, 
+      "monitoring_keys": [
+        60
+      ], 
+      "rating_groups": [
+        28
+      ], 
+      "session_keys": [
+        { "traffic_type": "telegram", "category_type": "" },
+        { "traffic_type": "telegram_voip", "category_type": "" },
+        { "traffic_type": "whatsapp", "category_type": "" },
+        { "traffic_type": "whatsapp_call", "category_type": "" },
+        { "traffic_type": "whatsapp_files", "category_type": "" },
+        { "traffic_type": "viber", "category_type": "" },
+        { "traffic_type": "viber_voip", "category_type": "" },
+        { "traffic_type": "", "category_type": "skype" },
+        { "traffic_type": "imo", "category_type": "" }
+      ]
+    },
+    {
+      "charging_rule_name": "MVNO_SBT_SOCNET_UNLIM",
+      "priority": 500,
+      "allow_traffic": false, 
+      "monitoring_keys": [61],
+      "rating_groups": [29],
+      "session_keys": [
+        { "traffic_type": "vk", "category_type": "" },
+        { "traffic_type": "", "category_type": "ok" }
+      ]
+    },
+
+    {
+      "charging_rule_name": "MVNO_SBT_ZVUK_UNLIM",
+      "priority": 490,
+      "allow_traffic": false, 
+      "monitoring_keys": [67],
+      "rating_groups": [34],
+      "session_keys": [
+        { "traffic_type": "", "category_type": "zvuk" }
+      ]
+    },
+    {
+      "charging_rule_name": "MVNO_SBT_MUSIC_UNLIM",
+      "priority": 480,
+      "allow_traffic": false, 
+      "monitoring_keys": [62],
+      "rating_groups": [40],
+      "session_keys": [
+        { "traffic_type": "", "category_type": "zvuk" },
+        { "traffic_type": "apple_itunes", "category_type": "" },
+        { "traffic_type": "yandex_music", "category_type": "" }
+      ]
+    },
+    {
+      "charging_rule_name": "MVNO_SBT_OKKO_UNLIM",
+      "priority": 470,
+      "allow_traffic": false, 
+      "monitoring_keys": [180],
+      "rating_groups": [80],
+      "session_keys": [
+        { "traffic_type": "", "category_type": "okko" }
+      ]
+    },
+
+    {
+      "charging_rule_name": "MVNO_SBT_VIDEO_UNLIM",
+      "priority": 460,
+      "allow_traffic": false, 
+      "monitoring_keys": [63], 
+      "rating_groups": [41], 
+      "session_keys": [
+        { "traffic_type": "youtube", "category_type": "" },
+        { "traffic_type": "youtube_upload", "category_type": "" },
+        { "traffic_type": "rutube", "category_type": "" },
+        { "traffic_type": "twitch", "category_type": "" }
+      ]
+    },
+    {
+      "comment": "Present only in test list",
+      "charging_rule_name": "MVNO_SBT_YOUTUBE_UNLIM",
+      "priority": 450,
+      "allow_traffic": false, 
+      "monitoring_keys": [175], 
+      "rating_groups": [75], 
+      "session_keys": [
+        { "traffic_type": "youtube", "category_type": "" },
+        { "traffic_type": "youtube_upload", "category_type": "" }
+      ]
+    },
+    {
+      "comment": "Present only in test list",
+      "charging_rule_name": "MVNO_SBT_RUTUBE_UNLIM",
+      "priority": 450,
+      "allow_traffic": false, 
+      "monitoring_keys": [176], 
+      "rating_groups": [76], 
+      "session_keys": [
+        { "traffic_type": "rutube", "category_type": "" }
+      ]
+    },
+    {
+      "comment": "Present only in test list",
+      "charging_rule_name": "MVNO_SBT_IMO_UNLIM",
+      "priority": 450,
+      "allow_traffic": false, 
+      "monitoring_keys": [164],
+      "rating_groups": [64], 
+      "session_keys": [
+        { "traffic_type": "imo", "category_type": "" }
+      ]
+    },
+    {
+      "comment": "Present only in test list",
+      "charging_rule_name": "MVNO_SBT_WHATSAPP_UNLIM",
+      "priority": 450,
+      "allow_traffic": false,
+      "monitoring_keys": [162], 
+      "rating_groups": [62], 
+      "session_keys": [
+        { "traffic_type": "whatsapp", "category_type": "" },
+        { "traffic_type": "whatsapp_call", "category_type": "" }
+      ]
+    },
+
+    {
+      "charging_rule_name": "MVNO_SBT_UNLIM_BONUS",
+      "priority": 400,
+      "allow_traffic": false, 
+      "monitoring_keys": [65],
+      "rating_groups": [32], 
+      "session_keys": [
+        { "traffic_type": "", "category_type": "" }
+      ]
+    },
+    {
+      "charging_rule_name": "MVNO_SBT_UNLIM",
+      "priority": 390,
+      "allow_traffic": false, 
+      "monitoring_keys": [64], 
+      "rating_groups": [32], 
+      "session_keys": [
+        { "traffic_type": "", "category_type": "" }
+      ]
+    }, 
+    {
+      "charging_rule_name": "R_AUTOEXTENDED_33RG",
+      "priority": 380,
+      "allow_traffic": false, 
+      "monitoring_keys": [], 
+      "rating_groups": [33], 
+      "session_keys": [
+        { "traffic_type": "", "category_type": "" }
+      ]
+    }
+  ]
 }
