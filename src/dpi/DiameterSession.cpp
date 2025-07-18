@@ -477,6 +477,7 @@ namespace dpi
   SCTPDiameterSession::parse_gy_response_(GyResponse& gy_response, Diameter::Packet& response)
   {
     std::cout << "to SCTPDiameterSession::parse_gy_response_" << std::endl;
+    const Gears::Time now = Gears::Time::get_time_of_day();
 
     for (int i = 0; i < response.numberOfAVPs(); ++i)
     {
@@ -513,7 +514,7 @@ namespace dpi
           }
           else if (local_avp.header().avpCode() == 448) //< Validity-Time(448)
           {
-            rating_group_limit.validity_time = Gears::Time(local_avp.data().toUnsigned32());
+            rating_group_limit.validity_time = now + Gears::Time(local_avp.data().toUnsigned32());
           }
           else if (local_avp.header().avpCode() == 268) //< Result-Code(268)
           {

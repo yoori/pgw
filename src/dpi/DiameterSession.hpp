@@ -138,7 +138,7 @@ namespace dpi
         std::optional<unsigned long> max_bps;
         std::optional<uint64_t> cc_total_octets;
         std::optional<uint64_t> octets_threshold;
-        Gears::Time validity_time;
+        std::optional<Gears::Time> validity_time;
         unsigned long result_code = 0;
 
         std::string to_string() const;
@@ -459,7 +459,8 @@ namespace dpi
     res += ", \"max_bps\": " + (max_bps.has_value() ? std::to_string(*max_bps) : std::string("null"));
     res += ", \"cc_total_octets\": " + (
       cc_total_octets.has_value() ? std::to_string(*cc_total_octets) : std::string("null"));
-    res += ", \"validity_time\": " + std::to_string(validity_time.tv_sec);
+    res += ", \"validity_time\": " + (
+      validity_time.has_value() ? validity_time->gm_ft() : std::string("null"));
     res += ", \"result_code\": " + std::to_string(result_code);
     res += "}";
     return res;

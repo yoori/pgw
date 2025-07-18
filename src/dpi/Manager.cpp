@@ -245,7 +245,7 @@ namespace dpi
           add_limit.gy_limit = 0;
         }
 
-        add_limit.gy_recheck_time = Gears::Time::get_time_of_day() + rating_group_limit.validity_time;
+        add_limit.gy_recheck_time = rating_group_limit.validity_time;
       }
 
       set_limits.emplace_back(add_limit);
@@ -333,7 +333,7 @@ namespace dpi
           (response.revalidate_time.has_value() ? response.revalidate_time->gm_ft() : std::string("none")) << std::endl;
 
         user_session->set_charging_rule_names(result_charging_rule_names);
-        user_session->set_gx_revalidation_time(response.revalidate_time);
+        user_session->set_revalidate_gx_time(response.revalidate_time);
       }
       catch(const std::exception& ex)
       {
@@ -471,7 +471,7 @@ namespace dpi
           return false;
         }
 
-        user_session.set_gx_revalidation_time(gx_response.revalidate_time);
+        user_session.set_revalidate_gx_time(gx_response.revalidate_time);
       }
 
       return true;

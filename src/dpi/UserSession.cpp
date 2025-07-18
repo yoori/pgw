@@ -132,12 +132,12 @@ namespace dpi
   }
 
   void
-  UserSession::set_gx_revalidation_time(const std::optional<Gears::Time>& gx_recheck_time)
+  UserSession::set_revalidate_gx_time(const std::optional<Gears::Time>& revalidate_gx_time)
   {
     std::cout << "UserSession::set_gx_revalidation_time(): " <<
       (gx_recheck_time.has_value() ? gx_recheck_time->gm_ft() : std::string("none")) << std::endl;
     std::unique_lock<std::shared_mutex> guard(limits_lock_);
-    gx_revalidation_time_ = gx_recheck_time;
+    revalidate_gx_time_ = revalidate_gx_time;
   }
 
   void
@@ -232,24 +232,24 @@ namespace dpi
   UserSession::RevalidateResult
   UserSession::revalidation() const
   {
+    const Gears::Time now = Gears::Time::get_time_of_day();
     RevalidateResult revalidate_result;
 
     {
       std::shared_lock<std::shared_mutex> guard(limits_lock_);
 
-      if (gx_revalidation_time_.has_value())
-      {
-        revalidate_result.revalidate_gx_time = *gx_revalidation_time_;
-      }
+      revalidate_result.revalidate_gx_time = revalidate_gx_time_;
 
-      for (const auto& [session_key, limit_ptr] : limits_by_session_key_)
+      for (const auto& [_, limit_ptr] : limits_)
       {
         if (limit_ptr->gy_recheck_time.has_value())
         {
+          /*
           std::cout << "LIMIT: " <<
             session_key.to_string() << " => " <<
             (limit_ptr->gy_recheck_time.has_value() ? limit_ptr->gy_recheck_time->gm_ft() : std::string("none")) <<
             std::endl;
+          */
 
           revalidate_result.revalidate_gy_time = revalidate_result.revalidate_gy_time.has_value() ?
             std::min(*revalidate_result.revalidate_gy_time, *(limit_ptr->gy_recheck_time)) :

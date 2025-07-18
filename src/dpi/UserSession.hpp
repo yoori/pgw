@@ -129,7 +129,7 @@ namespace dpi
     charging_rule_names() const;
 
     void
-    set_gx_revalidation_time(
+    set_revalidate_gx_time(
       const std::optional<Gears::Time>& gx_revalidation_time);
 
     // add or update limits
@@ -234,7 +234,7 @@ namespace dpi
     // limits and usage
     mutable std::shared_mutex limits_lock_;
     bool is_closed_ = false;
-    std::optional<Gears::Time> gx_revalidation_time_;
+    std::optional<Gears::Time> revalidate_gx_time_;
     LimitMap limits_by_session_key_;
     LimitByRuleIdMap limits_by_rule_id_;
     UserSessionStatsHolder gx_usage_;
@@ -361,6 +361,22 @@ namespace dpi
       gy_recheck_limit(gy_recheck_limit_val),
       gy_limit(gy_limit_val)
   {}
+
+  inline std::string
+  UserSession::Limit::to_string() const
+  {
+    return std::string("{") +
+      "\"gy_recheck_time\": " + (
+        gy_recheck_time.has_value() ?
+        std::string("\"") + gy_recheck_time->gm_ft() + "\"" : std::string("none")) +
+      ", \"gy_recheck_limit\": " + (
+        gy_recheck_limit.has_value() ?
+        std::to_string(*gy_recheck_limit) : std::string("none")) +
+      ", \"gy_limit\": " + (
+        gy_limit.has_value() ?
+        std::to_string(*gy_limit) : std::string("none")) +
+      "}";
+  }
 
   // UserSession::SetLimit
   /*
