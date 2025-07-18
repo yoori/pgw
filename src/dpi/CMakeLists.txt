@@ -46,6 +46,7 @@ add_library(dpi
   Value.cpp
   SessionKeyEvaluator.cpp
   ProtocolAdapter.cpp
+  OctetStats.cpp
   )
 
 target_link_libraries(dpi

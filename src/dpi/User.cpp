@@ -274,9 +274,7 @@ namespace dpi
     const SessionRuleConfig::SessionTypeRule& session_rule =
       get_session_rule_(session_rule_config, session_key);
 
-    bool block_packet = false;
-    bool shape_packet = false;
-    bool opened_new_session = false;
+    PacketProcessingState packet_processing_state;
     SessionPtr del_session;
 
     {
@@ -298,19 +296,20 @@ namespace dpi
       {
         session = std::make_shared<Session>(session_key);
         session->first_packet_timestamp = now;
-        opened_new_session = true;
+        packet_processing_state.opened_new_session = true;
       }
 
       session->last_packet_timestamp = now;
 
       if (is_session_blocked_i_(session_key, now))
       {
-        block_packet = true;
+        packet_processing_state.block_packet = true;
+        packet_processing_state.block_reason = "session blocked";
       }
 
-      if (!block_packet)
+      if (!packet_processing_state.block_packet)
       {
-        shape_packet = process_shaping_i_(now, session_key, size);
+        packet_processing_state.shaped = process_shaping_i_(now, session_key, size);
         if (!session_key.category_type().empty())
         {
           bool local_shape_packet = process_shaping_i_(
@@ -320,14 +319,14 @@ namespace dpi
               std::string()),
             size);
 
-          shape_packet = shape_packet || local_shape_packet;
+          packet_processing_state.shaped = packet_processing_state.shaped || local_shape_packet;
         }
 
         traffic_sums_[session_key] += TrafficState(1, size);
       }
     }
 
-    return PacketProcessingState(block_packet, opened_new_session, shape_packet);
+    return packet_processing_state;
   }
 
   void User::session_block(

@@ -5,6 +5,19 @@
 
 using namespace dpi;
 
+ConstSessionKeyRulePtr
+create_session_key_rule(
+  unsigned long rule_id,
+  unsigned long priority,
+  const SessionKeyArray& session_keys)
+{
+  auto session_key_rule = std::make_shared<SessionKeyRule>();
+  session_key_rule->rule_id = rule_id;
+  session_key_rule->priority = priority;
+  session_key_rule->session_keys = session_keys;
+  return session_key_rule;
+}
+
 std::string used_limits_to_string(const dpi::UserSession::UsedLimitArray& used_limits)
 {
   std::ostringstream ostr;
@@ -61,10 +74,11 @@ bool test_pass_by_installed_limit()
 
   UserSession::SetLimitArray limits;
   limits.emplace_back(
-    UserSession::SetLimit(
-      RULE_ID,
-      1,
-      SessionKeyArray({use_session_key}),
+    UserSession::Limit(
+      create_session_key_rule(
+        RULE_ID,
+        1,
+        SessionKeyArray({use_session_key})),
       std::nullopt,
       std::nullopt,
       std::nullopt
@@ -137,10 +151,11 @@ bool test_block_by_limit()
 
   UserSession::SetLimitArray limits;
   limits.emplace_back(
-    UserSession::SetLimit(
-      RULE_ID,
-      1,
-      SessionKeyArray({use_session_key}),
+    UserSession::Limit(
+      create_session_key_rule(
+        RULE_ID,
+        1,
+        SessionKeyArray({use_session_key})),
       std::nullopt,
       std::nullopt,
       1000
@@ -196,10 +211,11 @@ bool test_use_and_block_by_limit()
 
   UserSession::SetLimitArray limits;
   limits.emplace_back(
-    UserSession::SetLimit(
-      RULE_ID,
-      1,
-      SessionKeyArray({use_session_key}),
+    UserSession::Limit(
+      create_session_key_rule(
+        RULE_ID,
+        1,
+        SessionKeyArray({use_session_key})),
       std::nullopt,
       std::nullopt,
       1000
@@ -285,10 +301,11 @@ bool test_gx_flow()
 
   UserSession::SetLimitArray limits;
   limits.emplace_back(
-    UserSession::SetLimit(
-      RULE_ID,
-      1,
-      SessionKeyArray({SessionKey("test", std::string())}),
+    UserSession::Limit(
+      create_session_key_rule(
+        RULE_ID,
+        1,
+        SessionKeyArray({SessionKey("test", std::string())})),
       std::nullopt,
       std::nullopt,
       1000
@@ -367,20 +384,22 @@ bool test_pass_by_generic_limit()
 
   UserSession::SetLimitArray limits;
   limits.emplace_back(
-    UserSession::SetLimit(
-      RULE_ID,
-      1,
-      SessionKeyArray({SessionKey()}),
+    UserSession::Limit(
+      create_session_key_rule(
+        RULE_ID,
+        1,
+        SessionKeyArray({SessionKey()})),
       std::nullopt,
       std::nullopt,
       100000
     )
   );
   limits.emplace_back(
-    UserSession::SetLimit(
-      RULE_ID2,
-      1,
-      SessionKeyArray({SessionKey("test", std::string())}),
+    UserSession::Limit(
+      create_session_key_rule(
+        RULE_ID2,
+        1,
+        SessionKeyArray({SessionKey("test", std::string())})),
       std::nullopt,
       std::nullopt,
       0
@@ -438,7 +457,7 @@ bool revalidate_gx_by_time_test()
 
   UserSession::SetLimitArray limits;
   limits.emplace_back(
-    UserSession::SetLimit(
+    UserSession::Limit(
       SessionKey(),
       std::nullopt,
       std::nullopt,
@@ -511,10 +530,11 @@ bool revalidate_gy_by_limit_test()
 
   UserSession::SetLimitArray limits;
   limits.emplace_back(
-    UserSession::SetLimit(
-      RULE_ID,
-      1,
-      SessionKeyArray({SessionKey()}),
+    UserSession::Limit(
+      create_session_key_rule(
+        RULE_ID,
+        1,
+        SessionKeyArray({SessionKey()})),
       std::nullopt,
       10000,
       100000
@@ -587,10 +607,11 @@ bool test_gy_revalidate_by_time()
 
   UserSession::SetLimitArray limits;
   limits.emplace_back(
-    UserSession::SetLimit(
-      RULE_ID,
-      1,
-      SessionKeyArray({use_session_key}),
+    UserSession::Limit(
+      create_session_key_rule(
+        RULE_ID,
+        1,
+        SessionKeyArray({use_session_key})),
       now + Gears::Time(10), //< gy revalidate abs time
       std::nullopt,
       std::nullopt

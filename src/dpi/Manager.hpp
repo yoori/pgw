@@ -14,7 +14,8 @@
 
 namespace dpi
 {
-  class Manager: public Gears::CompositeActiveObject
+  class Manager: public Gears::CompositeActiveObject,
+    public std::enable_shared_from_this<Manager>
   {
   public:
     DECLARE_EXCEPTION(Invalid, Gears::DescriptiveException);
@@ -36,6 +37,8 @@ namespace dpi
       dpi::DiameterSessionPtr gx_diameter_session,
       dpi::DiameterSessionPtr gy_diameter_session,
       dpi::PccConfigProviderPtr pcc_config_provider);
+
+    void init();
 
     void
     load_config(std::string_view config_path);
@@ -127,7 +130,7 @@ namespace dpi
     void
     fill_limits_by_gy_response_(
       UserSession& user_session,
-      const DiameterSession::GyResponse& gy_response,
+      DiameterSession::GyResponse& gy_response,
       const dpi::ConstPccConfigPtr& pcc_config);
 
     // If result charging rules empty - abort session and return false.

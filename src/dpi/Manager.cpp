@@ -44,6 +44,12 @@ namespace dpi
   }
 
   void
+  Manager::init()
+  {
+    user_session_action_planner_->set_manager(shared_from_this());
+  }
+
+  void
   Manager::fill_gy_request_(
     DiameterSession::GyRequest& gy_request,
     UserSession& user_session,
@@ -61,6 +67,7 @@ namespace dpi
       return;
     }
 
+    const Gears::Time now = Gears::Time::get_time_of_day();
     std::unordered_set<unsigned long> rating_groups;
 
     //std::cout << "XXX: FROM GX REQUEST: response.charging_rule_names.size() = " <<
@@ -76,8 +83,8 @@ namespace dpi
         if (session_rule_it != pcc_config->session_rule_by_charging_name.end())
         {
           rating_groups.insert(
-            session_rule_it->second.rating_groups.begin(),
-            session_rule_it->second.rating_groups.end());
+            session_rule_it->second->rating_groups.begin(),
+            session_rule_it->second->rating_groups.end());
         }
       }
 
@@ -93,12 +100,15 @@ namespace dpi
           if (session_rule_it != pcc_config->session_rule_by_charging_name.end())
           {
             rating_groups.insert(
-              session_rule_it->second.rating_groups.begin(),
-              session_rule_it->second.rating_groups.end());
+              session_rule_it->second->rating_groups.begin(),
+              session_rule_it->second->rating_groups.end());
           }
         }
       }
     }
+
+    std::cout << "fill_gy_request_(" << user_session.traits()->msisdn << "): " <<
+      "rating_groups.size() = " << rating_groups.size() << std::endl;
 
     const auto [gy_session_id_suffix, gy_request_id] = user_session.generate_gy_request_id();
 
@@ -119,13 +129,19 @@ namespace dpi
       }
     }
 
-    auto used_limits = user_session.get_gy_used_limits(Gears::Time::get_time_of_day(), true);
+    auto used_limits = user_session.get_gy_used_limits(now, true);
+
+    std::cout << "fill_gy_request_(" << user_session.traits()->msisdn << "): " <<
+      "used_limits =";
+
     for (const auto& used_limit : used_limits)
     {
+      std::cout << " " << used_limit.to_string();
+
       auto session_rule_it = pcc_config->session_keys.find(used_limit.rule_id);
       if (session_rule_it != pcc_config->session_keys.end())
       {
-        const dpi::PccConfig::SessionKeyRule& session_key_rule = session_rule_it->second;
+        const SessionKeyRule& session_key_rule = *session_rule_it->second;
 
         for (const auto& rg_id : session_key_rule.rating_groups)
         {
@@ -140,6 +156,8 @@ namespace dpi
       }
     }
 
+    std::cout << std::endl;
+
     for (const auto& [_, rg_use] : send_rating_groups)
     {
       gy_request.usage_rating_groups.emplace_back(rg_use);
@@ -149,19 +167,60 @@ namespace dpi
   void
   Manager::fill_limits_by_gy_response_(
     UserSession& user_session,
-    const DiameterSession::GyResponse& gy_response,
+    DiameterSession::GyResponse& gy_response,
     const dpi::ConstPccConfigPtr& pcc_config)
   {
-    dpi::UserSession::SetLimitArray set_limits;
+    UserSession::SetLimitArray set_limits;
+    bool empty_session_key_added = false;
+
+    // DEBUG >>>>
+    if (user_session.traits()->msisdn == "79662660021")
+    {
+      bool empty_session_key_found = false;
+
+      for (const dpi::DiameterSession::GyResponse::RatingGroupLimit& rating_group_limit :
+        gy_response.rating_group_limits)
+      {
+        if (rating_group_limit.rating_group_id == 32)
+        {
+          empty_session_key_found = true;
+        }
+      }
+
+      if (!empty_session_key_found)
+      {
+        DiameterSession::GyResponse::RatingGroupLimit empty_rg;
+        empty_rg.rating_group_id = 32;
+        empty_rg.cc_total_octets = 1000000000;
+        empty_rg.result_code = 2001;
+        gy_response.rating_group_limits.emplace_back(std::move(empty_rg));
+      }
+    }
+
+    const Gears::Time now = Gears::Time::get_time_of_day();
 
     for (const dpi::DiameterSession::GyResponse::RatingGroupLimit& rating_group_limit :
       gy_response.rating_group_limits)
     {
-      dpi::UserSession::SetLimit add_limit;
+      UserSession::Limit add_limit;
       auto session_rule_it = pcc_config->session_rule_by_rating_group.find(rating_group_limit.rating_group_id);
       if (session_rule_it != pcc_config->session_rule_by_rating_group.end())
       {
-        add_limit.session_keys = session_rule_it->second.session_keys;
+        add_limit.session_key_rule = session_rule_it->second;
+
+        if (rating_group_limit.validity_time != Gears::Time::ZERO)
+        {
+          add_limit.gy_recheck_time = now + rating_group_limit.validity_time;
+        }
+
+        for (const auto& sk : add_limit.session_key_rule->session_keys)
+        {
+          if (sk.traffic_type().empty() && sk.category_type().empty())
+          {
+            empty_session_key_added = true;
+          }
+        }
+
         if (rating_group_limit.result_code == 2001 && rating_group_limit.cc_total_octets.has_value())
         {
           if (*rating_group_limit.cc_total_octets > 0)
@@ -185,6 +244,7 @@ namespace dpi
         {
           add_limit.gy_limit = 0;
         }
+
         add_limit.gy_recheck_time = Gears::Time::get_time_of_day() + rating_group_limit.validity_time;
       }
 
@@ -244,6 +304,11 @@ namespace dpi
           return false;
         }
 
+        if (user_session_traits.msisdn == "79662660021")
+        {
+          response.install_charging_rule_names.emplace("MVNO_SBT_UNLIM");
+        }
+
         // filter and report not found chaging rules
         ChargingRuleNameSet result_charging_rule_names;
         ChargingRuleNameSet not_found_charging_rule_names;
@@ -263,6 +328,9 @@ namespace dpi
             not_found_charging_rule_names);
           return false;
         }
+
+        std::cout << "Manager::set_gx_revalidation_time(): " <<                                                                
+          (response.revalidate_time.has_value() ? response.revalidate_time->gm_ft() : std::string("none")) << std::endl;
 
         user_session->set_charging_rule_names(result_charging_rule_names);
         user_session->set_gx_revalidation_time(response.revalidate_time);
@@ -308,7 +376,7 @@ namespace dpi
             true, //< terminate radius
             true, //< terminate gx
             true, //< terminate gy
-            "No success rating groups on Gy update");
+            "No success rating groups on Gy init");
           return false;
         }
 
@@ -323,10 +391,14 @@ namespace dpi
 
     UserSession::RevalidateResult revalidation = user_session->revalidation();
     std::optional<Gears::Time> check_time = revalidation.min_time();
-    if (check_time.has_value())
-    {
-      user_session_action_planner_->add_user_session(user_session, *check_time);
-    }
+    std::cout << "Manager: add_user_session: " <<
+      "check_time = " << (check_time.has_value() ? check_time->gm_ft() : std::string("none")) <<
+      ", revalidate_gx_time = " << (revalidation.revalidate_gx_time.has_value() ? revalidation.revalidate_gx_time->gm_ft() : std::string("none")) <<
+      ", revalidate_gy_time = " << (revalidation.revalidate_gy_time.has_value() ? revalidation.revalidate_gy_time->gm_ft() : std::string("none")) <<
+      std::endl;
+    user_session_action_planner_->add_user_session(
+      user_session,
+      check_time.has_value() ? *check_time : Gears::Time::get_time_of_day() + Gears::Time(60));
 
     return true;
   }
@@ -431,7 +503,7 @@ namespace dpi
       auto session_rule_it = pcc_config->session_keys.find(used_limit.rule_id);
       if (session_rule_it != pcc_config->session_keys.end())
       {
-        const dpi::PccConfig::SessionKeyRule& session_key_rule = session_rule_it->second;
+        const SessionKeyRule& session_key_rule = *session_rule_it->second;
 
         for (const auto& mk_id : session_key_rule.monitoring_keys)
         {
@@ -825,6 +897,11 @@ namespace dpi
         result_charging_rule_names.erase(remove_charging_rule_name);
       }
 
+      if (user_session.traits()->msisdn == "79662660021")
+      {
+        result_charging_rule_names.emplace("MVNO_SBT_UNLIM");
+      }
+
       user_session.set_charging_rule_names(result_charging_rule_names);
 
       if (result_charging_rule_names.empty())
@@ -968,6 +1045,9 @@ namespace dpi
           return false;
         }
 
+        std::cout << "send_gy_update: usage_rating_groups.size = " << gy_update_request.usage_rating_groups.size() <<
+          std::endl;
+
         dpi::DiameterSession::GyResponse gy_response = gy_diameter_session_->send_gy_update(
           gy_update_request);
 
@@ -994,6 +1074,7 @@ namespace dpi
           any_success = any_success || (rg.result_code == 2001);
         }
 
+        /*
         if (!any_success)
         {
           abort_session(
@@ -1004,6 +1085,7 @@ namespace dpi
             "No success rating groups on Gy update");
           return false;
         }
+        */
 
         fill_limits_by_gy_response_(user_session, gy_response, pcc_config);
       }

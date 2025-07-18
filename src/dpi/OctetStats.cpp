@@ -12,5 +12,13 @@ namespace dpi
     return res;
   }
 
-  
+  std::string
+  OctetStats::to_string() const
+  {
+    return std::string("{ ") +
+      "total_octets = " + std::to_string(total_octets) +
+      ", output_octets = " + std::to_string(output_octets) +
+      ", input_octets = " + std::to_string(input_octets) +
+      "}";
+  }
 }

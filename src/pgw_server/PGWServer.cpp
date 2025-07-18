@@ -194,6 +194,8 @@ int main(int argc, char **argv)
     pcc_config_provider
   );
 
+  manager->init();
+
   all_active_objects->add_child_object(manager);
 
   if (gx_diameter_session)

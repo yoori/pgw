@@ -134,6 +134,8 @@ namespace dpi
   void
   UserSession::set_gx_revalidation_time(const std::optional<Gears::Time>& gx_recheck_time)
   {
+    std::cout << "UserSession::set_gx_revalidation_time(): " <<
+      (gx_recheck_time.has_value() ? gx_recheck_time->gm_ft() : std::string("none")) << std::endl;
     std::unique_lock<std::shared_mutex> guard(limits_lock_);
     gx_revalidation_time_ = gx_recheck_time;
   }
@@ -143,67 +145,35 @@ namespace dpi
     const SetLimitArray& limits,
     const UsedLimitArray& decrease_used)
   {
-    struct LimitHolder
-    {
-      LimitHolder() {}
-
-      LimitHolder(unsigned int priority_val, unsigned long rule_id_val, LimitPtr limit_val)
-        : priority(priority_val),
-          rule_id(rule_id_val),
-          limit(std::move(limit_val))
-      {}
-
-      unsigned int priority = 1;
-      unsigned long rule_id;
-      LimitPtr limit;
-    };
-
-    Gears::HashTable<SessionKey, LimitHolder> packed_new_limits;
-    //std::unordered_map<unsigned long, std::shared_ptr<Limit>> packed_new_limits_by_rule_id;
-
-    for (const auto& set_limit: limits)
-    {
-      auto limit_ptr = std::make_shared<Limit>(set_limit); //< construct without session_
-
-      for (const auto& session_key : set_limit.session_keys)
-      {
-        auto prev_limit_it = packed_new_limits.find(session_key);
-        if (prev_limit_it != packed_new_limits.end())
-        {
-          if (prev_limit_it->second.priority < set_limit.priority)
-          {
-            auto& change_limit_holder = packed_new_limits[session_key];
-            change_limit_holder.priority = set_limit.priority;
-            change_limit_holder.rule_id = set_limit.rule_id;
-            change_limit_holder.limit = limit_ptr;
-          }
-        }
-        else
-        {
-          packed_new_limits.emplace(
-            session_key,
-            LimitHolder(set_limit.priority, set_limit.rule_id, limit_ptr));
-        }
-      }
-    }
-
-    // Now we have mapping session_key => limit, used should have equal struct
-    LimitMap new_limits;
-    LimitByRuleIdMap limits_by_rule_id;
-    UserSessionStatsHolder::AllowedSessionKeyMap allowed_session_keys;
-
-    for (const auto& [session_key, packed_limit] : packed_new_limits)
-    {
-      new_limits.emplace(session_key, packed_limit.limit);
-      allowed_session_keys.emplace(session_key, packed_limit.rule_id);
-      limits_by_rule_id.emplace(packed_limit.rule_id, packed_limit.limit);
-    }
+    LimitMap del_limit_by_session_key_;
 
     std::unique_lock<std::shared_mutex> guard(limits_lock_);
-    limits_.swap(new_limits);
-    limits_by_rule_id_.swap(limits_by_rule_id);
-    gx_usage_.allow_session_keys(allowed_session_keys);
-    gy_usage_.allow_session_keys(allowed_session_keys);
+
+    for (const auto& limit : limits)
+    {
+      limits_by_rule_id_[limit.session_key_rule->rule_id] = std::make_shared<Limit>(limit);
+    }
+
+    limits_by_session_key_.swap(del_limit_by_session_key_);
+
+    fill_by_limits_by_rule_id_();
+  }
+
+  void
+  UserSession::remove_gy_limits(const std::vector<unsigned long>& rule_ids)
+  {
+    LimitMap del_limit_by_session_key_;
+
+    std::unique_lock<std::shared_mutex> guard(limits_lock_);
+
+    for (const auto& rule_id : rule_ids)
+    {
+      limits_by_rule_id_.erase(rule_id);
+    }
+
+    limits_by_session_key_.swap(del_limit_by_session_key_);
+
+    fill_by_limits_by_rule_id_();
   }
 
   UserSession::UseLimitResult
@@ -239,6 +209,23 @@ namespace dpi
       }
     }
 
+    if (use_limit_result.block)
+    {
+      auto usage_stats = gy_usage_.get_usage(false);
+
+      std::ostringstream ostr;
+      ostr << "use_limit(" << (traits_ ? traits_->msisdn : std::string("none")) << "): " <<
+        "session_key = " << session_key.to_string() <<
+        ", block = " << use_limit_result.block << ": ";
+
+      for (const auto& [rule_id, octet_stats] : usage_stats)
+      {
+        ostr << " { rule_id = " << rule_id << ", octet_stats = " << octet_stats.to_string() << "}";
+      }
+    
+      ostr << std::endl;
+    }
+
     return use_limit_result;
   }
 
@@ -250,11 +237,21 @@ namespace dpi
     {
       std::shared_lock<std::shared_mutex> guard(limits_lock_);
 
-      for (const auto& [_, limit_ptr] : limits_)
+      if (gx_revalidation_time_.has_value())
+      {
+        revalidate_result.revalidate_gx_time = *gx_revalidation_time_;
+      }
+
+      for (const auto& [session_key, limit_ptr] : limits_by_session_key_)
       {
         if (limit_ptr->gy_recheck_time.has_value())
         {
-          revalidate_result.revalidate_gy_time = limit_ptr->gy_recheck_time.has_value() ?
+          std::cout << "LIMIT: " <<
+            session_key.to_string() << " => " <<
+            (limit_ptr->gy_recheck_time.has_value() ? limit_ptr->gy_recheck_time->gm_ft() : std::string("none")) <<
+            std::endl;
+
+          revalidate_result.revalidate_gy_time = revalidate_result.revalidate_gy_time.has_value() ?
             std::min(*revalidate_result.revalidate_gy_time, *(limit_ptr->gy_recheck_time)) :
             *(limit_ptr->gy_recheck_time);
         }
@@ -274,9 +271,9 @@ namespace dpi
 
     UseLimitResult use_limit_result;
 
-    auto limit_it = limits_.find(session_key);
+    auto limit_it = limits_by_session_key_.find(session_key);
 
-    if (limit_it == limits_.end())
+    if (limit_it == limits_by_session_key_.end())
     {
       //std::cout << "use_limit: #1, session_key = " << session_key.to_string() << std::endl;
       use_limit_result.block = true;
@@ -369,7 +366,7 @@ namespace dpi
     /*
     if (own_stats)
     {
-      gx_used_limits_.clear();
+      gx_used_limits_by_session_key_.clear();
     }
     */
 
@@ -380,6 +377,7 @@ namespace dpi
   UserSession::get_gy_used_limits(const Gears::Time& now, bool own_stats)
   {
     UsedLimitArray res;
+    std::unordered_set<unsigned long> returned_rule_ids;
 
     std::unique_lock<std::shared_mutex> guard(limits_lock_);
 
@@ -419,15 +417,21 @@ namespace dpi
         }
       }
 
+      returned_rule_ids.emplace(rule_id);
       res.emplace_back(UsedLimit(rule_id, octet_stats, reporting_reason));
     }
 
-    /*
-    if (own_stats)
+    // return empty usage with reporting_reason = VALIDITY_TIME for non used but expired limits
+    for (const auto& [rule_id, limit] : limits_by_rule_id_)
     {
-      gy_used_limits_.clear();
+      if (returned_rule_ids.find(rule_id) == returned_rule_ids.end() &&
+        limit->gy_recheck_time.has_value() &&
+        now >= *limit->gy_recheck_time)
+      {
+        returned_rule_ids.emplace(rule_id);
+        res.emplace_back(UsedLimit(rule_id, OctetStats(), UsageReportingReason::VALIDITY_TIME));
+      }
     }
-    */
 
     return res;
   }
@@ -472,5 +476,49 @@ namespace dpi
   {
     std::shared_lock<std::shared_mutex> guard(diameter_lock_);
     return gy_inited_;
+  }
+
+  void
+  UserSession::fill_by_limits_by_rule_id_()
+  {
+    // Now we have mapping session_key => limit, used should have equal struct
+    fill_limit_by_session_key_i_(limits_by_session_key_, limits_by_rule_id_);
+
+    UserSessionStatsHolder::AllowedSessionKeyMap allowed_session_keys;
+
+    for (const auto& [session_key, limit] : limits_by_session_key_)
+    {
+      allowed_session_keys.emplace(session_key, limit->session_key_rule->rule_id);
+    }
+
+    gx_usage_.allow_session_keys(allowed_session_keys);
+    gy_usage_.allow_session_keys(allowed_session_keys);
+  }
+
+  void
+  UserSession::fill_limit_by_session_key_i_(
+    LimitMap& limit_by_session_key,
+    const LimitByRuleIdMap& limit_by_rule_id
+  )
+  {
+    // refill limits_ by limits_by_rule_id
+    for (const auto& [rule_id, limit_ptr] : limit_by_session_key)
+    {
+      for (const auto& session_key : limit_ptr->session_key_rule->session_keys)
+      {
+        auto prev_limit_it = limit_by_session_key.find(session_key);
+        if (prev_limit_it != limit_by_session_key.end())
+        {
+          if (prev_limit_it->second->session_key_rule->priority < limit_ptr->session_key_rule->priority)
+          {
+            limit_by_session_key[session_key] = limit_ptr;
+          }
+        }
+        else
+        {
+          limit_by_session_key.emplace(session_key, limit_ptr);
+        }
+      }
+    }
   }
 }

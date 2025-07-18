@@ -30,6 +30,8 @@ namespace dpi
 
     jsoncons::json to_json() const;
 
+    std::string to_string() const;
+
     uint64_t total_octets = 0;
     uint64_t output_octets = 0;
     uint64_t input_octets = 0;

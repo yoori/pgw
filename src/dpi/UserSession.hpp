@@ -18,6 +18,7 @@
 #include "User.hpp"
 #include "UserSessionPropertyContainer.hpp"
 #include "OctetStats.hpp"
+#include "SessionKeyRule.hpp"
 
 namespace dpi
 {
@@ -57,44 +58,20 @@ namespace dpi
       Limit();
 
       Limit(
-        const std::optional<Gears::Time>& gy_recheck_time,
-        const std::optional<unsigned long>& gy_recheck_limit,
-        const std::optional<unsigned long>& gy_limit);
+        ConstSessionKeyRulePtr session_key_rule_val,
+        const std::optional<Gears::Time>& gy_recheck_time_val,
+        const std::optional<unsigned long>& gy_recheck_limit_val,
+        const std::optional<unsigned long>& gy_limit_val);
 
-      std::string to_string() const
-      {
-        return std::string("{") +
-          "gy_recheck_time = " + (gy_recheck_time.has_value() ? std::to_string(gy_recheck_time->tv_sec) : std::string("none")) +
-          ", gy_recheck_limit = " + (gy_recheck_limit.has_value() ? std::to_string(*gy_recheck_limit) : std::string("none")) +
-          ", gy_limit = " + (gy_limit.has_value() ? std::to_string(*gy_limit) : std::string("none")) +
-          "}";
-      }
+      std::string to_string() const;
 
+      ConstSessionKeyRulePtr session_key_rule;
       std::optional<Gears::Time> gy_recheck_time;
       std::optional<unsigned long> gy_recheck_limit;
       std::optional<unsigned long> gy_limit;
     };
 
-    struct SetLimit: public Limit
-    {
-      SetLimit();
-
-      SetLimit(
-        unsigned long rule_id_val,
-        unsigned long priority_val,
-        const std::vector<SessionKey>& session_keys_val,
-        const std::optional<Gears::Time>& gy_recheck_time,
-        const std::optional<unsigned long>& gy_recheck_limit,
-        const std::optional<unsigned long>& gy_limit);
-
-      unsigned long rule_id;
-      unsigned long priority;
-      std::vector<SessionKey> session_keys;
-
-      std::string to_string() const;
-    };
-
-    using SetLimitArray = std::vector<SetLimit>;
+    using SetLimitArray = std::vector<Limit>;
 
     struct UsedLimit: public OctetStats
     {
@@ -104,6 +81,9 @@ namespace dpi
         unsigned long rule_id_val,
         const OctetStats& used_bytes_val,
         const std::optional<UsageReportingReason>& reporting_reason = std::nullopt);
+
+      std::string
+      to_string() const;
 
       unsigned long rule_id;
       std::optional<UsageReportingReason> reporting_reason;
@@ -152,10 +132,14 @@ namespace dpi
     set_gx_revalidation_time(
       const std::optional<Gears::Time>& gx_revalidation_time);
 
+    // add or update limits
     void
     set_gy_limits(
       const SetLimitArray& limits,
       const UsedLimitArray& decrease_used = UsedLimitArray());
+
+    void
+    remove_gy_limits(const std::vector<unsigned long>& rule_ids);
 
     RevalidateResult revalidation() const;
 
@@ -218,6 +202,14 @@ namespace dpi
       LimitMap& to_apply_limits,
       LimitMap& new_limits);
 
+    void
+    fill_by_limits_by_rule_id_();
+
+    static void
+    fill_limit_by_session_key_i_(
+      LimitMap& limit_by_session_key,
+      const LimitByRuleIdMap& limit_by_rule_id);
+
   private:
     UserPtr user_;
 
@@ -243,7 +235,7 @@ namespace dpi
     mutable std::shared_mutex limits_lock_;
     bool is_closed_ = false;
     std::optional<Gears::Time> gx_revalidation_time_;
-    LimitMap limits_;
+    LimitMap limits_by_session_key_;
     LimitByRuleIdMap limits_by_rule_id_;
     UserSessionStatsHolder gx_usage_;
     UserSessionStatsHolder gy_usage_;
@@ -254,6 +246,19 @@ namespace dpi
 
 namespace dpi
 {
+  inline std::string
+  UserSession::UsedLimit::to_string() const
+  {
+    return std::string("{rule_id = ") + std::to_string(rule_id) +
+      ", total_octets = " + std::to_string(total_octets) +
+      ", output_octets = " + std::to_string(output_octets) +
+      ", input_octets = " + std::to_string(input_octets) +
+      ", reporting_reason = " +
+      (reporting_reason.has_value() ?
+        std::to_string(static_cast<unsigned int>(*reporting_reason)) : std::string()) +
+      "}";
+  }
+
   inline std::optional<Gears::Time>
   UserSession::RevalidateResult::min_time() const
   {
@@ -266,7 +271,7 @@ namespace dpi
 
     if (revalidate_gy_time.has_value())
     {
-      res = *revalidate_gy_time;
+      res = res.has_value() ? std::min(*revalidate_gy_time, *res) : *revalidate_gy_time;
     }
 
     return res;
@@ -282,6 +287,22 @@ namespace dpi
       "}";
   }
 
+  inline std::string
+  UserSession::Limit::to_string() const
+  {
+    return std::string("{") +
+      "rule_id = " + (session_key_rule ?
+        std::to_string(session_key_rule->rule_id) : std::string("none")) +
+      ", gy_recheck_time = " + (gy_recheck_time.has_value() ?
+        std::to_string(gy_recheck_time->tv_sec) : std::string("none")) +
+      ", gy_recheck_limit = " + (gy_recheck_limit.has_value() ?
+        std::to_string(*gy_recheck_limit) : std::string("none")) +
+      ", gy_limit = " + (gy_limit.has_value() ?
+        std::to_string(*gy_limit) : std::string("none")) +
+      "}";
+  }
+
+  /*
   inline std::string
   UserSession::SetLimit::to_string() const
   {
@@ -299,6 +320,7 @@ namespace dpi
       "}";
     return res;
   }
+  */
 
   inline const UserPtr&
   UserSession::user() const
@@ -330,15 +352,18 @@ namespace dpi
 
   inline
   UserSession::Limit::Limit(
+    ConstSessionKeyRulePtr session_key_rule_val,
     const std::optional<Gears::Time>& gy_recheck_time_val,
     const std::optional<unsigned long>& gy_recheck_limit_val,
     const std::optional<unsigned long>& gy_limit_val)
-    : gy_recheck_time(gy_recheck_time_val),
+    : session_key_rule(std::move(session_key_rule_val)),
+      gy_recheck_time(gy_recheck_time_val),
       gy_recheck_limit(gy_recheck_limit_val),
       gy_limit(gy_limit_val)
   {}
 
   // UserSession::SetLimit
+  /*
   inline
   UserSession::SetLimit::SetLimit()
   {}
@@ -359,4 +384,5 @@ namespace dpi
       priority(priority_val),
       session_keys(session_keys_val)
   {}
+  */
 }

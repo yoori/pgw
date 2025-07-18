@@ -31,7 +31,8 @@ namespace dpi
     get_avp_time_value(const Diameter::AVP& avp)
     {
       const auto& avp_data = avp.data();
-      return Gears::Time(avp_data.toInteger32());
+      auto i = avp_data.toUnsigned32();
+      return Gears::Time(i - 2208988800); //< seconds between 1 Jan 1900 and 1 Jan 1970
     }
   }
 

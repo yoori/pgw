@@ -29,6 +29,7 @@ namespace dpi
     bool revalidate_gx = false;
     bool revalidate_gy = false;
     bool limit_reached = false; //< set if blocked by limit
+    std::string block_reason;
   };
 }
 
