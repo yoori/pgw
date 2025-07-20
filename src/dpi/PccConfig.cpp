@@ -102,19 +102,17 @@ namespace dpi
 
         for (const auto& session_key : session_key_rule->session_keys)
         {
+          auto it = result_config->session_rule_by_session_key.find(session_key);
+          if (it != result_config->session_rule_by_session_key.end())
           {
-            auto it = result_config->session_rule_by_session_key.find(session_key);
-            if (it != result_config->session_rule_by_session_key.end())
+            if (it->second->priority < session_key_rule->priority)
             {
-              if (it->second->priority < session_key_rule->priority)
-              {
-                result_config->session_rule_by_session_key[session_key] = session_key_rule;
-              }
+              result_config->session_rule_by_session_key[session_key] = session_key_rule;
             }
-            else
-            {
-              result_config->session_rule_by_session_key.emplace(session_key, session_key_rule);
-            }
+          }
+          else
+          {
+            result_config->session_rule_by_session_key.emplace(session_key, session_key_rule);
           }
         }
 

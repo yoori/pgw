@@ -41,6 +41,34 @@ namespace dpi
     SrcIpDstIpSrcPortDstPortIndex& src_ip_index,
     const SessionKeyRule& session_key_rule)
   {
+    std::cout << "add_rule_by_src_ip_" << std::endl;
+
+    const IpMask& src_ip_mask = session_key_rule.src_ip_mask;
+    if (src_ip_mask.fixed_bits == 0)
+    {
+      add_rule_by_dst_ip_(src_ip_index.no_ip_indexes, session_key_rule);
+    }
+    else
+    {
+      int use_index = (src_ip_mask.fixed_bits - 1) / 8;
+      int fixed_bits_inside_byte = src_ip_mask.fixed_bits - use_index * 8;
+      // 3 => 0xFFFFFFFF
+      // 2 => 0xFFFFFF00
+      // 1 => 0xFFFF0000
+      // 0 => 0xFF000000
+      std::unordered_map<uint32_t, DstIpSrcPortDstPortIndex>& ind = src_ip_index.ip_part_index[use_index];
+
+      // to fix
+      // create variations
+      uint16_t max_var = 1 << (8 - fixed_bits_inside_byte);
+      std::cout << "add_rule_by_src_ip_: use_index = " << use_index << ", max_var = " << max_var << std::endl;
+      for (uint16_t ip_var = 0; ip_var < max_var; ++ip_var)
+      {
+        uint32_t add_ip = ip_var | (src_ip_mask.ip_mask & (0xFFFFFFFF << (32 - src_ip_mask.fixed_bits)));
+        std::cout << "add_rule_by_src_ip_: ADD INTO PART #" << use_index << " IP=" << reversed_ipv4_address_to_string(add_ip) << std::endl;
+        add_rule_by_dst_ip_(ind[add_ip], session_key_rule);
+      }
+    }
   }
 
   void
@@ -48,6 +76,8 @@ namespace dpi
     DstIpSrcPortDstPortIndex& dst_ip_index,
     const SessionKeyRule& session_key_rule)
   {
+    std::cout << "add_rule_by_dst_ip_" << std::endl;
+
     const IpMask& dst_ip_mask = session_key_rule.dst_ip_mask;
     if (dst_ip_mask.fixed_bits == 0)
     {
@@ -56,7 +86,7 @@ namespace dpi
     else
     {
       int use_index = (dst_ip_mask.fixed_bits - 1) / 8;
-      int var_bits_inside_byte = dst_ip_mask.fixed_bits - use_index * 8;
+      int fixed_bits_inside_byte = dst_ip_mask.fixed_bits - use_index * 8;
       // 3 => 0xFFFFFFFF
       // 2 => 0xFFFFFF00
       // 1 => 0xFFFF0000
@@ -65,11 +95,11 @@ namespace dpi
 
       // to fix
       // create variations
-      uint8_t max_var = 1 << var_bits_inside_byte;
-      for (uint8_t ip_var = 0; ip_var < max_var; ++ip_var)
+      uint16_t max_var = 1 << (8 - fixed_bits_inside_byte);
+      for (uint16_t ip_var = 0; ip_var < max_var; ++ip_var)
       {
-        uint32_t add_ip = ip_var << ((3 - use_index) * 8);
-        std::cout << "ADD INTO PART #" << use_index << " IP=" << ipv4_address_to_string(add_ip) << std::endl;
+        uint32_t add_ip = ip_var | (dst_ip_mask.ip_mask & (0xFFFFFFFF << (32 - dst_ip_mask.fixed_bits)));
+        std::cout << "add_rule_by_dst_ip_: ADD INTO PART #" << use_index << " IP=" << reversed_ipv4_address_to_string(add_ip) << std::endl;
         add_rule_by_src_port_(ind[add_ip], session_key_rule);
       }
     }
