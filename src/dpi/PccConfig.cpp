@@ -78,6 +78,11 @@ namespace dpi
           session_key_rule->allow_traffic = config_element_obj["allow_traffic"].as_bool();
         }
 
+        if (config_element_obj.contains("disallow_traffic"))
+        {
+          session_key_rule->disallow_traffic = config_element_obj["disallow_traffic"].as_bool();
+        }
+
         if (config_element_obj.contains("check_gx"))
         {
           session_key_rule->check_gx = config_element_obj["check_gx"].as_bool();

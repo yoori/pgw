@@ -247,6 +247,33 @@ namespace dpi
       set_limits.emplace_back(add_limit);
     }
 
+    {
+      // push disallowed limits as 0 limits, that we don't report
+      std::unordered_set<std::string> charging_rule_names = user_session.charging_rule_names();
+
+      for (const auto& charging_rule_name : charging_rule_names)
+      {
+        auto session_rule_it = pcc_config->session_rule_by_charging_name.find(charging_rule_name);
+        if (session_rule_it != pcc_config->session_rule_by_charging_name.end() &&
+          session_rule_it->second->rating_groups.empty() && //< Gy don't control this charging rule
+          (session_rule_it->second->disallow_traffic || session_rule_it->second->allow_traffic)
+          )
+        {
+          UserSession::Limit add_limit;
+          add_limit.session_key_rule = session_rule_it->second;
+          if (session_rule_it->second->disallow_traffic)
+          {
+            add_limit.gy_limit = 0;
+          }
+          else if (session_rule_it->second->allow_traffic)
+          {
+            add_limit.gy_limit = std::numeric_limits<decltype(add_limit.gy_limit)::value_type>::max();
+          }
+          set_limits.emplace_back(add_limit);
+        }
+      }
+    }
+
     user_session.set_gy_limits(set_limits);
   }
 
