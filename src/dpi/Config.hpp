@@ -65,6 +65,7 @@ namespace dpi
     std::string ip_rules_root;
     unsigned int http_port = 0;
     std::string pcc_config_file;
+    std::string session_key_rule_config_file;
 
     std::optional<Radius> radius;
     std::optional<Diameter> gx;

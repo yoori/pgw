@@ -1,19 +1,28 @@
 #include <iostream>
 
+#include <gears/StringManip.hpp>
+
 #include "NetworkUtils.hpp"
 #include "SessionKeyEvaluator.hpp"
 
 namespace dpi
 {
+  namespace
+  {
+    using DomainSeparators = const Gears::Ascii::Char1Category<'.'>;
+  }
+
   // SessionKeyEvaluator::SessionKeyRule impl
   SessionKeyEvaluator::SessionKeyRule::SessionKeyRule(
     unsigned int priority_val,
+    const std::string& protocol_val,
     const IpMask& src_ip_mask_val,
     const std::optional<unsigned int>& src_port_val,
     const IpMask& dst_ip_mask_val,
     const std::optional<unsigned int>& dst_port_val,
     const SessionKey& session_key_val)
     : priority(priority_val),
+      protocol(protocol_val),
       src_ip_mask(src_ip_mask_val),
       src_port(src_port_val),
       dst_ip_mask(dst_ip_mask_val),
@@ -26,6 +35,55 @@ namespace dpi
   SessionKeyEvaluator::add_rule(const SessionKeyRule& session_key_rule)
   {
     add_rule_by_protocol_(protocol_index_, session_key_rule);
+  }
+
+  SessionKeyEvaluator::IpMask
+  SessionKeyEvaluator::string_to_ip_mask(const std::string& ip_mask_string)
+  {
+    IpMask ip_mask;
+
+    std::size_t slash_pos;
+    std::size_t asterisk_pos;
+
+    if (ip_mask_string == "*")
+    {
+      ip_mask.fixed_bits = 32;
+      ip_mask.ip_mask = 0;
+    }
+    else if ((slash_pos = ip_mask_string.find('/')) != std::string::npos)
+    {
+      ip_mask.fixed_bits = std::atoi(ip_mask_string.substr(slash_pos + 1).c_str());
+      ip_mask.ip_mask = string_to_ipv4_address(ip_mask_string.substr(0, slash_pos));
+      ip_mask.ip_mask = ip_mask.ip_mask & (0xFFFFFFFF << (32 - ip_mask.fixed_bits));
+    }
+    else if (ip_mask_string.ends_with(".*"))
+    {
+      auto f_part = ip_mask_string.substr(0, ip_mask_string.size() - 2);
+      Gears::StringManip::Splitter<DomainSeparators, true> splitter(f_part);
+      Gears::SubString token;
+      uint32_t result_ip = 0;
+      unsigned int filled_parts = 0;
+      for (int i = 0; i < 4; ++i)
+      {
+        unsigned char ip_part = 0;
+        if (splitter.get_token(token))
+        {
+          if (!Gears::StringManip::str_to_int(token, ip_part))
+          {
+            throw InvalidParameter("");
+          }
+
+          ++filled_parts;
+        }
+
+        result_ip = (result_ip << 8) | ip_part;
+      }
+
+      ip_mask.fixed_bits = filled_parts * 8;
+      ip_mask.ip_mask = result_ip;
+    }
+
+    return ip_mask;
   }
 
   void
@@ -41,7 +99,7 @@ namespace dpi
     SrcIpDstIpSrcPortDstPortIndex& src_ip_index,
     const SessionKeyRule& session_key_rule)
   {
-    std::cout << "add_rule_by_src_ip_" << std::endl;
+    //std::cout << "add_rule_by_src_ip_" << std::endl;
 
     const IpMask& src_ip_mask = session_key_rule.src_ip_mask;
     if (src_ip_mask.fixed_bits == 0)
@@ -61,11 +119,11 @@ namespace dpi
       // to fix
       // create variations
       uint16_t max_var = 1 << (8 - fixed_bits_inside_byte);
-      std::cout << "add_rule_by_src_ip_: use_index = " << use_index << ", max_var = " << max_var << std::endl;
+      //std::cout << "add_rule_by_src_ip_: use_index = " << use_index << ", max_var = " << max_var << std::endl;
       for (uint16_t ip_var = 0; ip_var < max_var; ++ip_var)
       {
         uint32_t add_ip = ip_var | (src_ip_mask.ip_mask & (0xFFFFFFFF << (32 - src_ip_mask.fixed_bits)));
-        std::cout << "add_rule_by_src_ip_: ADD INTO PART #" << use_index << " IP=" << reversed_ipv4_address_to_string(add_ip) << std::endl;
+        //std::cout << "add_rule_by_src_ip_: ADD INTO PART #" << use_index << " IP=" << reversed_ipv4_address_to_string(add_ip) << std::endl;
         add_rule_by_dst_ip_(ind[add_ip], session_key_rule);
       }
     }
@@ -76,7 +134,7 @@ namespace dpi
     DstIpSrcPortDstPortIndex& dst_ip_index,
     const SessionKeyRule& session_key_rule)
   {
-    std::cout << "add_rule_by_dst_ip_" << std::endl;
+    //std::cout << "add_rule_by_dst_ip_" << std::endl;
 
     const IpMask& dst_ip_mask = session_key_rule.dst_ip_mask;
     if (dst_ip_mask.fixed_bits == 0)
@@ -99,7 +157,7 @@ namespace dpi
       for (uint16_t ip_var = 0; ip_var < max_var; ++ip_var)
       {
         uint32_t add_ip = ip_var | (dst_ip_mask.ip_mask & (0xFFFFFFFF << (32 - dst_ip_mask.fixed_bits)));
-        std::cout << "add_rule_by_dst_ip_: ADD INTO PART #" << use_index << " IP=" << reversed_ipv4_address_to_string(add_ip) << std::endl;
+        //std::cout << "add_rule_by_dst_ip_: ADD INTO PART #" << use_index << " IP=" << reversed_ipv4_address_to_string(add_ip) << std::endl;
         add_rule_by_src_port_(ind[add_ip], session_key_rule);
       }
     }
@@ -144,6 +202,7 @@ namespace dpi
   {
     std::optional<SessionKeyFinalRule> match_result;
 
+    if (!flow_traits.protocol.empty())
     {
       auto protocol_it = protocol_index_.find(flow_traits.protocol);
       if (protocol_it != protocol_index_.end())
@@ -234,7 +293,7 @@ namespace dpi
       }
     }
 
-    if (flow_traits.dst_port.has_value())
+    if (flow_traits.src_port.has_value())
     {
       auto port_it = src_port_dst_port_index.find(*flow_traits.src_port);
       if (port_it != src_port_dst_port_index.end())

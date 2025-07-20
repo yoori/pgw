@@ -17,6 +17,7 @@
 #include <dpi/IOServiceActiveObject.hpp>
 #include <dpi/SessionRuleOverrideUserSessionPacketProcessor.hpp>
 #include <dpi/RadiusUserSessionPropertyExtractor.hpp>
+#include <dpi/SessionKeyConfig.hpp>
 
 #include "RadiusServer.hpp"
 #include "Processor.hpp"
@@ -80,11 +81,17 @@ int main(int argc, char **argv)
   auto event_logger = std::make_shared<dpi::StreamLogger>(std::cout);
 
   dpi::PccConfigProviderPtr pcc_config_provider;
+  dpi::ConstSessionKeyConfigPtr session_key_config;
 
   if (!config.pcc_config_file.empty())
   {
     pcc_config_provider = std::make_shared<dpi::PccConfigProvider>(config.pcc_config_file);
     all_active_objects->add_child_object(pcc_config_provider);
+  }
+
+  if (!config.session_key_rule_config_file.empty())
+  {
+    session_key_config = dpi::SessionKeyConfig::read(config.session_key_rule_config_file);
   }
 
   // init radius listener
@@ -259,6 +266,16 @@ int main(int argc, char **argv)
     all_active_objects->add_child_object(stat_user_session_packet_processor);
   }
 
+  auto session_key_evaluator = std::make_shared<dpi::SessionKeyEvaluator>();
+
+  if (session_key_config)
+  {
+    for (const auto& session_key_rule : session_key_config->session_key_rules)
+    {
+      session_key_evaluator->add_rule(session_key_rule);
+    }
+  }
+
   auto packet_processor = std::make_shared<dpi::PacketProcessor>(
     user_storage,
     user_session_storage,
@@ -267,7 +284,8 @@ int main(int argc, char **argv)
     config.ip_rules_root,
     gx_diameter_session,
     gy_diameter_session,
-    pcc_config_provider);
+    pcc_config_provider,
+    session_key_evaluator);
 
   if (config.http_port > 0)
   {

@@ -101,6 +101,7 @@
   "dpi_interface2": "ens193",
   "ip_rules_root": "/opt/tel-gateway/etc/ip_rules/",
   "pcc_config_file": "/opt/tel-gateway/etc/pcc_config.json",
+  "session_key_rule_config_file": "/opt/tel-gateway/etc/session_key_rule.json",
   "processing_log_file": "/opt/tel-gateway/var/log/processing.log",
   "event_log_file": "/opt/tel-gateway/var/log/event.log",
   "dump_stat_root": "/opt/tel-gateway/var/stat/dump/",

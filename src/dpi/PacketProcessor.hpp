@@ -19,6 +19,7 @@
 #include "DiameterSession.hpp"
 //#include "TrafficRules.hpp"
 #include "PccConfigProvider.hpp"
+#include "SessionKeyEvaluator.hpp"
 
 namespace dpi
 {
@@ -33,7 +34,8 @@ namespace dpi
       std::string_view ip_rules_path,
       dpi::DiameterSessionPtr gx_diameter_session,
       dpi::DiameterSessionPtr gy_diameter_session,
-      PccConfigProviderPtr pcc_config_provider
+      PccConfigProviderPtr pcc_config_provider,
+      SessionKeyEvaluatorPtr session_key_evaluator
       );
 
     PacketProcessingState
@@ -102,6 +104,7 @@ namespace dpi
     const dpi::DiameterSessionPtr gx_diameter_session_;
     const dpi::DiameterSessionPtr gy_diameter_session_;
     const PccConfigProviderPtr pcc_config_provider_;
+    const SessionKeyEvaluatorPtr session_key_evaluator_;
 
     //SessionRuleConfig session_rule_config_;
 

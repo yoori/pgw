@@ -38,7 +38,8 @@ namespace dpi
     std::string_view ip_rules_path,
     dpi::DiameterSessionPtr gx_diameter_session,
     dpi::DiameterSessionPtr gy_diameter_session,
-    PccConfigProviderPtr pcc_config_provider
+    PccConfigProviderPtr pcc_config_provider,
+    SessionKeyEvaluatorPtr session_key_evaluator
     )
     : user_storage_(user_storage),
       user_session_storage_(user_session_storage),
@@ -47,7 +48,8 @@ namespace dpi
       user_session_packet_processor_(std::move(user_session_packet_processor)),
       gx_diameter_session_(std::move(gx_diameter_session)),
       gy_diameter_session_(std::move(gy_diameter_session)),
-      pcc_config_provider_(std::move(pcc_config_provider))
+      pcc_config_provider_(std::move(pcc_config_provider)),
+      session_key_evaluator_(std::move(session_key_evaluator))
   {
     if (!ip_rules_path.empty())
     {
@@ -559,6 +561,7 @@ namespace dpi
   {
     // find SessionKey by proto
     const SessionKey& base_session_key = proto_to_session_key_(orig_flow_traits.protocol);
+
     const std::string* category = nullptr;
 
     {
@@ -580,6 +583,24 @@ namespace dpi
 
     SessionKey use_session_key = !category ? base_session_key :
       SessionKey(base_session_key.traffic_type(), *category);
+
+    if (session_key_evaluator_)
+    {
+      SessionKey eval_session_key = session_key_evaluator_->evaluate(orig_flow_traits);
+
+      if (!eval_session_key.traffic_type().empty() || !eval_session_key.category_type().empty())
+      {
+        if (eval_session_key.traffic_type().empty())
+        {
+          // if evaluated traffic_type is empty override only category_type
+          use_session_key = dpi::SessionKey(use_session_key.traffic_type(), eval_session_key.category_type());
+        }
+        else
+        {
+          use_session_key = eval_session_key;
+        }
+      }
+    }
 
     const Gears::Time now = Gears::Time::get_time_of_day();
 

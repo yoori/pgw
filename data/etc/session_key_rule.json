@@ -1,0 +1,9 @@
+{
+  "session_key_rules": [
+    {
+      "priority": 1,
+      "session_key": { "category_type": "sber-mobile" },
+      "dst_ip_mask": "194.54.15.0/24"
+    }
+  ]
+}

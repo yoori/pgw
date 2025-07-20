@@ -1,5 +1,6 @@
 #pragma once
 
+#include <memory>
 #include <string>
 #include <optional>
 #include <unordered_map>
@@ -28,10 +29,11 @@ namespace dpi
 
     struct SessionKeyRule
     {
-      SessionKeyRule();
+      SessionKeyRule() {};
 
       SessionKeyRule(
         unsigned int priority,
+        const std::string& protocol,
         const IpMask& src_ip_mask,
         const std::optional<unsigned int>& src_port,
         const IpMask& dst_ip_mask,
@@ -48,7 +50,7 @@ namespace dpi
     };
 
     static IpMask
-    string_to_mask(const std::string& string_ip_mask);
+    string_to_ip_mask(const std::string& string_ip_mask);
 
     /* look for conbinations 4 :
        src_ip, src_port, dst_ip, dst_port
@@ -153,5 +155,7 @@ namespace dpi
   private:
     ProtocolIndex protocol_index_;
   };
+
+  using SessionKeyEvaluatorPtr = std::shared_ptr<SessionKeyEvaluator>;
 }
 

@@ -171,6 +171,11 @@ namespace dpi
       result.pcc_config_file = config_json["pcc_config_file"].as_string();
     }
 
+    if (config_json.contains("session_key_rule_config_file"))
+    {
+      result.session_key_rule_config_file = config_json["session_key_rule_config_file"].as_string();
+    }
+
     if (config_json.contains("radius"))
     {
       const auto& radius_obj = config_json["radius"];

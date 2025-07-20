@@ -24,8 +24,8 @@ int main(int argc, char* argv[])
     for (const auto& [session_key, session_rule] : pcc_config->session_rule_by_session_key)
     {
       std::cout << session_key.to_string() << ": "
-        "priority = " << session_rule.priority <<
-        ", allow_traffic = " << session_rule.allow_traffic <<
+        "priority = " << session_rule->priority <<
+        ", allow_traffic = " << session_rule->allow_traffic <<
         std::endl;
     }
   }
