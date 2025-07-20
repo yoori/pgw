@@ -23,6 +23,30 @@
     },
 
     {
+      "comment" : "Disable all traffic types (and categories), rating groups empty - gy don't control this rule",
+      "charging_rule_name": "MVNO_SBT_DISCARD_ALL",
+      "priority": 730,
+      "disallow_traffic": true,
+      "session_keys": [
+        { "traffic_type": "", "category_type": "" }
+      ]
+    },
+    {
+      "comment" : "Disable instagram, twitter, facebook",
+      "charging_rule_name": "R_CUSTOM_DROP",
+      "priority": 720,
+      "disallow_traffic": true,
+      "session_keys": [
+        { "traffic_type": "facebook", "category_type": "" },
+        { "traffic_type": "facebook_messenger", "category_type": "" },
+        { "traffic_type": "facebook_voip", "category_type": "" },
+        { "traffic_type": "facebook_reel_story", "category_type": "" },
+        { "traffic_type": "twitter", "category_type": "" },
+        { "traffic_type": "instagram", "category_type": "" }
+      ]
+    },
+
+    {
       "charging_rule_name": "R_DNS",
       "priority": 700,
       "allow_traffic": false,
@@ -34,6 +58,45 @@
       ]
     },
      
+    {
+      "charging_rule_name": "MVNO_SBT_MESSENGERS_DISCARD",
+      "priority": 640,
+      "allow_traffic": false,
+      "disallow_traffic": true,
+      "session_keys": [
+        { "traffic_type": "telegram", "category_type": "" },
+        { "traffic_type": "telegram_voip", "category_type": "" },
+        { "traffic_type": "whatsapp", "category_type": "" },
+        { "traffic_type": "whatsapp_call", "category_type": "" },
+        { "traffic_type": "whatsapp_files", "category_type": "" },
+        { "traffic_type": "viber", "category_type": "" },
+        { "traffic_type": "viber_voip", "category_type": "" },
+        { "traffic_type": "", "category_type": "skype" },
+        { "traffic_type": "imo", "category_type": "" }
+      ]
+    },
+    {
+      "charging_rule_name": "MVNO_SBT_TELEGRAM_DISCARD",
+      "priority": 630,
+      "allow_traffic": false,
+      "disallow_traffic": true,
+      "session_keys": [
+        { "traffic_type": "telegram", "category_type": "" },
+        { "traffic_type": "telegram_voip", "category_type": "" }
+      ]
+    },
+    {
+      "charging_rule_name": "MVNO_SBT_VIDEO_DISCARD",
+      "priority": 620,
+      "allow_traffic": false,
+      "disallow_traffic": true,
+      "session_keys": [
+        { "traffic_type": "youtube", "category_type": "" },
+        { "traffic_type": "youtube_upload", "category_type": "" },
+        { "traffic_type": "rutube", "category_type": "" },
+        { "traffic_type": "twitch", "category_type": "" }
+      ]
+    },
     {
       "charging_rule_name": "MVNO_SBT_SOC_INTERNET",
       "priority": 610,
