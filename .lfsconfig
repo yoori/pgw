@@ -1,2 +1,0 @@
-[lfs]
-fetchexclude = scripts/osx/deps/*,src/tests/fuzzer-corpus/*
