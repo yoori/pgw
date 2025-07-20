@@ -207,11 +207,7 @@ namespace dpi
       if (session_rule_it != pcc_config->session_rule_by_rating_group.end())
       {
         add_limit.session_key_rule = session_rule_it->second;
-
-        if (rating_group_limit.validity_time != Gears::Time::ZERO)
-        {
-          add_limit.gy_recheck_time = now + rating_group_limit.validity_time;
-        }
+        add_limit.gy_recheck_time = rating_group_limit.validity_time;
 
         for (const auto& sk : add_limit.session_key_rule->session_keys)
         {
@@ -391,14 +387,12 @@ namespace dpi
 
     UserSession::RevalidateResult revalidation = user_session->revalidation();
     std::optional<Gears::Time> check_time = revalidation.min_time();
-    std::cout << "Manager: add_user_session: " <<
+    std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] Manager: add_user_session: " <<
       "check_time = " << (check_time.has_value() ? check_time->gm_ft() : std::string("none")) <<
       ", revalidate_gx_time = " << (revalidation.revalidate_gx_time.has_value() ? revalidation.revalidate_gx_time->gm_ft() : std::string("none")) <<
       ", revalidate_gy_time = " << (revalidation.revalidate_gy_time.has_value() ? revalidation.revalidate_gy_time->gm_ft() : std::string("none")) <<
       std::endl;
-    user_session_action_planner_->add_user_session(
-      user_session,
-      check_time.has_value() ? *check_time : Gears::Time::get_time_of_day() + Gears::Time(60));
+    user_session_action_planner_->add_user_session(user_session, check_time);
 
     return true;
   }

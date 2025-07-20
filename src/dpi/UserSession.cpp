@@ -134,8 +134,8 @@ namespace dpi
   void
   UserSession::set_revalidate_gx_time(const std::optional<Gears::Time>& revalidate_gx_time)
   {
-    std::cout << "UserSession::set_gx_revalidation_time(): " <<
-      (gx_recheck_time.has_value() ? gx_recheck_time->gm_ft() : std::string("none")) << std::endl;
+    //std::cout << "UserSession::set_gx_revalidation_time(): " <<
+    //  (revalidate_gx_time.has_value() ? revalidate_gx_time->gm_ft() : std::string("none")) << std::endl;
     std::unique_lock<std::shared_mutex> guard(limits_lock_);
     revalidate_gx_time_ = revalidate_gx_time;
   }
@@ -149,6 +149,13 @@ namespace dpi
 
     std::unique_lock<std::shared_mutex> guard(limits_lock_);
 
+    //std::cout << "UserSession::set_gy_limits(): limits.size = " << limits.size() << ":";
+    //for (const auto& l : limits)
+    //{
+    //  std::cout << " <" << l.session_key_rule->rule_id << ">(" << ((const void*)l.session_key_rule.get()) << ")";
+    //}
+    //std::cout << std::endl;
+
     for (const auto& limit : limits)
     {
       limits_by_rule_id_[limit.session_key_rule->rule_id] = std::make_shared<Limit>(limit);
@@ -156,7 +163,9 @@ namespace dpi
 
     limits_by_session_key_.swap(del_limit_by_session_key_);
 
-    fill_by_limits_by_rule_id_();
+    fill_by_limits_by_rule_id_i_();
+
+    std::cout << "UserSession::set_gy_limits(): limits_by_session_key_.size = " << limits_by_session_key_.size() << std::endl;
   }
 
   void
@@ -173,7 +182,7 @@ namespace dpi
 
     limits_by_session_key_.swap(del_limit_by_session_key_);
 
-    fill_by_limits_by_rule_id_();
+    fill_by_limits_by_rule_id_i_();
   }
 
   UserSession::UseLimitResult
@@ -240,17 +249,17 @@ namespace dpi
 
       revalidate_result.revalidate_gx_time = revalidate_gx_time_;
 
-      for (const auto& [_, limit_ptr] : limits_)
+      std::cout << "LIMIT limits_by_session_key_.size() = " << limits_by_session_key_.size() << std::endl;
+
+      for (const auto& [session_key, limit_ptr] : limits_by_session_key_)
       {
+        std::cout << "LIMIT: " <<
+          session_key.to_string() << " => " <<
+          (limit_ptr->gy_recheck_time.has_value() ? limit_ptr->gy_recheck_time->gm_ft() : std::string("none")) <<
+          std::endl;
+
         if (limit_ptr->gy_recheck_time.has_value())
         {
-          /*
-          std::cout << "LIMIT: " <<
-            session_key.to_string() << " => " <<
-            (limit_ptr->gy_recheck_time.has_value() ? limit_ptr->gy_recheck_time->gm_ft() : std::string("none")) <<
-            std::endl;
-          */
-
           revalidate_result.revalidate_gy_time = revalidate_result.revalidate_gy_time.has_value() ?
             std::min(*revalidate_result.revalidate_gy_time, *(limit_ptr->gy_recheck_time)) :
             *(limit_ptr->gy_recheck_time);
@@ -479,10 +488,15 @@ namespace dpi
   }
 
   void
-  UserSession::fill_by_limits_by_rule_id_()
+  UserSession::fill_by_limits_by_rule_id_i_()
   {
     // Now we have mapping session_key => limit, used should have equal struct
     fill_limit_by_session_key_i_(limits_by_session_key_, limits_by_rule_id_);
+
+    //std::cout << "UserSession::set_gy_limits(): X "
+    //  "limits_by_session_key_.size = " << limits_by_session_key_.size() <<
+    //  ", limits_by_rule_id_.size = " << limits_by_rule_id_.size() <<
+    //  std::endl;
 
     UserSessionStatsHolder::AllowedSessionKeyMap allowed_session_keys;
 
@@ -502,7 +516,7 @@ namespace dpi
   )
   {
     // refill limits_ by limits_by_rule_id
-    for (const auto& [rule_id, limit_ptr] : limit_by_session_key)
+    for (const auto& [rule_id, limit_ptr] : limit_by_rule_id)
     {
       for (const auto& session_key : limit_ptr->session_key_rule->session_keys)
       {

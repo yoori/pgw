@@ -14,6 +14,13 @@
         { "traffic_type": "bfd", "category_type": "" }
       ]
     },
+    {
+      "priority": 1000,
+      "allow_traffic": true,
+      "session_keys": [
+        { "traffic_type": "ip_icmp", "category_type": "" }
+      ]
+    },
 
     {
       "charging_rule_name": "R_DNS",
@@ -22,6 +29,7 @@
       "monitoring_keys": [],
       "rating_groups": [20],
       "session_keys": [
+        { "traffic_type": "dns", "category_type": "" },
         { "traffic_type": "", "category_type": "sber-dns" }
       ]
     },
@@ -33,6 +41,7 @@
       "monitoring_keys": [99],
       "rating_groups": [37],
       "session_keys": [
+        { "traffic_type": "dns", "category_type": "" },
         { "traffic_type": "vk", "category_type": "" },
         { "traffic_type": "", "category_type": "gosuslugi" }
       ]
@@ -44,6 +53,7 @@
       "monitoring_keys": [12],
       "rating_groups": [21],
       "session_keys": [
+        { "traffic_type": "dns", "category_type": "" },
         { "traffic_type": "", "category_type": "kassa.rambler" },
         { "traffic_type": "", "category_type": "sber-online" },
         { "traffic_type": "", "category_type": "sber-mobile" },

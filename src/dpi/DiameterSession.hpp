@@ -531,6 +531,8 @@ namespace dpi
     {
       res += (it != remove_charging_rule_names.begin() ? ", " : "") + *it;
     }
+    res += ", \"revalidate_time\": " + (
+      revalidate_time.has_value() ? std::string("\"") + revalidate_time->gm_ft() + "\"" : "null");
     res += "}";
     return res;
   }

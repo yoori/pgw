@@ -203,7 +203,7 @@ namespace dpi
       LimitMap& new_limits);
 
     void
-    fill_by_limits_by_rule_id_();
+    fill_by_limits_by_rule_id_i_();
 
     static void
     fill_limit_by_session_key_i_(
@@ -284,21 +284,6 @@ namespace dpi
       ", revalidate_gx = " + std::to_string(revalidate_gx) +
       ", revalidate_gy = " + std::to_string(revalidate_gy) +
       ", closed = " + std::to_string(closed) +
-      "}";
-  }
-
-  inline std::string
-  UserSession::Limit::to_string() const
-  {
-    return std::string("{") +
-      "rule_id = " + (session_key_rule ?
-        std::to_string(session_key_rule->rule_id) : std::string("none")) +
-      ", gy_recheck_time = " + (gy_recheck_time.has_value() ?
-        std::to_string(gy_recheck_time->tv_sec) : std::string("none")) +
-      ", gy_recheck_limit = " + (gy_recheck_limit.has_value() ?
-        std::to_string(*gy_recheck_limit) : std::string("none")) +
-      ", gy_limit = " + (gy_limit.has_value() ?
-        std::to_string(*gy_limit) : std::string("none")) +
       "}";
   }
 

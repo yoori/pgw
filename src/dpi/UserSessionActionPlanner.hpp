@@ -15,7 +15,9 @@ namespace dpi
   class UserSessionActionPlanner: public Gears::CompositeActiveObject
   {
   public:
-    UserSessionActionPlanner(unsigned int threads_count = 10);
+    UserSessionActionPlanner(
+      unsigned int threads_count = 10,
+      const Gears::Time& forced_check_period = Gears::Time(60));
 
     virtual ~UserSessionActionPlanner();
 
@@ -25,7 +27,7 @@ namespace dpi
     void
     add_user_session(
       const UserSessionPtr& user_session,
-      const Gears::Time& next_check);
+      const std::optional<Gears::Time>& next_check);
 
     void
     activate_object() override;
@@ -41,6 +43,7 @@ namespace dpi
     std::weak_ptr<Manager> manager_;
     Gears::Planner_var planner_;
     Gears::TaskRunner_var task_runner_;
+    const Gears::Time forced_check_period_;
   };
 
   using UserSessionActionPlannerPtr = std::shared_ptr<UserSessionActionPlanner>;

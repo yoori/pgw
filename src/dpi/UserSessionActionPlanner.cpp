@@ -23,13 +23,19 @@ namespace dpi
     execute() noexcept override
     {
       auto user_session = user_session_.lock();
-      if (user_session)
+      if (user_session && !user_session->is_closed())
       {
         Gears::Time next_check = user_session_action_planner_->check_user_session_(*user_session);
         if (next_check != Gears::Time::ZERO)
         {
           planner_->schedule(shared_from_this(), next_check);
         }
+      }
+      else
+      {
+        std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() <<
+          "] UserSessionActionPlanner::check_user_session_(): drop task for session" <<
+          std::endl;
       }
     }
 
@@ -40,9 +46,11 @@ namespace dpi
   };
 
   UserSessionActionPlanner::UserSessionActionPlanner(
-    unsigned int threads_count)
+    unsigned int threads_count,
+    const Gears::Time& forced_check_period)
     : planner_(std::make_shared<Gears::Planner>(std::make_shared<CerrCallback>())),
-      task_runner_(std::make_shared<Gears::TaskRunner>(std::make_shared<CerrCallback>(), threads_count))
+      task_runner_(std::make_shared<Gears::TaskRunner>(std::make_shared<CerrCallback>(), threads_count)),
+      forced_check_period_(forced_check_period)
   {
     add_child_object(planner_);
     add_child_object(task_runner_);
@@ -67,10 +75,12 @@ namespace dpi
   void
   UserSessionActionPlanner::add_user_session(
     const UserSessionPtr& user_session,
-    const Gears::Time& next_check)
+    const std::optional<Gears::Time>& next_check)
   {
     std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() <<
-      "] UserSessionActionPlanner::add_user_session(): next_check = " << next_check.gm_ft() << std::endl;
+      "] UserSessionActionPlanner::add_user_session(): next_check = " <<
+      (next_check.has_value() ? next_check->gm_ft() : std::string("null")) <<
+      std::endl;
 
     const Gears::Time now = Gears::Time::get_time_of_day();
     auto task = std::make_shared<ProcessUserSessionTask>(
@@ -85,7 +95,8 @@ namespace dpi
     }
     else
     {
-      planner_->schedule(task, next_check);
+      const auto forced_check_time = now + forced_check_period_;
+      planner_->schedule(task, next_check.has_value() ? std::min(*next_check, forced_check_time) : forced_check_time);
     }
   }
 
@@ -164,13 +175,18 @@ namespace dpi
       }
     }
 
+    const auto forced_check_time = now + forced_check_period_;
+    const auto next_check_time = next_revalidate_time.has_value() ?
+      std::min(*next_revalidate_time, forced_check_time) : forced_check_time;
+
     std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() <<
       "] UserSessionActionPlanner::check_user_session_(): msisdn = " << user_session.traits()->msisdn <<
       ", next_revalidate_time = " << (
         next_revalidate_time.has_value() ? next_revalidate_time->gm_ft() : std::string("none")) <<
+      ", next_check_time = " << next_check_time.gm_ft() <<
       std::endl;
 
-    return next_revalidate_time.has_value() ? *next_revalidate_time : now + Gears::Time(60);
+    return next_check_time;
   }
 }
 

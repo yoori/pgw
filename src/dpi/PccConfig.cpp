@@ -29,6 +29,7 @@ namespace dpi
       for (const auto config_element_obj : config_json["rules"].array_range())
       {
         SessionKeyRulePtr session_key_rule = std::make_shared<SessionKeyRule>();
+        session_key_rule->rule_id = rule_id;
 
         if (config_element_obj.contains("charging_rule_name"))
         {
