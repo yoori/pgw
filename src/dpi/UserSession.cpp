@@ -195,7 +195,7 @@ namespace dpi
 
     std::unique_lock<std::shared_mutex> guard(limits_lock_);
 
-    UseLimitResult use_limit_result;
+    UseLimitResultExt use_limit_result;
 
     auto old_usage_stats = gy_usage_.get_usage(false);
 
@@ -211,7 +211,7 @@ namespace dpi
         now,
         used_octets);
 
-      if (use_limit_result.block)
+      if (use_limit_result.block && !use_limit_result.block_abs)
       {
         use_limit_result = use_limit_i_(
           SessionKey(),
@@ -285,7 +285,7 @@ namespace dpi
     return revalidate_result;
   }
 
-  UserSession::UseLimitResult
+  UserSession::UseLimitResultExt
   UserSession::use_limit_i_(
     const SessionKey& session_key,
     const Gears::Time& now,
@@ -293,7 +293,7 @@ namespace dpi
   {
     //std::cout << "UserSession::use_limit_i_()" << std::endl;
 
-    UseLimitResult use_limit_result;
+    UseLimitResultExt use_limit_result;
 
     auto limit_it = limits_by_session_key_.find(session_key);
 
@@ -301,6 +301,12 @@ namespace dpi
     {
       //std::cout << "use_limit: #1, session_key = " << session_key.to_string() << std::endl;
       use_limit_result.block = true;
+      return use_limit_result;
+    }
+    else if (limit_it->second->session_key_rule->disallow_traffic)
+    {
+      use_limit_result.block = true;
+      use_limit_result.block_abs = true;
       return use_limit_result;
     }
 

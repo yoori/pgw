@@ -183,6 +183,11 @@ namespace dpi
     close();
 
   private:
+    struct UseLimitResultExt: public UseLimitResult
+    {
+      bool block_abs = false;
+    };
+
     using LimitPtr = std::shared_ptr<Limit>;
     using LimitMap = Gears::HashTable<SessionKey, LimitPtr>;
     using LimitByRuleIdMap = std::unordered_map<unsigned long, LimitPtr>;
@@ -191,7 +196,7 @@ namespace dpi
     //using UsageByRuleIdMap = std::unordered_map<unsigned long, OctetStatsPtr>;
 
   private:
-    UseLimitResult
+    UseLimitResultExt
     use_limit_i_(
       const SessionKey& session_key,
       const Gears::Time& now,
