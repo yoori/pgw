@@ -1,23 +1,51 @@
-10.41.64.35
-151.236.118.131
-176.57.64.139
-176.57.64.212
-176.57.65.144
-178.176.128.128
-178.18.218.197
-178.18.218.45
-178.18.218.6
-178.18.218.73
-185.129.100.112
-185.130.249.90
-185.169.155.100
-185.169.155.114
-185.169.155.116
-185.169.155.118
-185.215.4.49
-46.243.142.176
-54.194.41.141
-81.19.72.47
-81.19.73.10
-88.210.36.195
-93.171.230.8
+10.41.64.35 s2.blog.okko.tv
+151.236.127.131 code.okko.tv
+151.236.65.98 static.okko.tv
+176.57.64.139 helpkz.okko.tv
+176.57.64.212 agents.okko.tv
+31.200.250.99 xbox.okko.tv
+37.230.180.219 aeroflotbonus.okko.tv(sbercloud)
+37.230.196.137 embed.okko.tv(sbercloud)
+46.243.142.176 elka2022.okko.tv(sbercloud)
+5.188.76.74 merch.okko.tv
+54.194.41.141 brand.okko.tv
+81.19.72.46 blog.okko.tv
+81.19.73.10 autodiscover.okko.tv
+88.210.36.195 clients.okko.tv
+176.57.65.144 it.okko.tv
+178.176.128.128 live-sport.cdn.okko.tv
+185.129.100.112 www.promo.okko.tv
+185.130.249.90 urok.okko.tv
+185.215.4.49 mobile.dev.okko.tv
+185.26.75.230 live-sport.globalnet.okko.tv
+185.31.113.0/24 CDNvideo
+185.169.155.0/24 *.okko.tv
+93.171.230.0/24 CDNvideo LLC
+109.238.88.80 stat.okko.tv
+109.238.90.219 stat2.okko.tv
+91.238.109.195 static.okko.tv,okkostatic.cdnvideo.ru
+91.206.127.237 ctx.playfamily.ru
+84.252.146.96 ext.clickstream.sberbank.ru
+217.73.125.0/24 *cdp*.playfamily.ru subnet block
+178.18.221.0/24 msk*cdp*.playfamily.ru subnet block
+178.18.219.0/24 spb*cdp*.playfamily.ru subnet block
+109.238.88.202 lge4k.playfamily.ru
+109.238.88.219 playbackstatus.playfamily.ru
+109.238.88.58 auth2.playfamily.ru (Popov)
+185.32.68.100 spb-cdp1.playfamily.ru
+178.18.217/24 okko subnet
+178.18.218.0/24 okko subnet
+178.18.219.0/24 okko subnet
+178.18.220.0/24 okko subnet
+178.18.221.0/24 okko subnet
+178.18.222.0/24 okko subnet
+178.18.223.0/24 okko subnet
+185.112.250.0/24 okko subnet
+217.73.120.0/24 okko subnet
+31.132.32.0/24 okko subnet
+31.132.33.0/24 okko subnet
+31.132.34.0/24 okko subnet
+31.132.35.0/24 okko subnet
+62.141.90.14 beeline-iar-cdp1.playfamily.ru
+80.94.87.0/24 okko subnet
+ctx.playfamily.ru 91.206.127.237(Popov)
