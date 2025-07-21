@@ -1323,6 +1323,8 @@ namespace dpi
 	&flow,
 	datalink_type_);
 
+      // flow.src2dst_goodput_bytes
+      // flow.dst2src_goodput_bytes
       if (!pcap_start.tv_sec)
       {
 	pcap_start.tv_sec = header->ts.tv_sec;
