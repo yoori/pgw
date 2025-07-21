@@ -107,8 +107,8 @@ namespace dpi
       }
     }
 
-    std::cout << "fill_gy_request_(" << user_session.traits()->msisdn << "): " <<
-      "rating_groups.size() = " << rating_groups.size() << std::endl;
+    //std::cout << "fill_gy_request_(" << user_session.traits()->msisdn << "): " <<
+    //  "rating_groups.size() = " << rating_groups.size() << std::endl;
 
     const auto [gy_session_id_suffix, gy_request_id] = user_session.generate_gy_request_id();
 
@@ -131,12 +131,12 @@ namespace dpi
 
     auto used_limits = user_session.get_gy_used_limits(now, true);
 
-    std::cout << "fill_gy_request_(" << user_session.traits()->msisdn << "): " <<
-      "used_limits =";
+    //std::cout << "fill_gy_request_(" << user_session.traits()->msisdn << "): " <<
+    //  "used_limits =";
 
     for (const auto& used_limit : used_limits)
     {
-      std::cout << " " << used_limit.to_string();
+      //std::cout << " " << used_limit.to_string();
 
       auto session_rule_it = pcc_config->session_keys.find(used_limit.rule_id);
       if (session_rule_it != pcc_config->session_keys.end())
@@ -156,12 +156,19 @@ namespace dpi
       }
     }
 
-    std::cout << std::endl;
+    //std::cout << std::endl;
+
+    //std::ostringstream ostr;
+    //ostr << "fill_gy_request_(" << user_session.traits()->msisdn << "): final send rating groups:";
 
     for (const auto& [_, rg_use] : send_rating_groups)
     {
+      //ostr << " " << rg_use.rating_group_id;
       gy_request.usage_rating_groups.emplace_back(rg_use);
     }
+
+    //ostr << std::endl;
+    //std::cout << ostr.str() << std::endl;
   }
 
   void
@@ -352,8 +359,8 @@ namespace dpi
           return false;
         }
 
-        std::cout << "Manager::set_gx_revalidation_time(): " <<                                                                
-          (response.revalidate_time.has_value() ? response.revalidate_time->gm_ft() : std::string("none")) << std::endl;
+        //std::cout << "Manager::set_gx_revalidation_time(): " <<                                                                
+        //  (response.revalidate_time.has_value() ? response.revalidate_time->gm_ft() : std::string("none")) << std::endl;
 
         user_session->set_charging_rule_names(result_charging_rule_names);
         user_session->set_revalidate_gx_time(response.revalidate_time);
@@ -571,7 +578,11 @@ namespace dpi
         user_session = user_session_storage_->get_user_session_by_ip(
           user_session_traits.framed_ip_address);
 
-        if (user_session && acct_status_type == AcctStatusType::START)
+        if (user_session && (
+            acct_status_type == AcctStatusType::START ||
+            (user_session->is_closed() && user_session->traits()->msisdn != user_session_traits.msisdn)
+            //< msisdn changed for framed_ip_address - drop previous session
+          ))
         {
           // drop session
           if (!user_session->is_closed())

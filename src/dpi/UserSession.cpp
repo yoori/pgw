@@ -165,7 +165,7 @@ namespace dpi
 
     fill_by_limits_by_rule_id_i_();
 
-    std::cout << "UserSession::set_gy_limits(): limits_by_session_key_.size = " << limits_by_session_key_.size() << std::endl;
+    //std::cout << "UserSession::set_gy_limits(): limits_by_session_key_.size = " << limits_by_session_key_.size() << std::endl;
   }
 
   void
@@ -191,11 +191,13 @@ namespace dpi
     const Gears::Time& now,
     const OctetStats& used_octets)
   {
-    //std::cout << "use_limit: used_bytes = " << used_bytes << std::endl;
+    //std::cout << "use_limit(" << (traits_ ? traits_->msisdn : std::string("none")) << "): start" << std::endl;
 
     std::unique_lock<std::shared_mutex> guard(limits_lock_);
 
     UseLimitResult use_limit_result;
+
+    auto old_usage_stats = gy_usage_.get_usage(false);
 
     if (is_closed_)
     {
@@ -218,22 +220,35 @@ namespace dpi
       }
     }
 
-    if (use_limit_result.block)
+    /*
+    if (use_limit_result.block || use_limit_result.revalidate_gx || use_limit_result.revalidate_gy)
     {
       auto usage_stats = gy_usage_.get_usage(false);
 
       std::ostringstream ostr;
       ostr << "use_limit(" << (traits_ ? traits_->msisdn : std::string("none")) << "): " <<
         "session_key = " << session_key.to_string() <<
-        ", block = " << use_limit_result.block << ": ";
+        ", block = " << use_limit_result.block <<
+        ", revalidate_gx = " << use_limit_result.revalidate_gx <<
+        ", revalidate_gy = " << use_limit_result.revalidate_gy <<
+        ": [";
+
+      for (const auto& [rule_id, octet_stats] : old_usage_stats)
+      {
+        ostr << " { rule_id = " << rule_id << ", octet_stats = " << octet_stats.to_string() << "}";
+      }
+
+      ostr << "] => [";
 
       for (const auto& [rule_id, octet_stats] : usage_stats)
       {
         ostr << " { rule_id = " << rule_id << ", octet_stats = " << octet_stats.to_string() << "}";
       }
     
-      ostr << std::endl;
+      ostr << "]" << std::endl;
+      std::cout << ostr.str() << std::endl;
     }
+    */
 
     return use_limit_result;
   }
@@ -249,14 +264,14 @@ namespace dpi
 
       revalidate_result.revalidate_gx_time = revalidate_gx_time_;
 
-      std::cout << "LIMIT limits_by_session_key_.size() = " << limits_by_session_key_.size() << std::endl;
+      //std::cout << "LIMIT limits_by_session_key_.size() = " << limits_by_session_key_.size() << std::endl;
 
       for (const auto& [session_key, limit_ptr] : limits_by_session_key_)
       {
-        std::cout << "LIMIT: " <<
-          session_key.to_string() << " => " <<
-          (limit_ptr->gy_recheck_time.has_value() ? limit_ptr->gy_recheck_time->gm_ft() : std::string("none")) <<
-          std::endl;
+        //std::cout << "LIMIT: " <<
+        //  session_key.to_string() << " => " <<
+        //  (limit_ptr->gy_recheck_time.has_value() ? limit_ptr->gy_recheck_time->gm_ft() : std::string("none")) <<
+        //  std::endl;
 
         if (limit_ptr->gy_recheck_time.has_value())
         {
@@ -330,9 +345,8 @@ namespace dpi
 
     if (!use_limit_result.block)
     {
-
       if (limit_it->second->gy_recheck_limit.has_value() &&
-        prev_used_bytes + use_cell->total_octets > *(limit_it->second->gy_recheck_limit) &&
+        prev_used_bytes + used_octets.total_octets > *(limit_it->second->gy_recheck_limit) &&
         prev_used_bytes <= *(limit_it->second->gy_recheck_limit))
       {
         use_limit_result.revalidate_gy = true;
@@ -390,6 +404,7 @@ namespace dpi
 
     std::unique_lock<std::shared_mutex> guard(limits_lock_);
 
+    //std::cout << "get_usage for GY: own_stats = " << own_stats << std::endl;
     auto usage_stats = gy_usage_.get_usage(own_stats);
 
     for (const auto& [rule_id, octet_stats] : usage_stats)
@@ -506,6 +521,7 @@ namespace dpi
     }
 
     gx_usage_.allow_session_keys(allowed_session_keys);
+    //std::cout << "allow_session_keys for GY" << std::endl;
     gy_usage_.allow_session_keys(allowed_session_keys);
   }
 

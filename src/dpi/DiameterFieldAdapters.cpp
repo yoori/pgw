@@ -483,8 +483,6 @@ namespace dpi
   public:
     virtual Value adapt(const Value& value) const
     {
-      std::cout << "IPv4As4BytesDiameterFieldAdapter::adapt" << std::endl;
-
       Value result;
       IPv4As4BytesFillVisitor visitor(result);
       std::visit(visitor, value);

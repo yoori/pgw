@@ -39,13 +39,14 @@ namespace dpi
         const SessionKeyRule& session_key_rule = *session_key_rule_it->second;
         if (session_key_rule.allow_traffic)
         {
-          std::cout << "SessionRuleOverrideUserSessionPacketProcessor: unblock by session rule: " << session_key.to_string() << std::endl;
+          //std::cout << "SessionRuleOverrideUserSessionPacketProcessor: unblock by session rule: " << session_key.to_string() << std::endl;
           packet_processing_state.block_packet = false;
           packet_processing_state.shaped = false;
         }
       }
     }
 
+    /*
     if (packet_processing_state.block_packet)
     {
       std::cout << "SessionRuleOverrideUserSessionPacketProcessor: blocked packet " << session_key.to_string() <<
@@ -65,5 +66,6 @@ namespace dpi
         ipv4_address_to_string(flow_traits.dst_ip) <<
         std::endl;
     }
+    */
   }
 }

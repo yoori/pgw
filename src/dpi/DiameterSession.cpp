@@ -86,9 +86,9 @@ namespace dpi
       gy_pass_attributes_(std::move(gy_pass_attributes)),
       origin_state_id_(3801248757)
   {
-    std::cout << "SCTPDiameterSession::SCTPDiameterSession(): "
-      "gx_pass_attributes_.size = " << gx_pass_attributes_.size() <<
-      ", gy_pass_attributes_.size = " << gy_pass_attributes_.size() << std::endl;
+    //std::cout << "SCTPDiameterSession::SCTPDiameterSession(): "
+    //  "gx_pass_attributes_.size = " << gx_pass_attributes_.size() <<
+    //  ", gy_pass_attributes_.size = " << gy_pass_attributes_.size() << std::endl;
 
     Gears::ActiveObjectCallback_var callback(new CerrCallback());
 
@@ -502,11 +502,11 @@ namespace dpi
               {
                 rating_group_limit.cc_total_octets = g_avp.data().toUnsigned64();
               }
-              else if (g_avp.header().avpCode() == 869) // < Volume-Quota-Threshold(869)
-              {
-                rating_group_limit.octets_threshold = g_avp.data().toUnsigned32();
-              }
             }
+          }
+          else if (local_avp.header().avpCode() == 869) // < Volume-Quota-Threshold(869)
+          {
+            rating_group_limit.octets_threshold = local_avp.data().toUnsigned32();
           }
           else if (local_avp.header().avpCode() == 432) //< Rating-Group(432)
           {
@@ -941,7 +941,7 @@ namespace dpi
       .addAVP(create_uint32_avp(1027, 5, 10415, true)) // IP-CAN-Type
       ;
 
-    std::cout << "gx_pass_attributes_.size() = " << gx_pass_attributes_.size() << std::endl;
+    //std::cout << "gx_pass_attributes_.size() = " << gx_pass_attributes_.size() << std::endl;
 
     if (request.user_session_traits.user_session_property_container)
     {
@@ -1337,7 +1337,7 @@ namespace dpi
     packet_filler.add_non_empty_avp("Service-Information.PS-Information.3GPP-GPRS-Negotiated-QoS-Profile",
       dpi::Value(request.user_session_traits.gprs_negotiated_qos_profile));
     */
-    std::cout << "gy_pass_attributes_.size() = " << gy_pass_attributes_.size() << std::endl;
+    //std::cout << "gy_pass_attributes_.size() = " << gy_pass_attributes_.size() << std::endl;
 
     if (request.user_session_traits.user_session_property_container)
     {
@@ -1413,7 +1413,7 @@ namespace dpi
       if (property_it != request.user_session_traits.user_session_property_container->values.end())
       {
         imsi = value_as_string(property_it->second);
-        std::cout << "IMSI search : " << imsi << std::endl;
+        //std::cout << "IMSI search : " << imsi << std::endl;
       }
     }
 

@@ -7,6 +7,7 @@
 #include "UserGetHttpResource.hpp"
 #include "UserAddHttpResource.hpp"
 #include "UserSessionAddHttpResource.hpp"
+#include "UserSessionGetHttpResource.hpp"
 #include "UserBlockHttpResource.hpp"
 #include "SetEventActionHttpResource.hpp"
 #include "UserSetShapingHttpResource.hpp"
@@ -31,6 +32,8 @@ namespace dpi
         user_add_http_resource_(std::make_shared<UserAddHttpResource>(user_storage)),
         user_session_add_http_resource_(std::make_shared<UserSessionAddHttpResource>(
           user_storage, user_session_storage)),
+        user_session_get_http_resource_(std::make_shared<UserSessionGetHttpResource>(
+          user_session_storage)),
         user_block_http_resource_(std::make_shared<UserBlockHttpResource>(user_storage)),
         set_event_action_http_resource_(std::make_shared<SetEventActionHttpResource>(event_processor)),
         user_set_shaping_http_resource_(std::make_shared<UserSetShapingHttpResource>(user_storage)),
@@ -47,6 +50,7 @@ namespace dpi
       ws.register_resource("/api/get_user", user_get_http_resource_.get());
       ws.register_resource("/api/add_user", user_add_http_resource_.get());
       ws.register_resource("/api/add_user_session", user_session_add_http_resource_.get());
+      ws.register_resource("/api/get_user_session", user_session_get_http_resource_.get());
       ws.register_resource("/api/block_user", user_block_http_resource_.get());
       ws.register_resource("/api/set_event_action", set_event_action_http_resource_.get());
       ws.register_resource("/api/set_user_shaping", user_set_shaping_http_resource_.get());
@@ -58,6 +62,7 @@ namespace dpi
     const std::shared_ptr<httpserver::http_resource> user_get_http_resource_;
     const std::shared_ptr<httpserver::http_resource> user_add_http_resource_;
     const std::shared_ptr<httpserver::http_resource> user_session_add_http_resource_;
+    const std::shared_ptr<httpserver::http_resource> user_session_get_http_resource_;
     const std::shared_ptr<httpserver::http_resource> user_block_http_resource_;
     const std::shared_ptr<httpserver::http_resource> set_event_action_http_resource_;
     const std::shared_ptr<httpserver::http_resource> user_set_shaping_http_resource_;

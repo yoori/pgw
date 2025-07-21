@@ -461,6 +461,8 @@ namespace dpi
       cc_total_octets.has_value() ? std::to_string(*cc_total_octets) : std::string("null"));
     res += ", \"validity_time\": " + (
       validity_time.has_value() ? validity_time->gm_ft() : std::string("null"));
+    res += ", \"octets_threshold\": " + (
+      octets_threshold.has_value() ? std::to_string(*octets_threshold) : std::string("null"));
     res += ", \"result_code\": " + std::to_string(result_code);
     res += "}";
     return res;

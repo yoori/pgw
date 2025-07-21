@@ -5,6 +5,13 @@
 
 namespace dpi
 {
+  enum class BlockType: uint8_t
+  {
+    NO_BLOCK = 0,
+    BLOCK_WITH_CHECK_OTHER = 1,
+    BLOCK_ABSOLUTELY = 2
+  };
+
   enum Direction
   {
     D_NONE = 0,

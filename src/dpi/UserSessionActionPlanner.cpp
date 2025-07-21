@@ -33,9 +33,11 @@ namespace dpi
       }
       else
       {
+        /*
         std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() <<
           "] UserSessionActionPlanner::check_user_session_(): drop task for session" <<
           std::endl;
+        */
       }
     }
 
@@ -62,7 +64,7 @@ namespace dpi
   void
   UserSessionActionPlanner::activate_object()
   {
-    std::cout << "UserSessionActionPlanner::activate_object()" << std::endl;
+    //std::cout << "UserSessionActionPlanner::activate_object()" << std::endl;
     Gears::CompositeActiveObject::activate_object();
   }
 
@@ -77,10 +79,12 @@ namespace dpi
     const UserSessionPtr& user_session,
     const std::optional<Gears::Time>& next_check)
   {
+    /*
     std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() <<
       "] UserSessionActionPlanner::add_user_session(): next_check = " <<
       (next_check.has_value() ? next_check->gm_ft() : std::string("null")) <<
       std::endl;
+    */
 
     const Gears::Time now = Gears::Time::get_time_of_day();
     auto task = std::make_shared<ProcessUserSessionTask>(
@@ -103,10 +107,11 @@ namespace dpi
   Gears::Time
   UserSessionActionPlanner::check_user_session_(UserSession& user_session)
   {
+    /*
     std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() <<
       "] UserSessionActionPlanner::check_user_session_(): msisdn = " << user_session.traits()->msisdn <<
       std::endl;
-
+    */
     const Gears::Time now = Gears::Time::get_time_of_day();
     bool revalidate_gx = false;
     bool revalidate_gy = false;
@@ -131,11 +136,13 @@ namespace dpi
       }
     }
 
+    /*
     std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() <<
       "] UserSessionActionPlanner::check_user_session_(): msisdn = " << user_session.traits()->msisdn <<
       ", revalidate_gx = " << revalidate_gx <<
       ", revalidate_gy = " << revalidate_gy <<
       std::endl;
+    */
 
     if (revalidate_gx || revalidate_gy)
     {
@@ -179,13 +186,14 @@ namespace dpi
     const auto next_check_time = next_revalidate_time.has_value() ?
       std::min(*next_revalidate_time, forced_check_time) : forced_check_time;
 
+    /*
     std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() <<
       "] UserSessionActionPlanner::check_user_session_(): msisdn = " << user_session.traits()->msisdn <<
       ", next_revalidate_time = " << (
         next_revalidate_time.has_value() ? next_revalidate_time->gm_ft() : std::string("none")) <<
       ", next_check_time = " << next_check_time.gm_ft() <<
       std::endl;
-
+    */
     return next_check_time;
   }
 }

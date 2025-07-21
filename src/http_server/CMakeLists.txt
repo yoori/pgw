@@ -9,6 +9,8 @@ add_library(http_server
   UserSetShapingHttpResource.cpp
   AbortSessionHttpResource.cpp
   UpdateSessionHttpResource.cpp
+  UserSessionAddHttpResource.cpp
+  UserSessionGetHttpResource.cpp
   )
 
 target_link_libraries(http_server
