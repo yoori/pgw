@@ -1,3 +1,5 @@
+#include <arpa/inet.h>
+
 #include <fstream>
 #include <sstream>
 
@@ -31,7 +33,11 @@ namespace dpi
         Gears::SubString token;
         if (splitter.get_token(token) && !token.empty())
         {
-          res.ips_.emplace_back(string_to_reversed_ipv4_address(token.str()));
+          auto ips = string_to_ip_mask(token.str()).expand();
+          for (const auto& ip : ips)
+          {
+            res.ips_.emplace_back(::htonl(ip));
+          }
         }
       }
     }

@@ -7,8 +7,8 @@
 #include <gears/Rand.hpp>
 #include <gears/Time.hpp>
 
+#include "Utils.hpp"
 #include "AVPUtils.hpp"
-
 #include "DiameterPacketFiller.hpp"
 #include "DiameterSession.hpp"
 #include "CerrCallback.hpp"
@@ -953,9 +953,20 @@ namespace dpi
         if (property_it != request.user_session_traits.user_session_property_container->values.end())
         {
           packet_filler.add_avp(
-            "User-Equipment-Info.User-Equipment-Info-Type", dpi::Value(std::in_place_type<uint64_t>, 0));
-          packet_filler.add_avp(
-            "User-Equipment-Info.User-Equipment-Info-Value", property_it->second);
+            "User-Equipment-Info.User-Equipment-Info-Type",
+            dpi::Value(std::in_place_type<uint64_t>, 0));
+          if (std::holds_alternative<std::string>(property_it->second))
+          {
+            // push string as BCD encoded value
+            packet_filler.add_avp(
+              "User-Equipment-Info.User-Equipment-Info-Value",
+              bcd_encode(std::get<std::string>(property_it->second)));
+          }
+          else
+          {
+            packet_filler.add_avp(
+              "User-Equipment-Info.User-Equipment-Info-Value", property_it->second);
+          }
         }
       }
       

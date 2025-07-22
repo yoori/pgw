@@ -44,7 +44,7 @@ namespace dpi
 
           if (config_element_obj.contains("src_ip_mask"))
           {
-            session_key_rule.src_ip_mask = SessionKeyEvaluator::string_to_ip_mask(
+            session_key_rule.src_ip_mask = string_to_ip_mask(
               config_element_obj["src_ip_mask"].as_string());
           }
 
@@ -55,7 +55,7 @@ namespace dpi
 
           if (config_element_obj.contains("dst_ip_mask"))
           {
-            session_key_rule.dst_ip_mask = SessionKeyEvaluator::string_to_ip_mask(
+            session_key_rule.dst_ip_mask = string_to_ip_mask(
               config_element_obj["dst_ip_mask"].as_string());
           }
 

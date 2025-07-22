@@ -6,6 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
+#include "NetworkUtils.hpp"
 #include "SessionKey.hpp"
 #include "FlowTraits.hpp"
 
@@ -14,19 +15,6 @@ namespace dpi
   class SessionKeyEvaluator
   {
   public:
-    struct IpMask
-    {
-      // by default match any ip address
-      IpMask() {};
-      IpMask(uint32_t ip_mask_val, unsigned int fixed_bits_val)
-        : ip_mask(ip_mask_val),
-          fixed_bits(fixed_bits_val)
-      {};
-
-      uint32_t ip_mask = 0;
-      unsigned int fixed_bits = 0;
-    };
-
     struct SessionKeyRule
     {
       SessionKeyRule() {};
@@ -48,9 +36,6 @@ namespace dpi
       std::string protocol;
       SessionKey session_key;
     };
-
-    static IpMask
-    string_to_ip_mask(const std::string& string_ip_mask);
 
     /* look for conbinations 4 :
        src_ip, src_port, dst_ip, dst_port

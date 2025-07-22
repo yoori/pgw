@@ -12,6 +12,19 @@ namespace dpi
     using DomainSeparators = const Gears::Ascii::Char1Category<'.'>;
   }
 
+  std::vector<uint32_t> IpMask::expand() const
+  {
+    std::vector<uint32_t> res;
+
+    uint32_t max_var = 1 << (32 - fixed_bits);
+    for (uint32_t ip_var = 0; ip_var < max_var; ++ip_var)
+    {
+      res.emplace_back(ip_var | (ip_mask & (0xFFFFFFFF << (32 - fixed_bits))));
+    }
+
+    return res;
+  }
+
   std::string byte_to_hex(uint8_t byte)
   {
     static const char BUF[] = "0123456789ABCDEF";
@@ -72,5 +85,59 @@ namespace dpi
   uint32_t string_to_reversed_ipv4_address(std::string_view ipv4_str)
   {
     return ::htonl(string_to_ipv4_address(ipv4_str));
+  }
+
+  IpMask string_to_ip_mask(const std::string& ip_mask_string)
+  {
+    IpMask ip_mask;
+
+    std::size_t slash_pos;
+    std::size_t asterisk_pos;
+
+    if (ip_mask_string == "*")
+    {
+      ip_mask.fixed_bits = 0;
+      ip_mask.ip_mask = 0;
+    }
+    else if ((slash_pos = ip_mask_string.find('/')) != std::string::npos)
+    {
+      ip_mask.fixed_bits = std::atoi(ip_mask_string.substr(slash_pos + 1).c_str());
+      ip_mask.ip_mask = string_to_ipv4_address(ip_mask_string.substr(0, slash_pos));
+      ip_mask.ip_mask = ip_mask.ip_mask & (0xFFFFFFFF << (32 - ip_mask.fixed_bits));
+    }
+    else if (ip_mask_string.ends_with(".*"))
+    {
+      auto f_part = ip_mask_string.substr(0, ip_mask_string.size() - 2);
+      Gears::StringManip::Splitter<DomainSeparators, true> splitter(f_part);
+      Gears::SubString token;
+      uint32_t result_ip = 0;
+      unsigned int filled_parts = 0;
+      for (int i = 0; i < 4; ++i)
+      {
+        unsigned char ip_part = 0;
+        if (splitter.get_token(token))
+        {
+          if (!Gears::StringManip::str_to_int(token, ip_part))
+          {
+            throw InvalidParameter("");
+          }
+
+          ++filled_parts;
+        }
+
+        result_ip = (result_ip << 8) | ip_part;
+      }
+
+      ip_mask.fixed_bits = filled_parts * 8;
+      ip_mask.ip_mask = result_ip;
+    }
+    else
+    {
+      // try parse as simple ip address
+      ip_mask.fixed_bits = 32;
+      ip_mask.ip_mask = string_to_ipv4_address(ip_mask_string);
+    }
+
+    return ip_mask;
   }
 }

@@ -14,9 +14,9 @@ bool src_ip_match_test()
   evaluator.add_rule(dpi::SessionKeyEvaluator::SessionKeyRule(
     1,
     std::string(),
-    dpi::SessionKeyEvaluator::IpMask(0xFFFFFF00, 24),
+    IpMask(0xFFFFFF00, 24),
     std::nullopt,
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     std::nullopt,
     mark_key
     ));
@@ -64,9 +64,9 @@ bool dst_ip_match_test()
   evaluator.add_rule(dpi::SessionKeyEvaluator::SessionKeyRule(
     1,
     std::string(),
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     std::nullopt,
-    dpi::SessionKeyEvaluator::IpMask(0xFFFFFF00, 24),
+    IpMask(0xFFFFFF00, 24),
     std::nullopt,
     mark_key
     ));
@@ -114,9 +114,9 @@ bool src_ip_dst_ip_match_test()
   evaluator.add_rule(dpi::SessionKeyEvaluator::SessionKeyRule(
     1,
     std::string(),
-    dpi::SessionKeyEvaluator::IpMask(0xFFFFFF00, 24),
+    IpMask(0xFFFFFF00, 24),
     std::nullopt,
-    dpi::SessionKeyEvaluator::IpMask(0xFFFFFF00, 24),
+    IpMask(0xFFFFFF00, 24),
     std::nullopt,
     mark_key
     ));
@@ -167,18 +167,18 @@ bool src_port_match_test()
   evaluator.add_rule(dpi::SessionKeyEvaluator::SessionKeyRule(
     1,
     std::string(),
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     10000,
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     std::nullopt,
     mark_key1
     ));
   evaluator.add_rule(dpi::SessionKeyEvaluator::SessionKeyRule(
     2,
     std::string(),
-    dpi::SessionKeyEvaluator::IpMask(0xFFFFFF01, 24),
+    IpMask(0xFFFFFF01, 24),
     10001,
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     std::nullopt,
     mark_key2
     ));
@@ -228,18 +228,18 @@ bool dst_port_match_test()
   evaluator.add_rule(dpi::SessionKeyEvaluator::SessionKeyRule(
     1,
     std::string(),
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     std::nullopt,
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     10000,
     mark_key1
     ));
   evaluator.add_rule(dpi::SessionKeyEvaluator::SessionKeyRule(
     2,
     std::string(),
-    dpi::SessionKeyEvaluator::IpMask(0xFFFFFF01, 24),
+    IpMask(0xFFFFFF01, 24),
     std::nullopt,
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     10001,
     mark_key2
     ));
@@ -289,18 +289,18 @@ bool proto_match_test()
   evaluator.add_rule(dpi::SessionKeyEvaluator::SessionKeyRule(
     1,
     "proto1",
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     std::nullopt,
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     10000,
     mark_key1
     ));
   evaluator.add_rule(dpi::SessionKeyEvaluator::SessionKeyRule(
     2,
     "proto2",
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     std::nullopt,
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     10001,
     mark_key2
     ));
@@ -351,27 +351,27 @@ bool priority_match_test()
   evaluator.add_rule(dpi::SessionKeyEvaluator::SessionKeyRule(
     1,
     "proto1",
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     std::nullopt,
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     10000,
     mark_key1
     ));
   evaluator.add_rule(dpi::SessionKeyEvaluator::SessionKeyRule(
     2,
     "proto1",
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     std::nullopt,
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     std::nullopt,
     mark_key2
     ));
   evaluator.add_rule(dpi::SessionKeyEvaluator::SessionKeyRule(
     3,
     "proto1",
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     std::nullopt,
-    dpi::SessionKeyEvaluator::IpMask(),
+    IpMask(),
     10000,
     mark_key3
     ));

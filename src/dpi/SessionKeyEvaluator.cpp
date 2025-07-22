@@ -1,3 +1,5 @@
+#include <arpa/inet.h>
+
 #include <iostream>
 
 #include <gears/StringManip.hpp>
@@ -35,55 +37,6 @@ namespace dpi
   SessionKeyEvaluator::add_rule(const SessionKeyRule& session_key_rule)
   {
     add_rule_by_protocol_(protocol_index_, session_key_rule);
-  }
-
-  SessionKeyEvaluator::IpMask
-  SessionKeyEvaluator::string_to_ip_mask(const std::string& ip_mask_string)
-  {
-    IpMask ip_mask;
-
-    std::size_t slash_pos;
-    std::size_t asterisk_pos;
-
-    if (ip_mask_string == "*")
-    {
-      ip_mask.fixed_bits = 32;
-      ip_mask.ip_mask = 0;
-    }
-    else if ((slash_pos = ip_mask_string.find('/')) != std::string::npos)
-    {
-      ip_mask.fixed_bits = std::atoi(ip_mask_string.substr(slash_pos + 1).c_str());
-      ip_mask.ip_mask = string_to_ipv4_address(ip_mask_string.substr(0, slash_pos));
-      ip_mask.ip_mask = ip_mask.ip_mask & (0xFFFFFFFF << (32 - ip_mask.fixed_bits));
-    }
-    else if (ip_mask_string.ends_with(".*"))
-    {
-      auto f_part = ip_mask_string.substr(0, ip_mask_string.size() - 2);
-      Gears::StringManip::Splitter<DomainSeparators, true> splitter(f_part);
-      Gears::SubString token;
-      uint32_t result_ip = 0;
-      unsigned int filled_parts = 0;
-      for (int i = 0; i < 4; ++i)
-      {
-        unsigned char ip_part = 0;
-        if (splitter.get_token(token))
-        {
-          if (!Gears::StringManip::str_to_int(token, ip_part))
-          {
-            throw InvalidParameter("");
-          }
-
-          ++filled_parts;
-        }
-
-        result_ip = (result_ip << 8) | ip_part;
-      }
-
-      ip_mask.fixed_bits = filled_parts * 8;
-      ip_mask.ip_mask = result_ip;
-    }
-
-    return ip_mask;
   }
 
   void
@@ -235,6 +188,7 @@ namespace dpi
   {
     check_by_dst_ip_(match_result, src_ip_index.no_ip_indexes, flow_traits);
 
+    uint32_t src_ip = ::htonl(flow_traits.src_ip);
     uint32_t cur_mask = 0xFFFFFFFF;
     for (int i = 3; i >= 0; --i)
     {
@@ -242,7 +196,7 @@ namespace dpi
       // 2 => 0xFFFFFF00
       // 1 => 0xFFFF0000
       // 0 => 0xFF000000
-      const uint32_t p1 = flow_traits.src_ip & cur_mask;
+      const uint32_t p1 = src_ip & cur_mask;
       const auto part_it = src_ip_index.ip_part_index[i].find(p1);
       if (part_it != src_ip_index.ip_part_index[i].end())
       {
@@ -261,6 +215,7 @@ namespace dpi
   {
     check_by_src_port_(match_result, dst_ip_index.no_ip_indexes, flow_traits);
 
+    uint32_t dst_ip = ::htonl(flow_traits.dst_ip);
     uint32_t cur_mask = 0xFFFFFFFF;
     for (int i = 3; i >= 0; --i)
     {
@@ -268,7 +223,7 @@ namespace dpi
       // 2 => 0xFFFFFF00
       // 1 => 0xFFFF0000
       // 0 => 0xFF000000
-      const uint32_t p1 = flow_traits.dst_ip & cur_mask;
+      const uint32_t p1 = dst_ip & cur_mask;
       const auto part_it = dst_ip_index.ip_part_index[i].find(p1);
       if (part_it != dst_ip_index.ip_part_index[i].end())
       {
