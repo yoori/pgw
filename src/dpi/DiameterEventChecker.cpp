@@ -91,6 +91,22 @@ namespace dpi
     std::optional<Value> old_user_location = get_value(old_user_session_property_container, "User-Location-Info");
     std::optional<Value> new_user_location = get_value(new_user_session_property_container, "User-Location-Info");
 
+    if (new_user_location.has_value())
+    {
+      if (std::holds_alternative<std::string>(*new_user_location))
+      {
+        std::cout << "XXX User-Location-Info is string" << std::endl;
+      }
+      else if (std::holds_alternative<ByteArrayValue>(*new_user_location))
+      {
+        std::cout << "XXX User-Location-Info is ByteArrayValue" << std::endl;
+      }
+      else
+      {
+        std::cout << "XXX User-Location-Info is other" << std::endl;
+      }
+    }
+
     if (old_user_location != new_user_location)
     {
       res.emplace_back(EventTrigger::USER_LOCATION_CHANGE);

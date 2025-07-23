@@ -217,6 +217,8 @@ namespace dpi
 
     auto old_usage_stats = gy_usage_.get_usage(false);
 
+    auto old_usage_stats = gy_usage_.get_usage(false);
+
     if (is_closed_)
     {
       use_limit_result.closed = true;

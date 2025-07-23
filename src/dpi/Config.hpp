@@ -51,6 +51,13 @@ namespace dpi
       std::vector<RediusProperty> radius_properties;
     };
 
+    struct RadiusConnect
+    {
+      std::string host;
+      unsigned int port = 0;
+      std::string secret;
+    };
+
     struct Diameter
     {
       std::optional<DiameterUrl> diameter_url;
@@ -68,6 +75,7 @@ namespace dpi
     std::string session_key_rule_config_file;
 
     std::optional<Radius> radius;
+    std::optional<RadiusConnect> radius_connect;
     std::optional<Diameter> gx;
     std::optional<Diameter> gy;
     std::string diameter_dictionary;

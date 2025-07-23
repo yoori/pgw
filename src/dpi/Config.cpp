@@ -212,6 +212,24 @@ namespace dpi
       }
     }
 
+    if (config_json.contains("radius_connect"))
+    {
+      const auto& radius_connect_obj = config_json["radius_connect"];
+
+      result.radius_connect = Config::RadiusConnect();
+      result.radius_connect->host = radius_connect_obj.contains("host") ?
+        radius_connect_obj["host"].as_string() :
+        std::string();
+      result.radius_connect->port = radius_connect_obj.contains("port") ?
+        radius_connect_obj["port"].as<unsigned long>() :
+        3799;
+
+      if (radius_connect_obj.contains("secret"))
+      {
+        result.radius_connect->secret = radius_connect_obj["secret"].as_string();
+      }
+    }
+
     // gx
     if (config_json.contains("gx"))
     {

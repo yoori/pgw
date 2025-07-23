@@ -49,6 +49,7 @@ add_library(dpi
   OctetStats.cpp
   SessionKeyConfig.cpp
   Utils.cpp
+  RadiusConnection.cpp
   )
 
 target_link_libraries(dpi

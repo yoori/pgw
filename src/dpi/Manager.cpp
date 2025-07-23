@@ -427,8 +427,10 @@ namespace dpi
     std::optional<Gears::Time> check_time = revalidation.min_time();
     std::cout << "[" << Gears::Time::get_time_of_day().gm_ft() << "] Manager: add_user_session: " <<
       "check_time = " << (check_time.has_value() ? check_time->gm_ft() : std::string("none")) <<
-      ", revalidate_gx_time = " << (revalidation.revalidate_gx_time.has_value() ? revalidation.revalidate_gx_time->gm_ft() : std::string("none")) <<
-      ", revalidate_gy_time = " << (revalidation.revalidate_gy_time.has_value() ? revalidation.revalidate_gy_time->gm_ft() : std::string("none")) <<
+      ", revalidate_gx_time = " << (revalidation.revalidate_gx_time.has_value() ?
+        revalidation.revalidate_gx_time->gm_ft() : std::string("none")) <<
+      ", revalidate_gy_time = " << (revalidation.revalidate_gy_time.has_value() ?
+        revalidation.revalidate_gy_time->gm_ft() : std::string("none")) <<
       std::endl;
     user_session_action_planner_->add_user_session(user_session, check_time);
 
