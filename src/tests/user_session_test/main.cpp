@@ -100,7 +100,10 @@ bool test_pass_by_installed_limit()
 
   // get limits should return null reporting reason
   {
-    auto gy_used_limits = user_session.get_gy_used_limits(now + Gears::Time::ONE_SECOND, true);
+    auto gy_used_limits = user_session.get_gy_used_limits(
+      now + Gears::Time::ONE_SECOND,
+      true,
+      false);
 
     if (gy_used_limits.size() != 1)
     {
@@ -183,7 +186,10 @@ bool test_block_by_limit()
     return false;
   }
 
-  auto used_limits = user_session.get_gy_used_limits(now + Gears::Time::ONE_SECOND, true);
+  auto used_limits = user_session.get_gy_used_limits(
+    now + Gears::Time::ONE_SECOND,
+    true,
+    false);
 
   if (!used_limits.empty())
   {
@@ -237,7 +243,10 @@ bool test_use_and_block_by_limit()
   }
 
   {
-    auto used_limits = user_session.get_gy_used_limits(Gears::Time::get_time_of_day(), true);
+    auto used_limits = user_session.get_gy_used_limits(
+      Gears::Time::get_time_of_day(),
+      true,
+      false);
 
     if (used_limits.size() != 1 || used_limits.begin()->total_octets != 100)
     {
@@ -261,7 +270,10 @@ bool test_use_and_block_by_limit()
 
   // get limits should return null reporting reason
   {
-    auto used_limits = user_session.get_gy_used_limits(now + Gears::Time::ONE_SECOND, true);
+    auto used_limits = user_session.get_gy_used_limits(
+      now + Gears::Time::ONE_SECOND,
+      true,
+      false);
 
     if (used_limits.size() != 1)
     {
@@ -325,7 +337,10 @@ bool test_gx_flow()
     return false;
   }
 
-  auto used_limits = user_session.get_gy_used_limits(Gears::Time::get_time_of_day(), true);
+  auto used_limits = user_session.get_gy_used_limits(
+    Gears::Time::get_time_of_day(),
+    true,
+    false);
 
   if (used_limits.size() != 1 || used_limits.begin()->total_octets != 100)
   {
@@ -337,7 +352,10 @@ bool test_gx_flow()
 
   user_session.set_gy_limits(limits, used_limits);
 
-  auto last_used_limits = user_session.get_gy_used_limits(Gears::Time::get_time_of_day(), true);
+  auto last_used_limits = user_session.get_gy_used_limits(
+    Gears::Time::get_time_of_day(),
+    true,
+    false);
 
   if (!last_used_limits.empty())
   {
@@ -355,7 +373,10 @@ bool test_gx_flow()
 
   user_session.set_gy_limits(limits);
 
-  auto last_used_limits2 = user_session.get_gy_used_limits(Gears::Time::get_time_of_day(), true);
+  auto last_used_limits2 = user_session.get_gy_used_limits(
+    Gears::Time::get_time_of_day(),
+    true,
+    false);
 
   if (last_used_limits2.size() != 1 || last_used_limits2.begin()->total_octets != 110)
   {
@@ -419,7 +440,10 @@ bool test_pass_by_generic_limit()
   }
 
   {
-    auto used_limits = user_session.get_gy_used_limits(Gears::Time::get_time_of_day(), true);
+    auto used_limits = user_session.get_gy_used_limits(
+      Gears::Time::get_time_of_day(),
+      true,
+      false);
 
     if (used_limits.size() != 1 || used_limits.begin()->total_octets != 10)
     {
@@ -518,7 +542,7 @@ bool revalidate_gx_by_time_test()
 // revalidate_gy_by_limit_test
 bool revalidate_gy_by_limit_test()
 {
-  static const char* TEST_NAME = "revalidate gy by limit test";
+  static const char* TEST_NAME = "revalidate_gy_by_limit_test";
 
   const unsigned long RULE_ID = 1;
 
@@ -635,7 +659,10 @@ bool test_gy_revalidate_by_time()
 
   {
     // get limits should return null reporting reason
-    auto used_limits = user_session.get_gy_used_limits(now + Gears::Time::ONE_SECOND, true);
+    auto used_limits = user_session.get_gy_used_limits(
+      now + Gears::Time::ONE_SECOND,
+      true,
+      false);
 
     if (used_limits.size() != 1)
     {
@@ -673,7 +700,10 @@ bool test_gy_revalidate_by_time()
 
   {
     // get limits should return validity time reporting reason
-    auto used_limits = user_session.get_gy_used_limits(now + Gears::Time(10), true);
+    auto used_limits = user_session.get_gy_used_limits(
+      now + Gears::Time(10),
+      true,
+      false);
 
     if (used_limits.size() != 1)
     {

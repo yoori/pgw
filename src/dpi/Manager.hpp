@@ -125,7 +125,8 @@ namespace dpi
     fill_gy_request_(
       DiameterSession::GyRequest& gy_request,
       UserSession& user_session,
-      bool fill_zero_usage_groups);
+      bool fill_zero_usage_groups,
+      bool fill_only_reached_usage_groups);
 
     void
     fill_limits_by_gy_response_(

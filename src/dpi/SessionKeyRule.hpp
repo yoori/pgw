@@ -22,7 +22,7 @@ namespace dpi
     // Disallow traffic:
     // if charging_rule_name is empty - disallow ignoring Gx, Gy rules.
     // if charging_rule_name isn't empty - disallow if Gx installed rule.
-    bool disallow_traffic = true;
+    bool disallow_traffic = false;
 
     bool check_gx = true;
     bool check_gy = true;

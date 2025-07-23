@@ -36,7 +36,7 @@ namespace dpi
 
       jsoncons::json response_json;
       response_json["msisdn"] = user_session->traits()->msisdn;
-      auto used_limits = user_session->get_gy_used_limits(now, false);
+      auto used_limits = user_session->get_gy_used_limits(now, false, false);
 
       std::vector<jsoncons::json> used_limit_jsons;
       for (const auto& used_limit : used_limits)

@@ -19,6 +19,54 @@ namespace dpi
     }
   };
 
+  bool
+  DiameterEventChecker::compare_user_location_info_(
+    std::vector<EventTrigger>& res,
+    const Value& old_value,
+    const Value& new_value)
+  {
+    if (!std::holds_alternative<ByteArrayValue>(old_value) ||
+      !std::holds_alternative<ByteArrayValue>(new_value))
+    {
+      return false;
+    }
+
+    const ByteArrayValue& old_value_ba = std::get<ByteArrayValue>(old_value);
+    const ByteArrayValue& new_value_ba = std::get<ByteArrayValue>(new_value);
+
+    if (old_value_ba.empty() || new_value_ba.empty())
+    {
+      return false;
+    }
+
+    if (old_value_ba[0] != 130 || //< TAI and ECGI type
+      new_value_ba[0] != 130 ||
+      old_value_ba.size() != 13 || //< 1(type) + 5(TAI) + 7(ECGI) = 13
+      new_value_ba.size() != 13
+      )
+    {
+      return false;
+    }
+
+    if (!std::equal(
+      old_value_ba.begin() + 1,
+      old_value_ba.begin() + 6,
+      new_value_ba.begin() + 1))
+    {
+      res.emplace_back(EventTrigger::TAI_CHANGE);
+    }
+
+    if (!std::equal(
+      old_value_ba.begin() + 6,
+      old_value_ba.end(),
+      new_value_ba.begin() + 6))
+    {
+      res.emplace_back(EventTrigger::ECGI_CHANGE);
+    }
+
+    return true;
+  }
+
   std::vector<EventTrigger>
   DiameterEventChecker::check(
     const UserSessionPropertyContainerPtr& old_user_session_property_container,
@@ -46,8 +94,14 @@ namespace dpi
     if (old_user_location != new_user_location)
     {
       res.emplace_back(EventTrigger::USER_LOCATION_CHANGE);
-      res.emplace_back(EventTrigger::TAI_CHANGE);
-      res.emplace_back(EventTrigger::ECGI_CHANGE);
+
+      if (!old_user_location.has_value() ||
+        !new_user_location.has_value() ||
+        !compare_user_location_info_(res, *old_user_location, *new_user_location))
+      {
+        res.emplace_back(EventTrigger::TAI_CHANGE);
+        res.emplace_back(EventTrigger::ECGI_CHANGE);
+      }
     }
 
     std::optional<Value> old_sgsn_address = get_value(old_user_session_property_container, "SGSN-Address");

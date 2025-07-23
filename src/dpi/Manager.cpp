@@ -53,7 +53,8 @@ namespace dpi
   Manager::fill_gy_request_(
     DiameterSession::GyRequest& gy_request,
     UserSession& user_session,
-    bool fill_zero_usage_groups)
+    bool fill_zero_usage_groups,
+    bool fill_only_reached_usage_groups)
   {
     if (!pcc_config_provider_)
     {
@@ -129,7 +130,10 @@ namespace dpi
       }
     }
 
-    auto used_limits = user_session.get_gy_used_limits(now, true);
+    auto used_limits = user_session.get_gy_used_limits(
+      now,
+      true,
+      fill_only_reached_usage_groups);
 
     //std::cout << "fill_gy_request_(" << user_session.traits()->msisdn << "): " <<
     //  "used_limits =";
@@ -377,7 +381,7 @@ namespace dpi
       try
       {
         DiameterSession::GyRequest gy_request;
-        fill_gy_request_(gy_request, *user_session, true);
+        fill_gy_request_(gy_request, *user_session, true, false);
 
         dpi::DiameterSession::GyResponse gy_init_response =
           gy_diameter_session_->send_gy_init(gy_request);
@@ -648,6 +652,8 @@ namespace dpi
             user_session->traits()->user_session_property_container,
             user_session_traits.user_session_property_container);
 
+          user_session->set_traits(user_session_traits);
+
           if (!event_triggers.empty()) // TODO: check updates on control properties
           {
             std::cout << "Manager::process_request(): update with traits changes: " << std::endl <<
@@ -819,7 +825,7 @@ namespace dpi
         logger_->log("send diameter gy terminate");
 
         dpi::DiameterSession::GyRequest gy_terminate_request;
-        fill_gy_request_(gy_terminate_request, user_session, false);
+        fill_gy_request_(gy_terminate_request, user_session, false, false);
 
         dpi::DiameterSession::GyResponse response = gy_diameter_session_->send_gy_terminate(
           gy_terminate_request);
@@ -957,7 +963,7 @@ namespace dpi
 
       try
       {
-        logger_->log("send diameter gx terminate");
+        logger_->log("send diameter gx update");
 
         const auto [gx_session_id_suffix, gx_request_id] = user_session.generate_gx_request_id();
 
@@ -1068,7 +1074,13 @@ namespace dpi
         logger_->log("send diameter gy terminate");
 
         DiameterSession::GyRequest gy_update_request; // To fix : use locally
-        fill_gy_request_(gy_update_request, user_session, false);
+        fill_gy_request_(
+          gy_update_request,
+          user_session,
+          false,
+          true //< fill only reached groups
+          );
+
         gy_update_request.reason = reason;
 
         // TODO: lock diameter exchange for session

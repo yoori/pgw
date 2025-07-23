@@ -42,6 +42,9 @@ namespace dpi
     std::unordered_map<unsigned long, OctetStats>
     get_usage(bool own) const;
 
+    void
+    add_usage(const std::unordered_map<unsigned long, OctetStats>& usage);
+
   private:
     UsageBySessionKeyMap usage_by_session_key_;
     UsageByRuleIdMap usage_by_rule_id_;
@@ -153,7 +156,10 @@ namespace dpi
     get_gx_used_limits(bool own_stats = true);
 
     UsedLimitArray
-    get_gy_used_limits(const Gears::Time& now, bool own_stats);
+    get_gy_used_limits(
+      const Gears::Time& now,
+      bool own_stats,
+      bool only_reached);
 
     std::pair<std::string, unsigned long>
     generate_gx_request_id();

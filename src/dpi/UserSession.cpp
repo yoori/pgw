@@ -27,6 +27,24 @@ namespace dpi
     return res;
   }
 
+  void
+  UserSessionStatsHolder::add_usage(
+    const std::unordered_map<unsigned long, OctetStats>& usage)
+  {
+    for (const auto& [rule_id, octet_stats] : usage)
+    {
+      auto& octet_stats_ptr = usage_by_rule_id_[rule_id];
+      if (octet_stats_ptr)
+      {
+        *octet_stats_ptr += octet_stats;
+      }
+      else
+      {
+        octet_stats_ptr = std::make_shared<OctetStats>(octet_stats);
+      }
+    }
+  }
+
   UserSessionStatsHolder::OctetStatsPtr
   UserSessionStatsHolder::get_usage_cell(const SessionKey& session_key)
   {
@@ -206,17 +224,25 @@ namespace dpi
     }
     else
     {
+      //std::cout << "use_limit_i_, step #1" << std::endl;
+
       use_limit_result = use_limit_i_(
         session_key,
         now,
         used_octets);
 
+      //std::cout << "use_limit_i_, step #1: result = " << use_limit_result.to_string() << std::endl;
+
       if (use_limit_result.block && !use_limit_result.block_abs)
       {
+        //std::cout << "use_limit_i_, step #2" << std::endl;
+
         use_limit_result = use_limit_i_(
           SessionKey(),
           now,
           used_octets);
+
+        //std::cout << "use_limit_i_, step #2: result = " << use_limit_result.to_string() << std::endl;
       }
     }
 
@@ -299,12 +325,13 @@ namespace dpi
 
     if (limit_it == limits_by_session_key_.end())
     {
-      //std::cout << "use_limit: #1, session_key = " << session_key.to_string() << std::endl;
+      //std::cout << "  use_limit: #1, session_key = " << session_key.to_string() << std::endl;
       use_limit_result.block = true;
       return use_limit_result;
     }
     else if (limit_it->second->session_key_rule->disallow_traffic)
     {
+      //std::cout << "  use_limit: #2, session_key = " << session_key.to_string() << std::endl;
       use_limit_result.block = true;
       use_limit_result.block_abs = true;
       return use_limit_result;
@@ -403,52 +430,106 @@ namespace dpi
   }
 
   UserSession::UsedLimitArray
-  UserSession::get_gy_used_limits(const Gears::Time& now, bool own_stats)
+  UserSession::get_gy_used_limits(
+    const Gears::Time& now,
+    bool own_stats,
+    bool only_reached)
   {
     UsedLimitArray res;
     std::unordered_set<unsigned long> returned_rule_ids;
 
     std::unique_lock<std::shared_mutex> guard(limits_lock_);
 
-    //std::cout << "get_usage for GY: own_stats = " << own_stats << std::endl;
-    auto usage_stats = gy_usage_.get_usage(own_stats);
-
-    for (const auto& [rule_id, octet_stats] : usage_stats)
+    if (!only_reached)
     {
-      // evaluate used limit status
-      std::optional<UsageReportingReason> reporting_reason;
-      auto limit_it = limits_by_rule_id_.find(rule_id);
-      if (limit_it != limits_by_rule_id_.end())
+      auto usage_stats = gy_usage_.get_usage(own_stats);
+
+      for (const auto& [rule_id, octet_stats] : usage_stats)
       {
-        const unsigned used_bytes = octet_stats.total_octets;
+        // evaluate used limit status
+        std::optional<UsageReportingReason> reporting_reason;
+        auto limit_it = limits_by_rule_id_.find(rule_id);
+        if (limit_it != limits_by_rule_id_.end())
+        {
+          const unsigned used_bytes = octet_stats.total_octets;
 
-        /*
-        std::cout << "R STEP: used_bytes = " << used_bytes <<
-          ", gy_limit = " << (
-            limit_it->second->gy_limit.has_value() ?
-            std::to_string(*(limit_it->second->gy_limit)) :
-            "none") << std::endl;
-        */
+          /*
+          std::cout << "R STEP: used_bytes = " << used_bytes <<
+            ", gy_limit = " << (
+              limit_it->second->gy_limit.has_value() ?
+              std::to_string(*(limit_it->second->gy_limit)) :
+              "none") << std::endl;
+          */
 
-        if (limit_it->second->gy_limit.has_value() &&
-          used_bytes >= *(limit_it->second->gy_limit))
-        {
-          reporting_reason = UsageReportingReason::QUOTA_EXHAUSTED;
+          if (limit_it->second->gy_limit.has_value() &&
+            used_bytes >= *(limit_it->second->gy_limit))
+          {
+            reporting_reason = UsageReportingReason::QUOTA_EXHAUSTED;
+          }
+          else if (limit_it->second->gy_recheck_limit.has_value() &&
+            used_bytes >= *(limit_it->second->gy_recheck_limit))
+          {
+            reporting_reason = UsageReportingReason::THRESHOLD;
+          }
+          else if (limit_it->second->gy_recheck_time.has_value() &&
+            now >= *(limit_it->second->gy_recheck_time))
+          {
+            reporting_reason = UsageReportingReason::VALIDITY_TIME;
+          }
         }
-        else if (limit_it->second->gy_recheck_limit.has_value() &&
-          used_bytes >= *(limit_it->second->gy_recheck_limit))
+
+        returned_rule_ids.emplace(rule_id);
+        res.emplace_back(UsedLimit(rule_id, octet_stats, reporting_reason));
+      }
+    }
+    else
+    {
+      // only_reached = true
+      auto usage_stats = gy_usage_.get_usage(false);
+      std::unordered_map<unsigned long, OctetStats> add_stats;
+
+      for (const auto& [rule_id, octet_stats] : usage_stats)
+      {
+        // evaluate used limit status
+        std::optional<UsageReportingReason> reporting_reason;
+        auto limit_it = limits_by_rule_id_.find(rule_id);
+        if (limit_it != limits_by_rule_id_.end())
         {
-          reporting_reason = UsageReportingReason::THRESHOLD;
+          const unsigned used_bytes = octet_stats.total_octets;
+
+          if (limit_it->second->gy_limit.has_value() &&
+            used_bytes >= *(limit_it->second->gy_limit))
+          {
+            reporting_reason = UsageReportingReason::QUOTA_EXHAUSTED;
+          }
+          else if (limit_it->second->gy_recheck_limit.has_value() &&
+            used_bytes >= *(limit_it->second->gy_recheck_limit))
+          {
+            reporting_reason = UsageReportingReason::THRESHOLD;
+          }
+          else if (limit_it->second->gy_recheck_time.has_value() &&
+            now >= *(limit_it->second->gy_recheck_time))
+          {
+            reporting_reason = UsageReportingReason::VALIDITY_TIME;
+          }
         }
-        else if (limit_it->second->gy_recheck_time.has_value() &&
-          now >= *(limit_it->second->gy_recheck_time))
+
+        if (reporting_reason.has_value())
         {
-          reporting_reason = UsageReportingReason::VALIDITY_TIME;
+          returned_rule_ids.emplace(rule_id);
+          res.emplace_back(UsedLimit(rule_id, octet_stats, reporting_reason));
+          if (own_stats)
+          {
+            add_stats.emplace(rule_id, OctetStats(octet_stats).invert());
+          }
         }
       }
 
-      returned_rule_ids.emplace(rule_id);
-      res.emplace_back(UsedLimit(rule_id, octet_stats, reporting_reason));
+      // remove taken out stats
+      if (own_stats)
+      {
+        gy_usage_.add_usage(add_stats);
+      }
     }
 
     // return empty usage with reporting_reason = VALIDITY_TIME for non used but expired limits
