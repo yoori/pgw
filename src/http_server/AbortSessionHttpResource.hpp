@@ -2,7 +2,7 @@
 
 #include <httpserver.hpp>
 
-#include <dpi/UserStorage.hpp>
+#include <dpi/Manager.hpp>
 
 #include "HttpServer.hpp"
 

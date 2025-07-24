@@ -15,6 +15,7 @@ namespace dpi
   {
     uint32_t framed_ip_address = 0;
     std::string msisdn;
+    std::string radius_session_id;
 
     UserSessionPropertyContainerPtr user_session_property_container;
 
@@ -33,7 +34,8 @@ namespace dpi
   UserSessionTraits::operator==(const UserSessionTraits& right) const
   {
     return framed_ip_address == right.framed_ip_address &&
-      msisdn == right.msisdn;
+      msisdn == right.msisdn &&
+      radius_session_id == right.radius_session_id;
   }
 
   inline std::string
@@ -42,6 +44,7 @@ namespace dpi
     return std::string("{") +
       "\"framed_ip_address\": \"" + ipv4_address_to_string(framed_ip_address) + "\"," +
       "\"msisdn\": \"" + msisdn + "\"," +
+      "\"radius_session_id\": \"" + radius_session_id + "\"," +
       "\"user_session_property_container\": " + (
         user_session_property_container ? user_session_property_container->to_string() : std::string("{}")) +
       "}";

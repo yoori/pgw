@@ -93,6 +93,7 @@ namespace dpi
     std::cout << "Radius: return " << result <<
       ", acct_status_type = " << (int)acct_status_type <<
       ", msisdn = " << calling_station_id <<
+      ", acct_session_id = " << user_session_traits.radius_session_id <<
       std::endl;
 
     return result;

@@ -29,9 +29,14 @@ namespace dpi
   {
     // fill send buffer
     std::vector<RadProto::Attribute*> attributes;
-    attributes.emplace_back(new RadProto::String(44, "b9ae8335020cbf5c")); //< Acct-Session-Id
-    attributes.emplace_back(new RadProto::String(RadProto::USER_NAME, "79662660021"));
-    attributes.emplace_back(new RadProto::IpAddress(8, {10, 243, 64, 1})); //< Framed-IP-Address
+    attributes.emplace_back(new RadProto::String(44, request.session_id)); //< Acct-Session-Id
+    attributes.emplace_back(new RadProto::String(RadProto::USER_NAME, request.msisdn));
+    attributes.emplace_back(new RadProto::IpAddress(8, {
+      static_cast<unsigned char>(request.framed_ip_address & 0xFF),
+      static_cast<unsigned char>((request.framed_ip_address >> 8) & 0xFF),
+      static_cast<unsigned char>((request.framed_ip_address >> 16) & 0xFF),
+      static_cast<unsigned char>((request.framed_ip_address >> 24) & 0xFF)
+    })); //< Framed-IP-Address
     std::vector<RadProto::VendorSpecific> vendor_attributes;
 
     RadProto::Packet send_packet(

@@ -23,10 +23,16 @@ namespace dpi
 
       if (request_json.contains("session_id"))
       {
-        bool abort_gx = !request_json.contains("gx") || request_json["gx"].as_bool();
-        bool abort_gy = !request_json.contains("gy") || request_json["gy"].as_bool();
+        bool terminate_radius = !request_json.contains("radius") || request_json["radius"].as_bool();
+        bool terminate_gx = !request_json.contains("gx") || request_json["gx"].as_bool();
+        bool terminate_gy = !request_json.contains("gy") || request_json["gy"].as_bool();
         const std::string session_id = request_json["session_id"].as_string();
-        manager_->abort_session(session_id, true, abort_gx, abort_gy, "Abort over http endpoint");
+        manager_->abort_session(
+          session_id,
+          terminate_radius,
+          terminate_gx,
+          terminate_gy,
+          "Terminate over http endpoint");
         return generate_json_response(request, "");
       }
       else

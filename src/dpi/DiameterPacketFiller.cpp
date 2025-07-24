@@ -271,7 +271,7 @@ namespace dpi
     std::visit(AVPNonEmptyVisitor(non_empty), value);
     if (non_empty)
     {
-      std::cout << "DiameterPacketFiller::add_non_empty_avp: ADD NON EMPTY " << path << std::endl;
+      //std::cout << "DiameterPacketFiller::add_non_empty_avp: ADD NON EMPTY " << path << std::endl;
       add_avp(path, value);
     }
   }
@@ -297,9 +297,9 @@ namespace dpi
         {
           // add to packet
           //.addAVP(create_string_avp(263, request_key.session_id, std::nullopt, true))
-          auto ins = cur_avp_node->child_avps.emplace(
-            (*avp_it)->avp_code,
-            std::make_shared<AVPNode>());
+          auto new_avp = std::make_shared<AVPNode>();
+          auto ins = cur_avp_node->child_avps.emplace((*avp_it)->avp_code, new_avp);
+          cur_avp_node->ordered_child_avps.emplace_back(new_avp);
           cur_avp_node = ins.first->second.get();
           cur_avp_node->avp_dict = *avp_it;
         }
@@ -313,6 +313,7 @@ namespace dpi
       avp_node->avp_dict = *last_it;
       avp_node->avp_data = create_avp_data_(value, **last_it);
       cur_avp_node->child_avps.emplace((*last_it)->avp_code, avp_node);
+      cur_avp_node->ordered_child_avps.emplace_back(avp_node);
     }
     else
     {
@@ -323,10 +324,12 @@ namespace dpi
   void
   DiameterPacketFiller::apply(Diameter::Packet& packet)
   {
-    //std::cout << "DiameterPacketFiller::apply(): " << root_node_->child_avps.size() << std::endl;
-    for (const auto& [avp_code, avp_node] : root_node_->child_avps)
+    std::cout << "DiameterPacketFiller::apply(): ordered_child_avps.size = " << root_node_->ordered_child_avps.size() <<
+      ", child_avps.size = " << root_node_->child_avps.size() <<
+      std::endl;
+    for (const auto& avp_node : root_node_->ordered_child_avps)
     {
-      //std::cout << "DiameterPacketFiller::apply(): AVP = " << avp_node->avp_dict->name << std::endl;
+      std::cout << "DiameterPacketFiller::apply(): AVP = " << avp_node->avp_dict->name << std::endl;
       Diameter::AVP::Data avp_data;
       apply_to_(avp_data, *avp_node);
       packet.addAVP(create_avp_(*(avp_node->avp_dict), avp_data));
@@ -336,9 +339,9 @@ namespace dpi
   void
   DiameterPacketFiller::apply_to_(Diameter::AVP::Data& avp_data, const AVPNode& avp_node)
   {
-    if (!avp_node.child_avps.empty())
+    if (!avp_node.ordered_child_avps.empty())
     {
-      for (const auto& [internal_avp_code, internal_avp_node] : avp_node.child_avps)
+      for (const auto& internal_avp_node : avp_node.ordered_child_avps)
       {
         Diameter::AVP::Data internal_avp_data;
         apply_to_(internal_avp_data, *internal_avp_node);

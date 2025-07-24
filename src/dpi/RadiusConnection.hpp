@@ -1,6 +1,7 @@
 #pragma once
 
 #include <netinet/in.h>
+#include <memory>
 #include <string>
 #include <cstdint>
 #include <thread>
@@ -69,4 +70,6 @@ namespace dpi
     std::mutex connection_holder_lock_;
     ConnectionHolderPtr connection_holder_;
   };
+
+  using RadiusConnectionPtr = std::shared_ptr<RadiusConnection>;
 }

@@ -36,6 +36,7 @@ namespace dpi
 
       DiameterDictionary::ConstAVPPtr avp_dict;
       std::unordered_map<unsigned long, std::shared_ptr<AVPNode>> child_avps;
+      std::vector<std::shared_ptr<AVPNode>> ordered_child_avps;
       Diameter::AVP::Data avp_data; //< fill only for basic types
     };
 

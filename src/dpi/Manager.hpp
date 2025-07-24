@@ -11,6 +11,7 @@
 #include <dpi/PccConfigProvider.hpp>
 #include <dpi/DiameterEventChecker.hpp>
 #include <dpi/UserSessionActionPlanner.hpp>
+#include <dpi/RadiusConnection.hpp>
 
 namespace dpi
 {
@@ -36,7 +37,9 @@ namespace dpi
       dpi::UserSessionStoragePtr user_session_storage,
       dpi::DiameterSessionPtr gx_diameter_session,
       dpi::DiameterSessionPtr gy_diameter_session,
-      dpi::PccConfigProviderPtr pcc_config_provider);
+      dpi::PccConfigProviderPtr pcc_config_provider,
+      RadiusConnectionPtr radius_connection
+      );
 
     void init();
 
@@ -154,7 +157,8 @@ namespace dpi
     DiameterSessionPtr gx_diameter_session_;
     DiameterSessionPtr gy_diameter_session_;
     PccConfigProviderPtr pcc_config_provider_;
-    
+    RadiusConnectionPtr radius_connection_;
+
     Gears::TaskRunner_var task_runner_;
     UserSessionActionPlannerPtr user_session_action_planner_;
   };

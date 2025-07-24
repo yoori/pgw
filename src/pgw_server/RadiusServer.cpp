@@ -249,6 +249,7 @@ namespace dpi
     auto acct_status_type_attr = packet_reader.get_attribute_by_name("Acct-Status-Type");
     auto calling_station_id_attr = packet_reader.get_attribute_by_name("Calling-Station-Id");
     auto framed_ip_address_attr = packet_reader.get_attribute_by_name("Framed-IP-Address");
+    auto acct_session_id_attr = packet_reader.get_attribute_by_name("Acct-Session-Id");
 
     uint32_t framed_ip_address = 0;
 
@@ -271,6 +272,7 @@ namespace dpi
       dpi::UserSessionTraits user_session_traits;
       user_session_traits.framed_ip_address = framed_ip_address;
       user_session_traits.msisdn = *calling_station_id_attr->as_string();
+      user_session_traits.radius_session_id = acct_session_id_attr ? *acct_session_id_attr->as_string() : std::string();
 
       /*
       {

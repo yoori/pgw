@@ -192,13 +192,25 @@ int main(int argc, char **argv)
     nullptr, session_rule_config);
   auto user_session_storage = std::make_shared<dpi::UserSessionStorage>(
     nullptr);
+  dpi::RadiusConnectionPtr radius_connection;
+
+  if (config.radius_connect.has_value())
+  {
+    radius_connection = std::make_shared<dpi::RadiusConnection>(
+      config.radius_connect->host,
+      config.radius_connect->port,
+      config.radius_connect->secret
+    );
+    all_active_objects->add_child_object(radius_connection);
+  }
 
   auto manager = std::make_shared<dpi::Manager>(
     user_storage,
     user_session_storage,
     gx_diameter_session,
     gy_diameter_session,
-    pcc_config_provider
+    pcc_config_provider,
+    radius_connection
   );
 
   manager->init();

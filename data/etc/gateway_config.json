@@ -28,6 +28,11 @@
       { "target_property_name": "Selection-Mode", "name": "Selection-Mode", "vendor": "3GPP"}
     ]
   },
+  "radius_connect": {
+    "host": "10.77.21.116",
+    "port": 3799,
+    "secret": "sbtel"
+  },
   "gx": {
     "diameter_url": {
       "local_endpoints": [{ "host": "10.77.208.36" }, { "host": "10.77.208.68" }],

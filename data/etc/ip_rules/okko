@@ -24,7 +24,6 @@
 109.238.88.80 stat.okko.tv
 109.238.90.219 stat2.okko.tv
 91.238.109.195 static.okko.tv,okkostatic.cdnvideo.ru
-91.206.127.237 ctx.playfamily.ru
 84.252.146.96 ext.clickstream.sberbank.ru
 217.73.125.0/24 *cdp*.playfamily.ru subnet block
 178.18.221.0/24 msk*cdp*.playfamily.ru subnet block
@@ -48,4 +47,4 @@
 31.132.35.0/24 okko subnet
 62.141.90.14 beeline-iar-cdp1.playfamily.ru
 80.94.87.0/24 okko subnet
-ctx.playfamily.ru 91.206.127.237(Popov)
+91.206.127.237 ctx.playfamily.ru(Popov)

@@ -26,13 +26,15 @@ namespace dpi
     dpi::UserSessionStoragePtr user_session_storage,
     dpi::DiameterSessionPtr gx_diameter_session,
     dpi::DiameterSessionPtr gy_diameter_session,
-    dpi::PccConfigProviderPtr pcc_config_provider
+    dpi::PccConfigProviderPtr pcc_config_provider,
+    RadiusConnectionPtr radius_connection
     )
     : user_storage_(std::move(user_storage)),
       user_session_storage_(std::move(user_session_storage)),
       gx_diameter_session_(std::move(gx_diameter_session)),
       gy_diameter_session_(std::move(gy_diameter_session)),
       pcc_config_provider_(std::move(pcc_config_provider)),
+      radius_connection_(std::move(radius_connection)),
       logger_(std::make_shared<dpi::StreamLogger>(std::cout)),
       user_session_action_planner_(std::make_shared<UserSessionActionPlanner>())
   {
@@ -777,6 +779,15 @@ namespace dpi
       ", gx_session_id_suffix = " << user_session.gx_session_suffix() <<
       ", reason = " << reason <<
       std::endl;
+
+    if (radius_connection_ && terminate_radius && !user_session.traits()->radius_session_id.empty())
+    {
+      RadiusConnection::DisconnectRequest request;
+      request.session_id = user_session.traits()->radius_session_id;
+      request.msisdn = user_session.traits()->msisdn;
+      request.framed_ip_address = user_session.traits()->framed_ip_address;
+      radius_connection_->send_disconnect(request);
+    }
 
     dpi::DiameterSession::GxTerminateRequest gx_terminate_request;
     if (not_found_charging_rule_names.has_value())
